@@ -1,0 +1,8 @@
+backend/node_modules/
+backend/dist/
+backend/.env
+backend//tmp/clique-uploads/
+backend/*.js.map
+.claude/
+docs/
+CLAUDE.md
