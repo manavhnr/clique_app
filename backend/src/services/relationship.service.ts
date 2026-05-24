@@ -56,6 +56,14 @@ export async function getMutuals(userId: string, page: number, limit: number) {
   return users;
 }
 
+export async function getBlockedUsers(userId: string, page: number, limit: number) {
+  const ids = await provider.getBlocked(userId, page, limit);
+  const users = await User.find({ _id: { $in: ids } }).select(
+    'name username profileImage'
+  );
+  return users;
+}
+
 export async function getRelationshipStatus(requesterId: string, targetId: string) {
   const [isFollowing, isBlocked] = await Promise.all([
     provider.isFollowing(requesterId, targetId),

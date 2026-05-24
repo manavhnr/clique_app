@@ -1,5 +1,22 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
+
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  return digits;
+}
+
+async function generateUniqueUsername(): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const suffix = crypto.randomBytes(4).toString('hex');
+    const candidate = `user_${suffix}`;
+    const exists = await User.findOne({ username: candidate });
+    if (!exists) return candidate;
+  }
+  throw new Error('Could not generate unique username');
+}
 import { OTP } from '../models/OTP';
 import { User, IUser } from '../models/User';
 import { RefreshToken } from '../models/RefreshToken';
@@ -42,7 +59,7 @@ export async function initiateOTP(phone: string): Promise<void> {
 export async function verifyOTPAndLogin(
   phone: string,
   otp: string
-): Promise<{ token: string; refreshToken: string; user: IUser; isNewUser: boolean }> {
+): Promise<{ token: string; refreshToken: string; user: IUser; isNewUser: boolean; needsSetup: boolean }> {
   const record = await OTP.findOne({ phone });
 
   if (!record) throw createError('OTP not found or expired', 400);
@@ -52,19 +69,51 @@ export async function verifyOTPAndLogin(
   await OTP.deleteOne({ _id: record._id });
 
   let isNewUser = false;
-  let user = await User.findOne({ phone });
+  const normalizedPhone = normalizePhone(phone);
+  let user = await User.findOne({ phone: normalizedPhone });
 
   if (!user) {
     isNewUser = true;
-    user = await User.create({ phone, name: '', username: `user_${Date.now()}` });
+    const username = await generateUniqueUsername();
+    user = await User.create({ phone: normalizedPhone, name: '', username });
   }
 
   if (user.isBanned) throw createError('Account banned', 403);
 
+  const needsSetup = !user.hasCompletedSetup;
+
   const token = signAccessToken(user._id.toString(), user.role);
   const refreshToken = await issueRefreshToken(user._id.toString());
 
-  return { token, refreshToken, user, isNewUser };
+  return { token, refreshToken, user, isNewUser, needsSetup };
+}
+
+export async function loginWithPassword(
+  identifier: string,
+  password: string
+): Promise<{ token: string; refreshToken: string; user: IUser }> {
+  const isPhone = /^\+?[0-9]{10,15}$/.test(identifier.replace(/\s/g, ''));
+  const lookup = isPhone
+    ? { phone: normalizePhone(identifier) }
+    : { username: identifier.toLowerCase() };
+
+  const user = await User.findOne(lookup).select('+password');
+
+  if (!user) throw createError('No account found with those details', 404);
+  if (user.isBanned) throw createError('Account banned', 403);
+  if (!user.password) throw createError('No password set — sign in with OTP instead', 400);
+
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) throw createError('Incorrect password', 401);
+
+  const token = signAccessToken(user._id.toString(), user.role);
+  const refreshToken = await issueRefreshToken(user._id.toString());
+
+  // strip password from returned user object
+  const userObj = user.toObject() as IUser & { password?: string };
+  delete userObj.password;
+
+  return { token, refreshToken, user: userObj as IUser };
 }
 
 export async function refreshAccessToken(

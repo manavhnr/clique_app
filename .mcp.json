@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mongodb-atlas": {
+      "command": "npx",
+      "args": ["-y", "mongodb-mcp-server"],
+      "env": {
+        "MDB_MCP_PUBLIC_API_KEY": "cshhnqun",
+        "MDB_MCP_PRIVATE_API_KEY": "c1b4925f-7f58-48e3-bcc3-53330e8c569b",
+        "MDB_MCP_PROJECT_ID": "69f0c3ac8ab68f3c2ab6deaa"
+      }
+    }
+  }
+}

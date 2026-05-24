@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt';
 import { User, IUser } from '../models/User';
 import { createError } from '../middleware/error.middleware';
 import { z } from 'zod';
@@ -26,7 +27,23 @@ export async function updateProfile(userId: string, data: UpdateProfileInput): P
     if (existing) throw createError('Username already taken', 409);
   }
 
-  const update: Record<string, unknown> = { ...data };
+  const { password, ...rest } = data;
+  const update: Record<string, unknown> = { ...rest };
+
+  if (password) {
+    update.password = await bcrypt.hash(password, 12);
+  }
+
+  // Mark setup complete when all required fields are present
+  const currentUser = await User.findById(userId).select('name vibeTags hasCompletedSetup password');
+  if (currentUser && !currentUser.hasCompletedSetup) {
+    const finalName = (rest.name as string | undefined)?.trim() || currentUser.name;
+    const finalTags = (rest.vibeTags as string[] | undefined) ?? currentUser.vibeTags;
+    const hasPassword = !!update.password || !!currentUser.password;
+    if (finalName && finalTags.length >= 3 && hasPassword) {
+      update.hasCompletedSetup = true;
+    }
+  }
 
   if (data.dob) {
     const dob = new Date(data.dob);

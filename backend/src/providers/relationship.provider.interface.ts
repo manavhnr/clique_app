@@ -10,4 +10,5 @@ export interface RelationshipProvider {
   getMutuals(userId: string, page: number, limit: number): Promise<string[]>;
   getFollowerCount(userId: string): Promise<number>;
   getFollowingCount(userId: string): Promise<number>;
+  getBlocked(userId: string, page: number, limit: number): Promise<string[]>;
 }

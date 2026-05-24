@@ -9,13 +9,15 @@ export function hashOTP(otp: string): string {
 }
 
 export async function sendOTP(phone: string, otp: string): Promise<void> {
-  const provider = process.env.OTP_PROVIDER ?? 'mock';
+  const isProduction = process.env.APP_ENV === 'production';
 
-  if (provider === 'twilio') {
+  if (isProduction) {
     await sendViaTwilio(phone, otp);
   } else {
-    // Mock: log OTP to console (dev/test only)
-    console.log(`[OTP] Phone: ${phone} | OTP: ${otp}`);
+    console.log(`\n[OTP] ─────────────────────────`);
+    console.log(`[OTP] Phone : ${phone}`);
+    console.log(`[OTP] Code  : ${otp}`);
+    console.log(`[OTP] ─────────────────────────\n`);
   }
 }
 
@@ -28,7 +30,6 @@ async function sendViaTwilio(phone: string, otp: string): Promise<void> {
     throw new Error('Twilio credentials not configured');
   }
 
-  // Dynamic import so twilio package is optional in dev
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const twilio = require('twilio') as (sid: string, token: string) => { messages: { create: (opts: Record<string, string>) => Promise<void> } };
   const client = twilio(accountSid, authToken);

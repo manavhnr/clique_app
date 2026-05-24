@@ -8,6 +8,7 @@ import {
   followers,
   following,
   mutuals,
+  blocked,
   relationshipStatus,
 } from '../controllers/relationship.controller';
 
@@ -22,6 +23,7 @@ router.delete('/block/:userId', unblock);
 router.get('/followers/:userId', followers);
 router.get('/following/:userId', following);
 router.get('/mutuals/:userId', mutuals);
+router.get('/blocked', blocked);
 router.get('/status/:userId', relationshipStatus);
 
 export default router;

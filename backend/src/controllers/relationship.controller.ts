@@ -9,6 +9,7 @@ import {
   getFollowers,
   getFollowing,
   getMutuals,
+  getBlockedUsers,
   getRelationshipStatus,
 } from '../services/relationship.service';
 
@@ -66,6 +67,15 @@ export async function mutuals(req: AuthRequest, res: Response, next: NextFunctio
     const page = parsePage(req.query.page);
     const limit = parseLimit(req.query.limit);
     const users = await getMutuals(req.params.userId, page, limit);
+    sendSuccess(res, { users, page, limit });
+  } catch (err) { next(err); }
+}
+
+export async function blocked(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const page = parsePage(req.query.page);
+    const limit = parseLimit(req.query.limit);
+    const users = await getBlockedUsers(req.user!.userId, page, limit);
     sendSuccess(res, { users, page, limit });
   } catch (err) { next(err); }
 }

@@ -1,8 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUser extends Document {
-  name: string;
+  name: string;        // set during profile setup, empty string at signup
   username: string;
+  password?: string;   // bcrypt hash, select:false — set during profile setup
   phone: string;
   email?: string;
   dob?: Date;
@@ -22,6 +23,9 @@ export interface IUser extends Document {
   followingCount: number;
   postCount: number;
   averageRating: number;
+  isPrivate: boolean;
+  pushNotificationsEnabled: boolean;
+  hasCompletedSetup: boolean;
   isBanned: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -29,8 +33,9 @@ export interface IUser extends Document {
 
 const userSchema = new Schema<IUser>(
   {
-    name: { type: String, required: true, trim: true },
+    name: { type: String, default: '', trim: true },
     username: { type: String, required: true, unique: true, trim: true, lowercase: true },
+    password: { type: String, select: false },
     phone: { type: String, required: true, unique: true },
     email: { type: String, trim: true, lowercase: true },
     dob: { type: Date },
@@ -57,6 +62,9 @@ const userSchema = new Schema<IUser>(
     followingCount: { type: Number, default: 0 },
     postCount: { type: Number, default: 0 },
     averageRating: { type: Number, default: 0, min: 0, max: 5 },
+    isPrivate: { type: Boolean, default: false },
+    pushNotificationsEnabled: { type: Boolean, default: true },
+    hasCompletedSetup: { type: Boolean, default: false },
     isBanned: { type: Boolean, default: false },
   },
   { timestamps: true }

@@ -16,3 +16,8 @@ export const verifyOTPSchema = z.object({
     .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number'),
   otp: z.string().length(6).regex(/^\d{6}$/, 'OTP must be 6 digits'),
 });
+
+export const loginSchema = z.object({
+  identifier: z.string().min(1, 'Phone or username is required'),
+  password: z.string().min(1, 'Password is required'),
+});

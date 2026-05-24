@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { initiateOTP, verifyOTPAndLogin, refreshAccessToken, revokeRefreshToken, getCurrentUser } from '../services/auth.service';
+import { initiateOTP, verifyOTPAndLogin, loginWithPassword, refreshAccessToken, revokeRefreshToken, getCurrentUser } from '../services/auth.service';
 import { sendSuccess } from '../utils/response';
 import { AuthRequest } from '../middleware/auth.middleware';
 
@@ -13,13 +13,21 @@ export async function sendOTP(req: Request, res: Response, next: NextFunction): 
 export async function verifyOTP(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { phone, otp } = req.body;
-    const { token, refreshToken, user, isNewUser } = await verifyOTPAndLogin(phone, otp);
+    const { token, refreshToken, user, isNewUser, needsSetup } = await verifyOTPAndLogin(phone, otp);
     sendSuccess(
       res,
-      { token, refreshToken, user, isNewUser },
+      { token, refreshToken, user, isNewUser, needsSetup },
       isNewUser ? 'Account created' : 'Login successful',
       isNewUser ? 201 : 200
     );
+  } catch (err) { next(err); }
+}
+
+export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { identifier, password } = req.body;
+    const { token, refreshToken, user } = await loginWithPassword(identifier, password);
+    sendSuccess(res, { token, refreshToken, user }, 'Login successful');
   } catch (err) { next(err); }
 }
 

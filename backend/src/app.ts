@@ -22,6 +22,7 @@ import notificationRouter from './routes/notification.routes';
 import adminRouter from './routes/admin.routes';
 import reportRouter from './routes/report.routes';
 import eventRatingRouter from './routes/eventRating.routes';
+import messageRouter from './routes/message.routes';
 
 const app = express();
 
@@ -56,6 +57,7 @@ app.use('/api/v1/notifications', notificationRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/reports', reportRouter);
 app.use('/api/v1/ratings', eventRatingRouter);
+app.use('/api/v1/messages', messageRouter);
 
 app.use(errorHandler);
 

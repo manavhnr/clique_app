@@ -110,4 +110,13 @@ export class MongoRelationshipProvider implements RelationshipProvider {
   async getFollowingCount(userId: string): Promise<number> {
     return Relationship.countDocuments({ requesterId: userId, type: 'follow' });
   }
+
+  async getBlocked(userId: string, page: number, limit: number): Promise<string[]> {
+    const records = await Relationship.find({ requesterId: userId, type: 'block' })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .select('receiverId');
+    return records.map((r) => r.receiverId.toString());
+  }
 }
