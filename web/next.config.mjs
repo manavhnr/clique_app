@@ -4,6 +4,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost' },
       { protocol: 'http', hostname: '192.168.68.105' },
+      { protocol: 'https', hostname: 'clique-app.onrender.com' },
     ],
   },
 };
