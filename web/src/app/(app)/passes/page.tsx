@@ -2,38 +2,124 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { QRCodeSVG } from 'qrcode.react';
-import { Calendar, Clock, MapPin, QrCode, CheckCircle2, XCircle, CreditCard, Music2, Ticket } from 'lucide-react';
-import Modal from '@/components/ui/Modal';
-import PassQRModal from '@/components/ui/PassQRModal';
-import Badge from '@/components/ui/Badge';
-import Spinner from '@/components/ui/Spinner';
-import Button from '@/components/ui/Button';
-import { Pass, Booking, Event, User } from '@/types';
-import { formatDate, formatTime, formatPrice, getImageUrl } from '@/lib/utils';
-import api from '@/lib/api';
+import Link from 'next/link';
+import { Pass, Event, Booking } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { usePayment } from '@/hooks/usePayment';
+import { formatDate, formatPrice } from '@/lib/utils';
+import api from '@/lib/api';
+
+function PseudoQR({ seed, size = 72 }: { seed: string; size?: number }) {
+  function hash(s: string) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  const N = 21;
+  const cells: boolean[][] = Array.from({ length: N }, () => Array(N).fill(false));
+  [[0, 0], [0, 14], [14, 0]].forEach(([r, c]) => {
+    for (let dr = 0; dr < 7; dr++) for (let dc = 0; dc < 7; dc++) {
+      cells[r + dr][c + dc] = dr === 0 || dr === 6 || dc === 0 || dc === 6 || (dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4);
+    }
+  });
+  let h = hash(seed);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const inFinder = (r < 8 && c < 8) || (r < 8 && c >= 13) || (r >= 13 && c < 8);
+    if (!inFinder) { h ^= (r * 31 + c); h = Math.imul(h, 1000003); cells[r][c] = (h & 1) === 1; }
+  }
+  const cell = size / N;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges">
+      <rect width={size} height={size} fill="transparent" />
+      {cells.flatMap((row, r) => row.map((on, c) => on ? (
+        <rect key={`${r}-${c}`} x={c * cell} y={r * cell} width={cell} height={cell} fill="#0B0907" />
+      ) : null))}
+    </svg>
+  );
+}
+
+function fmtHour(t: string) {
+  if (!t) return '—';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const display = h % 12 === 0 ? 12 : h % 12;
+  return `${display}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function Spinner() {
+  return <div style={{ width: 32, height: 32, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />;
+}
+
+function PassQRModal({ pass, event, onClose }: { pass: Pass; event: Event | null; onClose: () => void }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,9,7,0.92)', backdropFilter: 'blur(8px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
+      <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 20, padding: 32, maxWidth: 360, width: '100%', animation: 'riseIn .3s ease-out' }} onClick={(e) => e.stopPropagation()}>
+        {event && (
+          <div style={{ textAlign: 'center', marginBottom: 24, paddingBottom: 24, borderBottom: '1px dashed var(--line)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>YOUR PASS</div>
+            <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginTop: 8 }}>{event.title}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.06em', marginTop: 6 }}>
+              {event.startTime && event.endTime ? `${fmtHour(event.startTime)} → ${fmtHour(event.endTime)}` : formatDate(event.date)}
+            </div>
+            <div style={{ fontFamily: 'var(--display)', fontSize: 13, color: 'var(--cream)', marginTop: 4 }}>{event.locationName}</div>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+          {pass.status === 'used' ? (
+            <div style={{ width: 200, height: 200, background: 'var(--paper)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+              <div style={{ color: 'var(--lime)', fontSize: 64, lineHeight: 1 }}>✓</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink)', letterSpacing: '.1em' }}>CHECKED IN</div>
+            </div>
+          ) : (pass.status === 'cancelled' || pass.status === 'expired') ? (
+            <div style={{ width: 200, height: 200, background: 'var(--line)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 28, color: 'var(--dim)' }}>○</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em' }}>{pass.status.toUpperCase()}</div>
+            </div>
+          ) : pass.qrCodeUrl ? (
+            <div style={{ background: 'var(--paper)', borderRadius: 12, padding: 12 }}>
+              <img src={pass.qrCodeUrl} alt="QR Code" style={{ width: 176, height: 176, objectFit: 'contain' }} />
+            </div>
+          ) : (
+            <div style={{ background: 'var(--paper)', borderRadius: 12, padding: 12 }}>
+              <PseudoQR seed={pass._id} size={176} />
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.12em', color: pass.status === 'active' ? 'var(--lime)' : 'var(--dim)' }}>
+            {pass.status === 'active' ? '● ACTIVE · SHOW AT THE DOOR' : pass.status === 'used' ? '✓ CHECKED IN' : '○ ' + pass.status.toUpperCase()}
+          </div>
+        </div>
+        <button onClick={onClose} style={{ width: '100%', background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--cream)', padding: '12px 0', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
 
 type PassGroup = { upcoming: Pass[]; past: Pass[]; cancelled: Pass[] };
+
+const TABS = [
+  { key: 'upcoming' as const, label: 'active' },
+  { key: 'past' as const, label: 'used' },
+  { key: 'cancelled' as const, label: 'cancelled' },
+];
 
 export default function PassesPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { paying, paymentError, setPaymentError, initiatePayment } = usePayment();
+  const { paying, initiatePayment } = usePayment();
 
   const [passes, setPasses] = useState<PassGroup>({ upcoming: [], past: [], cancelled: [] });
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState('');
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
-  const [selectedPass, setSelectedPass] = useState<Pass | null>(null);
+  const [openPass, setOpenPass] = useState<Pass | null>(null);
   const [passDetail, setPassDetail] = useState<Pass | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [earnedPass, setEarnedPass] = useState<Pass | null>(null);
 
   const fetchData = () => {
-    setFetchError('');
     return Promise.all([
       api.get('/passes/my'),
       api.get('/bookings/my?limit=50'),
@@ -43,14 +129,14 @@ export default function PassesPage() {
         const allBookings: Booking[] = bookingsResp.data.data.bookings;
         setPendingBookings(allBookings.filter((b) => b.status === 'payment_pending'));
       })
-      .catch(() => setFetchError('Could not load passes. Please refresh.'))
+      .catch(() => {})
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOpenPass = async (pass: Pass) => {
-    setSelectedPass(pass);
+    setOpenPass(pass);
     setDetailLoading(true);
     try {
       const { data } = await api.get(`/passes/${pass._id}`);
@@ -64,288 +150,197 @@ export default function PassesPage() {
 
   const handleCompletePayment = (booking: Booking) => {
     const evt = typeof booking.eventId === 'object' ? booking.eventId as Event : null;
-    setPaymentError('');
     initiatePayment({
       bookingId: booking._id,
       eventTitle: evt?.title ?? 'Event',
       userName: user?.name ?? '',
-      onSuccess: (pass) => {
-        setEarnedPass(pass);
-        // Refresh data so the pending booking moves to passes
-        setLoading(true);
-        fetchData();
-      },
+      onSuccess: () => { setLoading(true); fetchData(); },
       onDismiss: () => {},
     });
   };
 
   const displayPasses = passes[activeTab];
+  const activeCount = passes.upcoming.length;
 
   if (loading) return (
-    <div className="flex items-center justify-center py-24"><Spinner className="h-8 w-8" /></div>
-  );
-
-  if (fetchError) return (
-    <div className="text-center py-24">
-      <p className="text-red-400 text-sm mb-4">{fetchError}</p>
-      <Button variant="secondary" onClick={() => { setLoading(true); fetchData(); }}>Retry</Button>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '96px 0' }}>
+      <Spinner />
     </div>
   );
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-1">My Passes</h1>
-        <p className="text-muted text-sm">Your event QR passes</p>
+      {/* Page head */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24, marginBottom: 32, paddingBottom: 24, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 8 }}>YOUR PASSES</div>
+          <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'clamp(40px, 5vw, 64px)', lineHeight: 0.95, letterSpacing: '-0.03em', margin: 0 }}>
+            The list.<br />
+            <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>Show at the door.</span>
+          </h1>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>ACTIVE</div>
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 56, lineHeight: 1, letterSpacing: '-0.03em' }}>
+            {String(activeCount).padStart(2, '0')}
+          </div>
+        </div>
       </div>
 
       {/* Pending payments */}
       {pendingBookings.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold text-yellow-400 mb-3 flex items-center gap-2">
-            <CreditCard size={14} />
-            Pending Payment ({pendingBookings.length})
-          </h2>
-          <div className="space-y-3">
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--hot)', marginBottom: 14 }}>
+            AWAITING PAYMENT · {pendingBookings.length}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {pendingBookings.map((booking) => {
               const evt = typeof booking.eventId === 'object' ? booking.eventId as Event : null;
               return (
-                <div key={booking._id} className="bg-dark-card border border-yellow-500/20 rounded-2xl p-4 flex items-center gap-4">
-                  {evt?.images?.[0] ? (
-                    <img
-                      src={getImageUrl(evt.images[0])}
-                      alt={evt.title}
-                      className="w-14 h-14 rounded-xl object-cover shrink-0"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <Music2 size={20} className="text-primary/60" />
+                <div key={booking._id} style={{ background: '#14110E', border: '1px solid rgba(255,61,110,0.3)', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 600, color: 'var(--paper)' }}>{evt?.title ?? 'Event'}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginTop: 4 }}>
+                      {formatPrice(booking.amount)} · PENDING
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm line-clamp-1">{evt?.title ?? 'Event'}</p>
-                    {evt?.date && (
-                      <p className="text-xs text-muted mt-0.5 flex items-center gap-1">
-                        <Calendar size={10} />
-                        {formatDate(evt.date)}
-                        {evt.startTime && <> · {formatTime(evt.startTime)}</>}
-                      </p>
-                    )}
-                    <p className="text-xs text-yellow-500/80 mt-1">
-                      {formatPrice(booking.amount)} · awaiting payment
-                    </p>
                   </div>
-                  <Button
-                    size="sm"
-                    loading={paying}
-                    onClick={() => handleCompletePayment(booking)}
-                    className="shrink-0"
-                  >
-                    Pay Now
-                  </Button>
+                  <button onClick={() => handleCompletePayment(booking)} disabled={paying}
+                    style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '10px 16px', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', cursor: paying ? 'not-allowed' : 'pointer', opacity: paying ? 0.6 : 1 }}>
+                    Pay now →
+                  </button>
                 </div>
               );
             })}
-            {paymentError && (
-              <p className="text-xs text-red-400 px-1">{paymentError}</p>
-            )}
           </div>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-8">
-        {(['upcoming', 'past', 'cancelled'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`cursor-pointer px-4 py-2 rounded-full text-sm font-medium transition-colors duration-150 capitalize border ${
-              activeTab === tab
-                ? 'bg-primary border-primary text-white'
-                : 'border-dark-border text-muted hover:text-white'
-            }`}
-          >
-            {tab}
-            {passes[tab].length > 0 && (
-              <span className="ml-1 opacity-70">({passes[tab].length})</span>
-            )}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 32, flexWrap: 'wrap' }}>
+        {TABS.map(({ key, label }) => {
+          const on = activeTab === key;
+          const count = passes[key].length;
+          return (
+            <button key={key} onClick={() => setActiveTab(key)} style={{ background: on ? 'var(--lime)' : 'transparent', color: on ? 'var(--ink)' : 'var(--cream)', border: `1px solid ${on ? 'var(--lime)' : 'var(--line-2)'}`, padding: '8px 14px', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all .15s ease', whiteSpace: 'nowrap' }}>
+              {label} <span style={{ opacity: 0.6 }}>{count}</span>
+            </button>
+          );
+        })}
       </div>
 
+      {/* Content */}
       {displayPasses.length === 0 ? (
-        <div className="text-center py-24">
-          <div className="w-16 h-16 rounded-2xl bg-dark-card border border-dark-border flex items-center justify-center mx-auto mb-4">
-            <Ticket size={28} className="text-muted" />
+        <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', border: '1px solid var(--line-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--display)', fontSize: 32, color: 'var(--dim)', margin: '0 auto 14px' }}>
+            {activeTab === 'upcoming' ? '○' : '✓'}
           </div>
-          <h3 className="text-white font-semibold text-lg mb-1">No {activeTab} passes</h3>
-          <p className="text-muted text-sm mb-6">
-            {activeTab === 'upcoming'
-              ? 'Book an event to get your QR pass.'
-              : 'Passes will appear here after events.'}
-          </p>
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 28, letterSpacing: '-0.02em', marginBottom: 8 }}>
+            {activeTab === 'upcoming' ? 'No active passes.' : 'Nothing here yet.'}
+          </div>
           {activeTab === 'upcoming' && (
-            <Button onClick={() => router.push('/events')}>Explore Events</Button>
+            <>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--dim)', letterSpacing: '.08em', marginBottom: 22 }}>BOOK SOMETHING TONIGHT TO GET YOUR FIRST PASS</div>
+              <button onClick={() => router.push('/events')} style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '12px 20px', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                Browse tonight →
+              </button>
+            </>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {displayPasses.map((pass) => {
-            const evt = typeof pass.eventId === 'object' ? pass.eventId as Event : null;
-            return (
-              <div
-                key={pass._id}
-                onClick={() => handleOpenPass(pass)}
-                className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden cursor-pointer hover:border-primary/40 transition-all duration-200 group"
-              >
-                {evt?.images?.[0] && (
-                  <div className="h-28 overflow-hidden">
-                    <img
-                      src={getImageUrl(evt.images[0])}
-                      alt={evt.title ?? ''}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                )}
-                <div className="p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-white font-semibold text-sm line-clamp-1">{evt?.title ?? 'Event'}</h3>
-                    <PassStatusBadge status={pass.status} />
-                  </div>
-
-                  {evt && (
-                    <div className="space-y-1 text-xs text-muted">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={11} />
-                        <span>{formatDate(evt.date)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Clock size={11} />
-                        <span>{formatTime(evt.startTime)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={11} />
-                        <span className="line-clamp-1">{evt.locationName}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 pt-1 border-t border-dark-border">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <QrCode size={16} className="text-primary-light" />
-                    </div>
-                    <span className="text-xs text-muted">Tap to view QR pass</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 18 }}>
+          {displayPasses.map((pass) => (
+            <PassCard key={pass._id} pass={pass} onOpen={() => handleOpenPass(pass)} />
+          ))}
         </div>
       )}
 
-      {/* Pass detail modal */}
-      <Modal
-        open={!!selectedPass}
-        onClose={() => { setSelectedPass(null); setPassDetail(null); }}
-        title="Your Pass"
-        size="sm"
-      >
-        {detailLoading ? (
-          <div className="flex items-center justify-center py-8"><Spinner /></div>
-        ) : passDetail ? (
-          <PassDetailView pass={passDetail} />
-        ) : null}
-      </Modal>
-
-      {/* Post-payment pass modal */}
-      <PassQRModal
-        open={!!earnedPass}
-        onClose={() => setEarnedPass(null)}
-        pass={earnedPass}
-        event={earnedPass
-          ? (() => {
-              const evt = pendingBookings.find(
-                (b) => typeof b.eventId === 'object' && b.eventId
-              );
-              const e = evt ? evt.eventId as Event : null;
-              return e ? { title: e.title, date: e.date, startTime: e.startTime, locationName: e.locationName } : null;
-            })()
-          : null}
-      />
+      {/* QR modal */}
+      {openPass && detailLoading && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,9,7,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Spinner />
+        </div>
+      )}
+      {openPass && !detailLoading && (
+        <PassQRModal
+          pass={passDetail ?? openPass}
+          event={typeof (passDetail ?? openPass).eventId === 'object' ? (passDetail ?? openPass).eventId as Event : null}
+          onClose={() => { setOpenPass(null); setPassDetail(null); }}
+        />
+      )}
     </div>
   );
 }
 
-function PassStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; variant: 'green' | 'blue' | 'yellow' | 'red' | 'default' }> = {
-    active: { label: 'Active', variant: 'green' },
-    used: { label: 'Used', variant: 'blue' },
-    expired: { label: 'Expired', variant: 'yellow' },
-    cancelled: { label: 'Cancelled', variant: 'red' },
-  };
-  const { label, variant } = map[status] ?? { label: status, variant: 'default' };
-  return <Badge variant={variant}>{label}</Badge>;
-}
-
-function PassDetailView({ pass }: { pass: Pass }) {
+function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
   const evt = typeof pass.eventId === 'object' ? pass.eventId as Event : null;
-  const attendee = typeof pass.userId === 'object' ? pass.userId as User : null;
+  const status = pass.status;
+  const statusColor = status === 'active' ? 'var(--lime)' : status === 'used' ? 'var(--dim)' : 'var(--hot)';
+  const statusLabel = status === 'active' ? '● ACTIVE' : status === 'used' ? '✓ USED' : '○ ' + status.toUpperCase();
+  const isActive = status === 'active';
 
   return (
-    <div className="space-y-5">
-      {evt && (
-        <div className="text-center">
-          <h3 className="text-white font-bold text-lg">{evt.title}</h3>
-          {evt.date && (
-            <p className="text-sm text-muted mt-0.5">
-              {formatDate(String(evt.date))}
-              {evt.startTime && ` · ${formatTime(evt.startTime)}`}
-            </p>
+    <div onClick={onOpen}
+      style={{ position: 'relative', background: '#14110E', border: `1px solid ${isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'transform .25s ease, border-color .25s ease, box-shadow .25s ease', padding: 22, opacity: isActive ? 1 : 0.65 }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'var(--lime)' : 'var(--cream)'; if (isActive) (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 1px var(--lime)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
+    >
+      {/* Perforation */}
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 88, height: 1, backgroundImage: 'linear-gradient(to right, var(--line-2) 50%, transparent 0%)', backgroundSize: '7px 1px' }} />
+      <div style={{ position: 'absolute', left: -7, top: 81, width: 14, height: 14, background: 'var(--ink)', borderRadius: '50%' }} />
+      <div style={{ position: 'absolute', right: -7, top: 81, width: 14, height: 14, background: 'var(--ink)', borderRadius: '50%' }} />
+
+      {/* Head */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, minHeight: 64, alignItems: 'flex-start', paddingBottom: 26 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>
+            {evt ? evt.category.replace('_', ' ').toUpperCase() : 'EVENT'}
+          </div>
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--paper)', marginTop: 6 }}>
+            {evt?.title ?? 'Event'}
+          </div>
+        </div>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', textAlign: 'right', flexShrink: 0 }}>
+          <span style={{ color: statusColor, letterSpacing: '.12em', display: 'block', marginBottom: 4 }}>{statusLabel}</span>
+          № {pass._id.slice(-6).toUpperCase()}
+        </div>
+      </div>
+
+      {/* Mini body */}
+      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 16, paddingTop: 18 }}>
+        <div style={{ width: 80, height: 80, borderRadius: 8, background: isActive ? 'var(--paper)' : '#26221C', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6 }}>
+          {isActive && <PseudoQR seed={pass._id} size={68} />}
+          {status === 'used' && <div style={{ color: 'var(--lime)', fontSize: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>✓</div>}
+          {(status === 'expired' || status === 'cancelled') && <div style={{ color: 'var(--dim)', fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.1em', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>{status.toUpperCase()}</div>}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {evt && (
+            <>
+              <div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--dim)' }}>WHEN</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 13, marginTop: 4 }}>
+                  {evt.startTime ? `${fmtHour(evt.startTime)} → ${fmtHour(evt.endTime)}` : formatDate(evt.date)}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--dim)' }}>WHERE</div>
+                <div style={{ fontFamily: 'var(--display)', fontSize: 14, marginTop: 4, lineHeight: 1.2 }}>{evt.locationName}</div>
+              </div>
+            </>
           )}
-          {evt.locationName && <p className="text-xs text-muted">{evt.locationName}</p>}
+          {pass.checkedInAt && (
+            <div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--dim)' }}>CHECKED IN</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, marginTop: 4, color: 'var(--lime)' }}>
+                {new Date(pass.checkedInAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {attendee && (
-        <div className="flex items-center gap-3 bg-dark border border-dark-border rounded-xl p-3">
-          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary-light">
-            {attendee.name?.[0]?.toUpperCase()}
-          </div>
-          <div>
-            <p className="text-white text-sm font-medium">{attendee.name}</p>
-            <p className="text-xs text-muted">@{attendee.username}</p>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col items-center gap-3">
-        {pass.status === 'used' ? (
-          <div className="flex flex-col items-center gap-2 py-4">
-            <CheckCircle2 size={48} className="text-green-400" />
-            <p className="text-green-400 font-semibold">Checked In</p>
-            {pass.checkedInAt && (
-              <p className="text-xs text-muted">{new Date(pass.checkedInAt).toLocaleString()}</p>
-            )}
-          </div>
-        ) : pass.status === 'cancelled' ? (
-          <div className="flex flex-col items-center gap-2 py-4">
-            <XCircle size={48} className="text-red-400" />
-            <p className="text-red-400 font-semibold">Cancelled</p>
-          </div>
-        ) : pass.qrCodeUrl ? (
-          <div className="p-4 bg-white rounded-2xl">
-            <img src={pass.qrCodeUrl} alt="QR Pass" className="w-52 h-52 object-contain" />
-          </div>
-        ) : (
-          <div className="p-4 bg-white rounded-2xl">
-            <QRCodeSVG value={pass._id} size={200} />
-          </div>
-        )}
-
-        <PassStatusBadge status={pass.status} />
-        {pass.status === 'active' && (
-          <p className="text-xs text-muted text-center">Show this QR at the door for entry</p>
-        )}
+      {/* Footer */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 14, borderTop: '1px dashed var(--line)', fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', color: 'var(--dim)', textTransform: 'uppercase' }}>
+        TAP TO SHOW QR <span>→</span>
       </div>
     </div>
   );

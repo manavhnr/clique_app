@@ -10,7 +10,8 @@ export function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export function formatTime(timeStr: string): string {
+export function formatTime(timeStr: string | undefined): string {
+  if (!timeStr) return '—';
   const [h, m] = timeStr.split(':').map(Number);
   const ampm = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 || 12;
@@ -38,13 +39,15 @@ export function timeAgo(dateStr: string): string {
   return formatDate(dateStr);
 }
 
-export function categoryLabel(cat: string): string {
+export function categoryLabel(cat: string | undefined): string {
+  if (!cat) return 'Event';
   const map: Record<string, string> = {
     house_party: 'House Party',
     club: 'Club Night',
     college: 'College Party',
     private: 'Private',
     concert: 'Concert',
+    warehouse: 'Warehouse',
     other: 'Other',
   };
   return map[cat] ?? cat;

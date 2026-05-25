@@ -1,20 +1,17 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-
 export const metadata: Metadata = {
-  title: 'CLIQUE — Your Social Nightlife',
-  description: 'Discover parties, house events, and nightlife experiences near you.',
-  keywords: 'nightlife, parties, events, house party, club, booking',
+  title: 'CLIQUE — tonight in your city',
+  description: 'Discover house parties, warehouse nights, supper clubs, and listening rooms. One tap to RSVP. A QR pass at the door.',
+  keywords: 'nightlife, parties, events, house party, club, booking, qr pass',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="bg-dark text-white antialiased">
+    <html lang="en">
+      <body>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

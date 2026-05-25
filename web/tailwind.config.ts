@@ -9,33 +9,47 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        ink:    '#0B0907',
+        paper:  '#F2EDE2',
+        cream:  '#E8E1D2',
+        lime:   '#C9F36E',
+        hot:    '#FF3D6E',
+        dim:    '#5B544A',
+        line:   { DEFAULT: '#1C1814', 2: '#2A2520' },
+        card:   '#14110E',
+        // legacy aliases for any components that still reference them
         primary: {
-          DEFAULT: '#7C3AED',
-          hover: '#6D28D9',
-          light: '#8B5CF6',
+          DEFAULT: '#C9F36E',
+          hover:   '#F2EDE2',
+          light:   '#C9F36E',
         },
         dark: {
-          DEFAULT: '#09090b',
-          card: '#111113',
-          border: '#27272a',
-          hover: '#1c1c1f',
+          DEFAULT: '#0B0907',
+          card:    '#14110E',
+          border:  '#2A2520',
+          hover:   '#1C1814',
         },
-        muted: '#71717a',
+        muted: '#5B544A',
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        display: ['"Funnel Display"', '"Arial Narrow"', 'sans-serif'],
+        serif:   ['"Instrument Serif"', '"Times New Roman"', 'serif'],
+        mono:    ['"Geist Mono"', 'ui-monospace', '"SFMono-Regular"', 'monospace'],
+        sans:    ['"Funnel Display"', '"Arial Narrow"', 'sans-serif'],
       },
-      backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-hero': 'radial-gradient(ellipse at top, #1e1040 0%, #09090b 60%)',
+      borderRadius: {
+        card: '16px',
+        modal: '18px',
       },
       animation: {
-        'fade-in': 'fadeIn 0.3s ease-out',
-        'slide-up': 'slideUp 0.4s ease-out',
+        'rise': 'riseIn .5s ease-out both',
+        'pulse-dot': 'pulse 2s ease-in-out infinite',
+        'spin': 'spin 0.7s linear infinite',
       },
       keyframes: {
-        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-        slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        riseIn: { '0%': { opacity: '0', transform: 'translateY(8px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        pulse:  { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.4' } },
+        spin:   { to: { transform: 'rotate(360deg)' } },
       },
     },
   },

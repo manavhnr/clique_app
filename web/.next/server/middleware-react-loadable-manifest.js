@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"app/(app)/host/events/[id]/page.tsx -> jsqr\":{\"id\":\"app/(app)/host/events/[id]/page.tsx -> jsqr\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_jsqr_dist_jsQR_js.js\"]}}"
+self.__REACT_LOADABLE_MANIFEST="{}"

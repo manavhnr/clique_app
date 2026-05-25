@@ -1,9 +1,9 @@
 {
   "pages": {
-    "/(app)/events/[id]/page": [
+    "/(app)/events/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(app)/events/[id]/page.js"
+      "static/chunks/app/(app)/events/page.js"
     ],
     "/(app)/layout": [
       "static/chunks/webpack.js",
@@ -16,45 +16,20 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/(app)/profile/page": [
+    "/(auth)/login/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(app)/profile/page.js"
-    ],
-    "/(app)/passes/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(app)/passes/page.js"
-    ],
-    "/(app)/events/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(app)/events/page.js"
-    ],
-    "/(app)/become-host/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(app)/become-host/page.js"
+      "static/chunks/app/(auth)/login/page.js"
     ],
     "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/page.js"
     ],
-    "/(auth)/login/page": [
+    "/(app)/events/[id]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/login/page.js"
-    ],
-    "/(app)/host/dashboard/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(app)/host/dashboard/page.js"
-    ],
-    "/(app)/host/events/[id]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(app)/host/events/[id]/page.js"
+      "static/chunks/app/(app)/events/[id]/page.js"
     ]
   }
 }

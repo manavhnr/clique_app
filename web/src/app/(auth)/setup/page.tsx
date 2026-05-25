@@ -2,35 +2,80 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
 import api from '@/lib/api';
 
-const VIBES = ['Techno', 'Hip-Hop', 'EDM', 'House', 'R&B', 'Pop', 'Afrobeats', 'Latin', 'Jazz'];
-const INTERESTS = ['Dancing', 'Live Music', 'Rooftop Parties', 'House Parties', 'Clubbing', 'Networking', 'Art Nights', 'Open Mic'];
+const ALL_VIBES     = ['chill', 'techno', 'indie', 'queer', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient'];
+const INTERESTS     = ['Techno', 'Hip-Hop', 'EDM', 'House', 'R&B', 'Pop', 'Afrobeats', 'Latin', 'Jazz', 'Dancing', 'Live Music', 'House Parties', 'Clubbing', 'Art Nights'];
+const CITIES        = ['NYC', 'LA', 'SF', 'CHI', 'ATL', 'MIA', 'BER', 'LDN', 'PAR', 'TYO', 'MEX', 'SEA', 'BOS', 'AUS', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
+const GENDERS       = [['Male', 'male'], ['Female', 'female'], ['Non-binary', 'other'], ['Prefer not to say', 'prefer_not_to_say']] as [string, string][];
+
+function AuthShell({ children, step }: { children: React.ReactNode; step?: number }) {
+  const steps = ['PHONE', 'VERIFY', 'PROFILE'];
+  return (
+    <div style={{ minHeight: '100vh', padding: '60px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', position: 'relative', background: 'var(--ink)' }}>
+      <Link href="/" style={{ position: 'absolute', top: 24, left: 24, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+        ← Back
+      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+        <span style={{ width: 9, height: 9, background: 'var(--lime)', borderRadius: '50%', marginRight: 10, boxShadow: '0 0 18px var(--lime)', display: 'inline-block' }} />
+        <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.04em' }}>CLIQUE</span>
+      </div>
+      {step && (
+        <div style={{ display: 'flex', gap: 18, marginBottom: 24 }}>
+          {steps.map((s, i) => {
+            const active = i + 1 === step;
+            const done   = i + 1 < step;
+            return (
+              <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: active ? 'var(--paper)' : 'var(--dim)' }}>
+                <span style={{ padding: '3px 6px', border: `1px solid ${active ? 'var(--lime)' : done ? 'var(--line)' : 'var(--line-2)'}`, borderRadius: 4, background: active ? 'var(--lime)' : done ? 'var(--line)' : 'transparent', color: active ? 'var(--ink)' : done ? 'var(--cream)' : 'var(--dim)' }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                {s}
+              </span>
+            );
+          })}
+        </div>
+      )}
+      <div style={{ width: '100%', maxWidth: 520, background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 18, padding: 36, boxShadow: '0 30px 60px -20px rgba(0,0,0,0.6)', animation: 'riseIn .35s ease-out both' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Spinner() {
+  return <div style={{ width: 14, height: 14, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />;
+}
+
+function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} style={{ background: on ? 'var(--lime)' : 'transparent', color: on ? 'var(--ink)' : 'var(--cream)', border: `1px solid ${on ? 'var(--lime)' : 'var(--line-2)'}`, padding: '8px 14px', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all .15s ease' }}>
+      {children}
+    </button>
+  );
+}
 
 export default function SetupPage() {
   const router = useRouter();
   const { user, updateUser, token } = useAuth();
-  const [name, setName] = useState(user?.name ?? '');
-  const [username, setUsername] = useState(user?.username ?? '');
-  const [bio, setBio] = useState('');
-  const [city, setCity] = useState('');
-  const [dob, setDob] = useState('');
-  const [gender, setGender] = useState('');
-  const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [name, setName]           = useState(user?.name ?? '');
+  const [username, setUsername]   = useState(user?.username ?? '');
+  const [bio, setBio]             = useState('');
+  const [city, setCity]           = useState('');
+  const [dob, setDob]             = useState('');
+  const [gender, setGender]       = useState('');
+  const [vibes, setVibes]         = useState<string[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
 
-  useEffect(() => {
-    if (!token) router.replace('/login');
-  }, [token, router]);
+  useEffect(() => { if (!token) router.replace('/login'); }, [token, router]);
 
-  const toggleTag = (tag: string, list: string[], setList: (l: string[]) => void) => {
+  function toggle(tag: string, list: string[], setList: (l: string[]) => void) {
     setList(list.includes(tag) ? list.filter((t) => t !== tag) : [...list, tag]);
-  };
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,8 +84,8 @@ export default function SetupPage() {
     try {
       const { data } = await api.put('/users/profile', {
         name, username, bio, city, dob, gender,
-        vibeTags: selectedVibes,
-        interests: selectedInterests,
+        vibeTags: vibes,
+        interests,
         hasCompletedSetup: true,
       });
       updateUser(data.data.user);
@@ -53,94 +98,102 @@ export default function SetupPage() {
     }
   };
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%', background: '#0B0907', border: '1px solid var(--line-2)', color: 'var(--paper)',
+    padding: '14px 16px', borderRadius: 12, fontFamily: 'var(--display)', fontSize: 16,
+    outline: 'none', transition: 'border-color .15s ease',
+  };
+
+  const fieldStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8 };
+  const labelStyle: React.CSSProperties = { fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' };
+
   return (
-    <div className="min-h-screen bg-dark flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-lg">C</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white">Set up your profile</h1>
-          <p className="text-muted text-sm mt-1">Let people know who you are</p>
+    <AuthShell step={3}>
+      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 38, lineHeight: 0.95, letterSpacing: '-0.03em', marginBottom: 10 }}>
+        Set up your{' '}
+        <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>face.</span>
+      </div>
+      <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--cream)', lineHeight: 1.4, marginBottom: 28 }}>
+        Hosts see this. Other guests see this. Keep it real.
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>NAME</span>
+            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoFocus required
+              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+            />
+          </label>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>USERNAME</span>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--mono)', color: 'var(--dim)' }}>@</span>
+              <input style={{ ...inputStyle, paddingLeft: 32 }} value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} placeholder="username" required
+                onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+              />
+            </div>
+          </label>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-dark-card border border-dark-border rounded-2xl p-8 flex flex-col gap-5">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Full Name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Your name" />
-            <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} required placeholder="@username" />
-          </div>
+        <label style={fieldStyle}>
+          <span style={labelStyle}>BIO</span>
+          <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="One line, make it count" rows={2} maxLength={140}
+            style={{ ...inputStyle, resize: 'vertical', minHeight: 70, lineHeight: 1.4 }}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+          />
+        </label>
 
-          <div>
-            <label className="text-sm font-medium text-zinc-300 block mb-1.5">Bio</label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Tell people about yourself..."
-              rows={2}
-              className="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-white placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>CITY</span>
+            <select value={city} onChange={(e) => setCity(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', appearance: 'none', paddingRight: 36 }}>
+              <option value="">Select city</option>
+              {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>DATE OF BIRTH</span>
+            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
             />
+          </label>
+        </div>
+
+        <div style={fieldStyle}>
+          <span style={labelStyle}>GENDER</span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {GENDERS.map(([label, value]) => (
+              <Pill key={value} on={gender === value} onClick={() => setGender(value)}>{label}</Pill>
+            ))}
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Mumbai" />
-            <Input label="Date of Birth" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+        <div style={fieldStyle}>
+          <span style={labelStyle}>WHAT&apos;S YOUR SCENE?</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {ALL_VIBES.map((v) => <Pill key={v} on={vibes.includes(v)} onClick={() => toggle(v, vibes, setVibes)}>{v}</Pill>)}
           </div>
+        </div>
 
-          <div>
-            <label className="text-sm font-medium text-zinc-300 block mb-2">Gender</label>
-            <div className="flex gap-2 flex-wrap">
-              {([['Male', 'male'], ['Female', 'female'], ['Non-binary', 'other'], ['Prefer not to say', 'prefer_not_to_say']] as [string, string][]).map(([label, value]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setGender(value)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors border ${gender === value ? 'bg-primary border-primary text-white' : 'border-dark-border text-muted hover:text-white'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+        <div style={fieldStyle}>
+          <span style={labelStyle}>INTERESTS</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {INTERESTS.map((i) => <Pill key={i} on={interests.includes(i)} onClick={() => toggle(i, interests, setInterests)}>{i}</Pill>)}
           </div>
+        </div>
 
-          <div>
-            <label className="text-sm font-medium text-zinc-300 block mb-2">Your Vibe Tags</label>
-            <div className="flex flex-wrap gap-2">
-              {VIBES.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => toggleTag(v, selectedVibes, setSelectedVibes)}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-colors border ${selectedVibes.includes(v) ? 'bg-primary border-primary text-white' : 'border-dark-border text-muted hover:text-white'}`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          </div>
+        {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--hot)' }}>{error}</div>}
 
-          <div>
-            <label className="text-sm font-medium text-zinc-300 block mb-2">Interests</label>
-            <div className="flex flex-wrap gap-2">
-              {INTERESTS.map((i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => toggleTag(i, selectedInterests, setSelectedInterests)}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-colors border ${selectedInterests.includes(i) ? 'bg-primary border-primary text-white' : 'border-dark-border text-muted hover:text-white'}`}
-                >
-                  {i}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {error && <p className="text-sm text-red-400">{error}</p>}
-
-          <Button type="submit" loading={loading} className="w-full mt-2" size="lg">
-            Complete Setup
-          </Button>
-        </form>
-      </div>
-    </div>
+        <button type="submit" disabled={!name.trim() || !username.trim() || loading} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px 22px', borderRadius: 999, fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', cursor: (!name.trim() || !username.trim() || loading) ? 'not-allowed' : 'pointer', opacity: (!name.trim() || !username.trim() || loading) ? 0.45 : 1, marginTop: 8 }}>
+          {loading && <Spinner />}
+          {loading ? 'Building you…' : 'Open the door →'}
+        </button>
+      </form>
+    </AuthShell>
   );
 }
