@@ -81,7 +81,7 @@ export default function Sidebar() {
           <div className="pt-4">
             <Link
               href="/become-host"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted hover:text-white hover:bg-dark-hover transition-colors group"
+              className="cursor-pointer flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted hover:text-white hover:bg-dark-hover transition-colors duration-150 group"
             >
               <Star size={18} />
               <span>Become a Host</span>

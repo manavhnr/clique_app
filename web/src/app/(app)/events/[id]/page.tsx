@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Calendar, Clock, MapPin, Users, Tag,
-  ShieldCheck, AlertCircle, Bookmark, UserCheck,
+  ShieldCheck, AlertCircle, Bookmark, UserCheck, Music2,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -137,7 +137,9 @@ export default function EventDetailPage() {
         {imageUrl ? (
           <img src={imageUrl} alt={event.title} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-6xl">🎉</div>
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-violet-900/30">
+            <Music2 size={48} className="text-primary/40" />
+          </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
         <div className="absolute top-4 left-4 flex gap-2">

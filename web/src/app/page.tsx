@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowRight, MapPin, Calendar, QrCode, Users, Star, Zap } from 'lucide-react';
+import { ArrowRight, Calendar, QrCode, Users, Star, Zap, CheckCircle2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
@@ -136,7 +136,7 @@ export default function LandingPage() {
         {waitlistDone ? (
           <div className="text-center py-4">
             <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">🎉</span>
+              <CheckCircle2 size={32} className="text-green-400" />
             </div>
             <h3 className="text-white font-semibold text-lg mb-2">You&apos;re on the list!</h3>
             <p className="text-muted text-sm">We&apos;ll notify you when Clique launches in your city.</p>

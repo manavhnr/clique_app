@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowLeft, Calendar, Users, QrCode, CreditCard, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, QrCode, CreditCard, CheckCircle2, Clock, XCircle, Star } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import api from '@/lib/api';
@@ -85,7 +85,7 @@ export default function BecomeHostPage() {
 
       <div className="flex items-center gap-4 mb-6">
         <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center">
-          <span className="text-3xl">⭐</span>
+          <Star size={24} className="text-primary-light" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-white">Become a Host</h1>

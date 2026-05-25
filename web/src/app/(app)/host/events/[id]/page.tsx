@@ -77,7 +77,7 @@ export default function HostEventPage() {
       <div className="flex gap-1 mt-6 mb-6 bg-dark-card border border-dark-border rounded-xl p-1 overflow-x-auto">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setActiveTab(key as typeof activeTab)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-1 justify-center ${activeTab === key ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}>
+            className={`cursor-pointer flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 whitespace-nowrap flex-1 justify-center ${activeTab === key ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}>
             <Icon size={15} />
             {label}
           </button>
@@ -137,7 +137,7 @@ function EventHeader({ event, onRefresh }: { event: Event; onRefresh: () => void
             { label: 'Bookings', value: `${event.bookedCount}/${event.capacity}` },
             { label: 'Check-ins', value: event.checkedInCount ?? 0 },
             { label: 'Price', value: formatPrice(event.price) },
-            { label: 'Privacy', value: event.privacy === 'private' ? '🔒 Private' : '🌐 Public' },
+            { label: 'Privacy', value: event.privacy === 'private' ? 'Private' : 'Public' },
           ].map(({ label, value }) => (
             <div key={label}>
               <p className="text-sm font-semibold text-white">{value}</p>

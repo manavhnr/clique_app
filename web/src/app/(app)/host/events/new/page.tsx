@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, X } from 'lucide-react';
+import { ArrowLeft, Upload, X, Music } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import LocationPicker, { PickedLocation } from '@/components/map/LocationPicker';
@@ -217,8 +217,9 @@ export default function NewEventPage() {
           <div className="flex flex-wrap gap-2 pt-2">
             {MUSIC_TAGS.map((tag) => (
               <button key={tag} type="button" onClick={() => toggleTag('musicTags', tag)}
-                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${form.musicTags.includes(tag) ? 'bg-violet-600 border-violet-600 text-white' : 'border-dark-border text-muted hover:text-white'}`}>
-                🎵 {tag}
+                className={`cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors duration-150 ${form.musicTags.includes(tag) ? 'bg-violet-600 border-violet-600 text-white' : 'border-dark-border text-muted hover:text-white'}`}>
+                <Music size={11} />
+                {tag}
               </button>
             ))}
           </div>
