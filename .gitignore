@@ -1,8 +1,73 @@
+# ─── Claude / AI tools ───────────────────────────────────────────────────────
+.claude/
+skills-lock.json
+CLAUDE.md
+docs/
+
+# ─── Backend ──────────────────────────────────────────────────────────────────
 backend/node_modules/
 backend/dist/
 backend/.env
-backend//tmp/clique-uploads/
+backend/.env.*
+backend/tmp/
+backend/uploads/
 backend/*.js.map
-.claude/
-docs/
-CLAUDE.md
+
+# ─── Web (Next.js) ────────────────────────────────────────────────────────────
+web/node_modules/
+web/.next/
+web/out/
+web/.env
+web/.env.*
+web/.env.local
+web/.env.development.local
+web/.env.test.local
+web/.env.production.local
+
+# Root-level Next.js (if web is also mounted at root)
+node_modules/
+.next/
+out/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# ─── Mobile (Expo / React Native) ────────────────────────────────────────────
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/.env
+mobile/.env.*
+mobile/android/
+mobile/ios/
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/*.orig.*
+
+# ─── OS / Editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─── Misc ────────────────────────────────────────────────────────────────────
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
