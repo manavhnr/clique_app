@@ -21,6 +21,14 @@ export async function sendOTP(phone: string, otp: string): Promise<void> {
   }
 }
 
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (phone.startsWith('+')) return `+${digits}`;
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  return `+${digits}`;
+}
+
 async function sendViaTwilio(phone: string, otp: string): Promise<void> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -37,6 +45,6 @@ async function sendViaTwilio(phone: string, otp: string): Promise<void> {
   await client.messages.create({
     body: `Your Clique OTP is ${otp}. Valid for 10 minutes.`,
     from,
-    to: phone,
+    to: toE164(phone),
   });
 }
