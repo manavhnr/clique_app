@@ -12,6 +12,10 @@ import {
   unsaveEvent,
   getHostEvents,
   getEventsFeed,
+  addCoHost,
+  removeCoHost,
+  addScanner,
+  removeScanner,
 } from '../services/event.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
@@ -89,5 +93,33 @@ export async function feed(req: AuthRequest, res: Response, next: NextFunction):
     const limit = parseLimit(req.query.limit);
     const events = await getEventsFeed(page, limit, req.user!.userId);
     sendSuccess(res, { events, page, limit });
+  } catch (err) { next(err); }
+}
+
+export async function addCoHostHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await addCoHost(req.params.eventId, req.user!.userId, req.body.username);
+    sendSuccess(res, { coHosts: event.coHosts }, 'Co-host added');
+  } catch (err) { next(err); }
+}
+
+export async function removeCoHostHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await removeCoHost(req.params.eventId, req.user!.userId, req.params.userId);
+    sendSuccess(res, { coHosts: event.coHosts }, 'Co-host removed');
+  } catch (err) { next(err); }
+}
+
+export async function addScannerHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await addScanner(req.params.eventId, req.user!.userId, req.body.username);
+    sendSuccess(res, { scanners: event.scanners }, 'Scanner added');
+  } catch (err) { next(err); }
+}
+
+export async function removeScannerHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await removeScanner(req.params.eventId, req.user!.userId, req.params.userId);
+    sendSuccess(res, { scanners: event.scanners }, 'Scanner removed');
   } catch (err) { next(err); }
 }

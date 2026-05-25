@@ -17,7 +17,7 @@ interface QRPayload {
 export async function getMyPasses(userId: string) {
   const now = new Date();
 
-  const passes = await Pass.find({ userId, status: { $ne: 'cancelled' } })
+  const passes = await Pass.find({ userId })
     .populate({
       path: 'eventId',
       select: 'title images date startTime endTime locationName status hostId',
@@ -31,7 +31,7 @@ export async function getMyPasses(userId: string) {
   });
   const past = passes.filter((p) => {
     const event = p.eventId as { date?: Date };
-    return p.status === 'used' || (event?.date && new Date(event.date) < now);
+    return p.status === 'used' || (p.status === 'active' && event?.date && new Date(event.date) < now);
   });
   const cancelled = passes.filter((p) => p.status === 'cancelled' || p.status === 'expired');
 
@@ -50,6 +50,41 @@ export async function getPassById(passId: string, userId: string) {
   if (pass.status === 'cancelled') throw createError('Pass has been cancelled', 400);
 
   return pass;
+}
+
+// ─── Verify QR Pass (read-only, no check-in) ─────────────────────────────────
+
+export async function verifyPass(qrToken: string, scannerId: string, scannerEventId: string) {
+  let payload: QRPayload;
+  try {
+    payload = jwt.verify(qrToken, process.env.JWT_SECRET as string) as QRPayload;
+  } catch {
+    throw createError('Invalid QR code', 400);
+  }
+
+  const { passId, eventId } = payload;
+
+  if (eventId !== scannerEventId) throw createError('QR code is for a different event', 400);
+
+  const pass = await Pass.findById(passId)
+    .populate('userId', 'name username profileImage')
+    .populate('eventId', 'title date startTime status');
+
+  if (!pass) throw createError('Pass not found', 404);
+
+  const event = pass.eventId as { status?: string; title?: string; date?: Date };
+  const user = pass.userId as { name?: string; username?: string; profileImage?: string };
+
+  const booking = await Booking.findById(pass.bookingId);
+  const bookingConfirmed = booking && ['confirmed', 'checked_in'].includes(booking.status);
+
+  return {
+    valid: pass.status === 'active' && bookingConfirmed && event?.status !== 'cancelled',
+    passStatus: pass.status,
+    bookingConfirmed: !!bookingConfirmed,
+    guest: { name: user?.name, username: user?.username, profileImage: user?.profileImage },
+    event: { title: event?.title, date: event?.date },
+  };
 }
 
 // ─── Scan QR Pass (Scanner / Host) ───────────────────────────────────────────

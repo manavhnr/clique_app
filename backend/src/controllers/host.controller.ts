@@ -15,13 +15,9 @@ export async function apply(req: AuthRequest, res: Response, next: NextFunction)
     const documentFile = files?.document?.[0];
     const selfieFile = files?.selfie?.[0];
 
-    if (!documentFile) {
-      res.status(400).json({ success: false, message: 'Document file is required' });
-      return;
-    }
-
     const { documentType, address } = req.body;
     const verification = await applyForHost(req.user!.userId, documentType, address, documentFile, selfieFile);
+
     sendSuccess(res, { verification }, 'Host application submitted', 201);
   } catch (err) { next(err); }
 }

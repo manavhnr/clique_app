@@ -29,7 +29,7 @@ export const updateProfileSchema = z.object({
   bio: z.string().max(300).optional(),
   city: z.string().max(100).optional(),
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
-  dob: z.string().datetime().optional(),
+  dob: z.string().date().optional(),
   interests: z.array(z.string().max(50)).max(20).optional(),
   vibeTags: z.array(z.string().max(50)).max(10).optional(),
   password: z.string().min(8, 'Password must be at least 8 characters').optional(),

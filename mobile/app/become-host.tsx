@@ -20,7 +20,7 @@ export default function BecomeHostScreen() {
   const handleApply = async () => {
     setLoading(true);
     try {
-      await api.post('/host-verifications/apply', {
+      await api.post('/hosts/apply', {
         documentType: 'id',
         address: 'Pending upload',
       });

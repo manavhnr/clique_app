@@ -15,6 +15,10 @@ import {
   unsave,
   myEvents,
   feed,
+  addCoHostHandler,
+  removeCoHostHandler,
+  addScannerHandler,
+  removeScannerHandler,
 } from '../controllers/event.controller';
 import { nearMe, eventSearch } from './search.routes';
 
@@ -35,6 +39,14 @@ router.put('/:eventId', requireVerifiedHost, validate(updateEventSchema), update
 router.patch('/:eventId/publish', requireVerifiedHost, publish);
 router.patch('/:eventId/cancel', cancel);   // host or admin — enforced in service
 router.delete('/:eventId', requireVerifiedHost, remove);
+
+// Co-host management (host only)
+router.post('/:eventId/co-hosts', requireVerifiedHost, addCoHostHandler);
+router.delete('/:eventId/co-hosts/:userId', requireVerifiedHost, removeCoHostHandler);
+
+// Scanner permission management (host only)
+router.post('/:eventId/scanners', requireVerifiedHost, addScannerHandler);
+router.delete('/:eventId/scanners/:userId', requireVerifiedHost, removeScannerHandler);
 
 // Any authenticated user
 router.post('/:eventId/save', save);

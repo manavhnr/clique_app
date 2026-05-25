@@ -166,3 +166,17 @@ export async function getMyBookings(userId: string, page: number, limit: number)
   const total = await Booking.countDocuments({ userId });
   return { bookings, total, page, limit };
 }
+
+// ─── Get Event Bookings (host view) ──────────────────────────────────────────
+
+export async function getEventBookings(hostId: string, eventId: string) {
+  const event = await Event.findById(eventId).select('hostId');
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Access denied', 403);
+
+  const bookings = await Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
+    .populate('userId', 'name username profileImage')
+    .sort({ createdAt: -1 });
+
+  return { bookings };
+}

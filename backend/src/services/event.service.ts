@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Event, IEvent } from '../models/Event';
 import { SavedEvent } from '../models/SavedEvent';
 import { Booking } from '../models/Booking';
@@ -73,14 +74,21 @@ export async function getEventById(eventId: string, requesterId: string) {
   }
 
   const saved = await SavedEvent.findOne({ userId: requesterId, eventId });
-  const booked = await Booking.findOne({ userId: requesterId, eventId });
+  const userBooking = await Booking.findOne({
+    userId: requesterId,
+    eventId,
+    status: { $nin: ['cancelled', 'refunded', 'rejected'] },
+  });
 
   await Event.findByIdAndUpdate(eventId, { $inc: { viewCount: 1 } });
 
   return {
-    event: { ...event.toObject(), address },
-    saved: !!saved,
-    booked: booked ? booked.status : null,
+    event: {
+      ...event.toObject(),
+      address,
+      saved: !!saved,
+      userBooking: userBooking || null,
+    },
   };
 }
 
@@ -187,4 +195,57 @@ export async function getEventsFeed(page: number, limit: number, requesterId: st
   const savedSet = new Set(savedEvents.map((s) => s.eventId.toString()));
 
   return events.map((e) => ({ ...e.toObject(), saved: savedSet.has(e._id.toString()) }));
+}
+
+export async function addCoHost(eventId: string, requesterId: string, username: string) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== requesterId) throw createError('Not your event', 403);
+
+  const target = await User.findOne({ username });
+  if (!target) throw createError('User not found', 404);
+  if (target._id.toString() === requesterId) throw createError('Cannot add yourself as co-host', 400);
+
+  const alreadyAdded = event.coHosts.some((c) => c.userId.toString() === target._id.toString());
+  if (alreadyAdded) throw createError('User is already a co-host', 409);
+
+  event.coHosts.push({ userId: target._id as mongoose.Types.ObjectId, username: target.username, addedAt: new Date() });
+  await event.save();
+  return event;
+}
+
+export async function removeCoHost(eventId: string, requesterId: string, targetUserId: string) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== requesterId) throw createError('Not your event', 403);
+
+  event.coHosts = event.coHosts.filter((c) => c.userId.toString() !== targetUserId) as typeof event.coHosts;
+  await event.save();
+  return event;
+}
+
+export async function addScanner(eventId: string, requesterId: string, username: string) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== requesterId) throw createError('Not your event', 403);
+
+  const target = await User.findOne({ username });
+  if (!target) throw createError('User not found', 404);
+
+  const alreadyAdded = event.scanners.some((s) => s.userId.toString() === target._id.toString());
+  if (alreadyAdded) throw createError('User already has scanner permission', 409);
+
+  event.scanners.push({ userId: target._id as mongoose.Types.ObjectId, username: target.username, addedAt: new Date() });
+  await event.save();
+  return event;
+}
+
+export async function removeScanner(eventId: string, requesterId: string, targetUserId: string) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== requesterId) throw createError('Not your event', 403);
+
+  event.scanners = event.scanners.filter((s) => s.userId.toString() !== targetUserId) as typeof event.scanners;
+  await event.save();
+  return event;
 }

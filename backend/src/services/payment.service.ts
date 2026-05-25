@@ -3,6 +3,7 @@ import Razorpay from 'razorpay';
 import { Payment } from '../models/Payment';
 import { Booking } from '../models/Booking';
 import { Event } from '../models/Event';
+import { Pass } from '../models/Pass';
 import { createError } from '../middleware/error.middleware';
 import { confirmBookingAfterPayment } from './booking.service';
 import { writeAuditLog } from '../utils/auditLog';
@@ -33,7 +34,19 @@ export async function createOrder(bookingId: string, userId: string) {
   const event = await Event.findById(booking.eventId).select('title price platformFee status');
   if (!event || event.status === 'cancelled') throw createError('Event no longer available', 400);
 
-  const totalAmount = Math.round((event.price + event.platformFee) * 100); // paise
+  // Idempotency: reuse an existing active order so retries don't create duplicate records
+  const existing = await Payment.findOne({ bookingId, status: { $in: ['created', 'attempted'] } });
+  if (existing) {
+    return {
+      orderId: existing.razorpayOrderId,
+      amount: existing.amount,
+      currency: existing.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      paymentId: existing._id,
+    };
+  }
+
+  const totalAmount = Math.round((event.price + (event.platformFee ?? 0)) * 100); // paise
 
   const razorpay = getRazorpay();
   const order = await razorpay.orders.create({
@@ -92,6 +105,12 @@ export async function verifyPayment(
 
   const booking = await Booking.findById(bookingId);
   if (!booking || booking.userId.toString() !== userId) throw createError('Forbidden', 403);
+
+  // Idempotency: booking already confirmed — return the existing pass
+  if (booking.status === 'confirmed' && booking.passId) {
+    const existingPass = await Pass.findById(booking.passId);
+    if (existingPass) return { pass: existingPass };
+  }
 
   const eventDoc = await Event.findById(booking.eventId).select('title');
   const isValid = verifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);

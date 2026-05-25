@@ -1,5 +1,11 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IEventMember {
+  userId: mongoose.Types.ObjectId;
+  username: string;
+  addedAt: Date;
+}
+
 export interface IEvent extends Document {
   hostId: mongoose.Types.ObjectId;
   title: string;
@@ -32,6 +38,8 @@ export interface IEvent extends Document {
   commentCount: number;
   saveCount: number;
   viewCount: number;
+  coHosts: IEventMember[];
+  scanners: IEventMember[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +88,14 @@ const eventSchema = new Schema<IEvent>(
     commentCount: { type: Number, default: 0 },
     saveCount: { type: Number, default: 0 },
     viewCount: { type: Number, default: 0 },
+    coHosts: {
+      type: [{ userId: { type: Schema.Types.ObjectId, ref: 'User' }, username: String, addedAt: { type: Date, default: Date.now } }],
+      default: [],
+    },
+    scanners: {
+      type: [{ userId: { type: Schema.Types.ObjectId, ref: 'User' }, username: String, addedAt: { type: Date, default: Date.now } }],
+      default: [],
+    },
   },
   { timestamps: true }
 );

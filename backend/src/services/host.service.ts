@@ -9,7 +9,7 @@ export async function applyForHost(
   userId: string,
   documentType: string,
   address: string,
-  documentFile: Express.Multer.File,
+  documentFile?: Express.Multer.File,
   selfieFile?: Express.Multer.File
 ) {
   const user = await User.findById(userId);
@@ -17,7 +17,7 @@ export async function applyForHost(
   if (user.isVerifiedHost) throw createError('Already a verified host', 409);
   if (user.hostVerificationStatus === 'pending') throw createError('Application already pending', 409);
 
-  const documentUrl = `/uploads/${path.basename(documentFile.path)}`;
+  const documentUrl = documentFile ? `/uploads/${path.basename(documentFile.path)}` : undefined;
   const selfieUrl = selfieFile ? `/uploads/${path.basename(selfieFile.path)}` : undefined;
 
   const verification = await HostVerification.findOneAndUpdate(
