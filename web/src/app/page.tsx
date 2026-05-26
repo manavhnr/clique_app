@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import axios from 'axios';
 
 // ─────── Data ───────
 const HOUR_MIN = 18;
@@ -19,7 +20,53 @@ const DEMO_EVENTS = [
   { id: 'e7', title: 'Slow Sunday Garden',    cat: 'garden',      start: 18, end: 22, color: '#C9F36E', rsvp: 22,  spots: 50  },
 ];
 
+const CAT_COLORS: Record<string, string> = {
+  house_party: '#E8C46E',
+  club:        '#FF3D6E',
+  college:     '#C9F36E',
+  private:     '#7DB4FF',
+  concert:     '#E8A0FF',
+  other:       '#C9F36E',
+};
+const COLOR_CYCLE = ['#E8C46E', '#FF3D6E', '#C9F36E', '#7DB4FF', '#E8A0FF'];
+
 type DemoEvent = typeof DEMO_EVENTS[0];
+
+// Parse "HH:MM" or "HH:MM:SS" into a float hour (e.g. "22:30" → 22.5)
+function parseTimeStr(t: string): number {
+  const parts = t.split(':').map(Number);
+  return parts[0] + (parts[1] ?? 0) / 60;
+}
+
+// Convert a real API event into the DemoEvent shape
+function apiEventToDemo(e: {
+  _id: string;
+  title: string;
+  category: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  bookedCount: number;
+}, idx: number): DemoEvent {
+  let start = parseTimeStr(e.startTime);
+  let end = parseTimeStr(e.endTime);
+  // If end <= start treat it as next-day (add 24)
+  if (end <= start) end += 24;
+  // Clamp into the 18-30 window so the timeline renders it
+  start = Math.max(HOUR_MIN, Math.min(HOUR_MAX - 0.01, start));
+  end   = Math.max(start + 0.5, Math.min(HOUR_MAX, end));
+
+  return {
+    id:    e._id,
+    title: e.title,
+    cat:   e.category.replace(/_/g, ' '),
+    start,
+    end,
+    color: CAT_COLORS[e.category] ?? COLOR_CYCLE[idx % COLOR_CYCLE.length],
+    rsvp:  e.bookedCount,
+    spots: e.capacity,
+  };
+}
 
 function fmtClock(h: number) {
   const hh = Math.floor(h) % 24;
@@ -111,7 +158,8 @@ function Nav({ timeStr, dayLabel, totalLive, totalOut }: NavProps) {
 }
 
 // ─────── Timeline scrubber ───────
-function Timeline({ hour, setHour, auto, setAuto }: {
+function Timeline({ events, hour, setHour, auto, setAuto }: {
+  events: DemoEvent[];
   hour: number; setHour: (h: number) => void; auto: boolean; setAuto: (a: boolean | ((prev: boolean) => boolean)) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -173,7 +221,7 @@ function Timeline({ hour, setHour, auto, setAuto }: {
       >
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #1a1428 0%, #0d0c1f 22%, #06070C 50%, #060a18 75%, #1d1408 100%)', opacity: 0.7 }} />
 
-        {DEMO_EVENTS.map((e, idx) => {
+        {events.map((e, idx) => {
           const left = hourToPct(e.start) * 100;
           const w = (hourToPct(e.end) - hourToPct(e.start)) * 100;
           const active = isLive(e, hour);
@@ -278,6 +326,7 @@ function FloatingTicket({ event, hour }: { event: DemoEvent; hour: number }) {
 
 // ─────── Hero — receives shared hour state from root ───────
 interface HeroProps {
+  events: DemoEvent[];
   hour: number;
   setHour: (h: number) => void;
   auto: boolean;
@@ -288,7 +337,7 @@ interface HeroProps {
   totalOut: number;
   featured: DemoEvent;
 }
-function Hero({ hour, setHour, auto, setAuto, timeStr, dayLabel, totalLive, totalOut, featured }: HeroProps) {
+function Hero({ events, hour, setHour, auto, setAuto, timeStr, dayLabel, totalLive, totalOut, featured }: HeroProps) {
   return (
     <section style={{ padding: '140px 40px 60px', position: 'relative' }}>
       {/* Live strip — full width, left-aligned, synced with scrubber */}
@@ -326,14 +375,14 @@ function Hero({ hour, setHour, auto, setAuto, timeStr, dayLabel, totalLive, tota
         </div>
       </div>
 
-      <Timeline hour={hour} setHour={setHour} auto={auto} setAuto={setAuto} />
+      <Timeline events={events} hour={hour} setHour={setHour} auto={auto} setAuto={setAuto} />
       <FloatingTicket event={featured} hour={hour} />
     </section>
   );
 }
 
 // ─────── Live events grid — centered, justified headings ───────
-function TonightGrid({ hour }: { hour: number }) {
+function TonightGrid({ events, hour }: { events: DemoEvent[]; hour: number }) {
   return (
     <section id="tonight" style={{ borderTop: '1px solid var(--line)', padding: '72px 40px', maxWidth: 1480, margin: '0 auto' }}>
       <div className="clique-label" style={{ marginBottom: 12, textAlign: 'center' }}>TONIGHT</div>
@@ -342,7 +391,7 @@ function TonightGrid({ hour }: { hour: number }) {
         <span className="text-italic-serif" style={{ color: 'var(--lime)' }}>right now.</span>
       </h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
-        {DEMO_EVENTS.map((e) => {
+        {events.map((e) => {
           const live = isLive(e, hour);
           const filled = Math.min(100, (e.rsvp / e.spots) * 100);
           return (
@@ -446,6 +495,29 @@ export default function LandingPage() {
 function LandingInner({ initHour }: { initHour: number }) {
   const [hour, setHour] = useState(initHour);
   const [auto, setAuto] = useState(false);
+  const [events, setEvents] = useState<DemoEvent[]>([]);
+  const [eventsReady, setEventsReady] = useState(false);
+
+  // Fetch real events; fall back to DEMO_EVENTS only if none exist
+  useEffect(() => {
+    const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5001/api/v1';
+    axios.get(`${BASE_URL}/events/public`)
+      .then((res) => {
+        const raw: Array<{
+          _id: string; title: string; category: string;
+          startTime: string; endTime: string; capacity: number; bookedCount: number;
+        }> = res.data?.data?.events ?? [];
+        if (raw.length > 0) {
+          setEvents(raw.map((e, i) => apiEventToDemo(e, i)));
+        } else {
+          setEvents(DEMO_EVENTS);
+        }
+      })
+      .catch(() => {
+        setEvents(DEMO_EVENTS);
+      })
+      .finally(() => setEventsReady(true));
+  }, []);
 
   useEffect(() => {
     if (!auto) return;
@@ -455,26 +527,36 @@ function LandingInner({ initHour }: { initHour: number }) {
     return () => clearInterval(id);
   }, [auto]);
 
+  // Render nothing until events are resolved so we never flash placeholders
+  if (!eventsReady) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>Loading…</span>
+      </div>
+    );
+  }
+
   // All live data derived from the shared scrubber hour
-  const liveEvents = DEMO_EVENTS.filter((e) => isLive(e, hour));
+  const liveEvents = events.filter((e) => isLive(e, hour));
   const totalLive  = liveEvents.length;
   const totalOut   = liveEvents.reduce((s, e) => s + e.rsvp, 0);
   const timeStr    = fmtClock(hour);
   const dayLabel   = Math.floor(hour) >= 24 ? 'WED · LATE' : 'TUE · TONIGHT';
   const featured   = liveEvents.length
     ? [...liveEvents].sort((a, b) => b.rsvp - a.rsvp)[0]
-    : DEMO_EVENTS.slice().sort((a, b) => a.start - b.start).find((e) => e.start >= hour) ?? DEMO_EVENTS[0];
+    : events.slice().sort((a, b) => a.start - b.start).find((e) => e.start >= hour) ?? events[0];
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink)', color: 'var(--paper)' }}>
       <Nav timeStr={timeStr} dayLabel={dayLabel} totalLive={totalLive} totalOut={totalOut} />
       <Hero
+        events={events}
         hour={hour} setHour={setHour} auto={auto} setAuto={setAuto}
         timeStr={timeStr} dayLabel={dayLabel}
         totalLive={totalLive} totalOut={totalOut}
         featured={featured}
       />
-      <TonightGrid hour={hour} />
+      <TonightGrid events={events} hour={hour} />
       <SignupBand />
       <MiniFooter />
     </div>

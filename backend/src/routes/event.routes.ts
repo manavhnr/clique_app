@@ -15,6 +15,7 @@ import {
   unsave,
   myEvents,
   feed,
+  publicEvents,
   addCoHostHandler,
   removeCoHostHandler,
   addScannerHandler,
@@ -23,6 +24,9 @@ import {
 import { nearMe, eventSearch } from './search.routes';
 
 const router = Router();
+
+// No auth required — landing page uses this
+router.get('/public', publicEvents);
 
 router.use(authenticate);
 

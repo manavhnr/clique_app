@@ -181,6 +181,14 @@ export async function getHostEvents(hostId: string, page: number, limit: number)
   return { events, total, page, limit };
 }
 
+export async function getPublicEvents(limit = 20) {
+  return Event.find({ status: 'published', date: { $gte: new Date() } })
+    .sort({ isFeatured: -1, date: 1 })
+    .limit(limit)
+    .select('title category vibeTags date startTime endTime capacity bookedCount images price locationName privacy')
+    .lean();
+}
+
 export async function getEventsFeed(page: number, limit: number, requesterId: string) {
   const events = await Event.find({ status: 'published', date: { $gte: new Date() } })
     .sort({ isFeatured: -1, date: 1 })
