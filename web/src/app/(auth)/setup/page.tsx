@@ -83,8 +83,16 @@ export default function SetupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (password && password.length < 6) { setError('Password must be at least 6 characters'); return; }
-    if (password && password !== confirmPw) { setError('Passwords do not match'); return; }
+
+    if (!name.trim())     { setError('Please enter your name.'); return; }
+    if (!username.trim()) { setError('Please enter a username.'); return; }
+    if (!dob)             { setError('Please enter your date of birth.'); return; }
+    if (!gender)          { setError('Please select your gender.'); return; }
+    if (!city)            { setError('Please select your city.'); return; }
+    if (!password)        { setError('Please set a password.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (password !== confirmPw) { setError('Passwords do not match.'); return; }
+
     setLoading(true);
     try {
       const { data } = await api.put('/users/profile', {
@@ -92,7 +100,7 @@ export default function SetupPage() {
         vibeTags: vibes,
         interests,
         hasCompletedSetup: true,
-        ...(password ? { password } : {}),
+        password,
       });
       updateUser(data.data.user);
       router.push('/events');
@@ -194,7 +202,7 @@ export default function SetupPage() {
         </div>
 
         <div style={fieldStyle}>
-          <span style={labelStyle}>PASSWORD <span style={{ color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 }}>(optional — lets you log in without OTP)</span></span>
+          <span style={labelStyle}>PASSWORD</span>
           <div style={{ position: 'relative' }}>
             <input
               type={showPw ? 'text' : 'password'}
@@ -211,23 +219,21 @@ export default function SetupPage() {
               {showPw ? 'HIDE' : 'SHOW'}
             </button>
           </div>
-          {password && (
-            <input
-              type={showPw ? 'text' : 'password'}
-              value={confirmPw}
-              onChange={(e) => setConfirmPw(e.target.value)}
-              placeholder="Confirm password"
-              style={{ ...inputStyle, marginTop: 8, borderColor: confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--line-2)' }}
-              autoComplete="new-password"
-              onFocus={(e) => (e.target.style.borderColor = confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--lime)')}
-              onBlur={(e) => (e.target.style.borderColor = confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--line-2)')}
-            />
-          )}
+          <input
+            type={showPw ? 'text' : 'password'}
+            value={confirmPw}
+            onChange={(e) => setConfirmPw(e.target.value)}
+            placeholder="Confirm password"
+            style={{ ...inputStyle, borderColor: confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--line-2)' }}
+            autoComplete="new-password"
+            onFocus={(e) => (e.target.style.borderColor = confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--lime)')}
+            onBlur={(e) => (e.target.style.borderColor = confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--line-2)')}
+          />
         </div>
 
         {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--hot)' }}>{error}</div>}
 
-        <button type="submit" disabled={!name.trim() || !username.trim() || loading} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px 22px', borderRadius: 999, fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', cursor: (!name.trim() || !username.trim() || loading) ? 'not-allowed' : 'pointer', opacity: (!name.trim() || !username.trim() || loading) ? 0.45 : 1, marginTop: 8 }}>
+        <button type="submit" disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px 22px', borderRadius: 999, fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, marginTop: 8 }}>
           {loading && <Spinner />}
           {loading ? 'Building you…' : 'Open the door →'}
         </button>
