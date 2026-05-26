@@ -467,8 +467,13 @@ function MiniFooter() {
         © {new Date().getFullYear()} CLIQUE CO.
       </div>
       <div style={{ display: 'flex', gap: 18 }}>
-        {['Code of conduct', 'Privacy', 'Terms', '@clique'].map((label) => (
-          <a key={label} href="#" style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>{label}</a>
+        {[
+          { label: 'Code of conduct', href: '#' },
+          { label: 'Privacy',         href: '/privacy' },
+          { label: 'Terms',           href: '/terms' },
+          { label: '@clique',         href: '#' },
+        ].map(({ label, href }) => (
+          <a key={label} href={href} style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>{label}</a>
         ))}
       </div>
     </footer>
