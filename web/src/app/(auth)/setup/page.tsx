@@ -68,6 +68,9 @@ export default function SetupPage() {
   const [gender, setGender]       = useState('');
   const [vibes, setVibes]         = useState<string[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
+  const [password, setPassword]   = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [showPw, setShowPw]       = useState(false);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
 
@@ -80,6 +83,8 @@ export default function SetupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (password && password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (password && password !== confirmPw) { setError('Passwords do not match'); return; }
     setLoading(true);
     try {
       const { data } = await api.put('/users/profile', {
@@ -87,6 +92,7 @@ export default function SetupPage() {
         vibeTags: vibes,
         interests,
         hasCompletedSetup: true,
+        ...(password ? { password } : {}),
       });
       updateUser(data.data.user);
       router.push('/events');
@@ -185,6 +191,38 @@ export default function SetupPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {INTERESTS.map((i) => <Pill key={i} on={interests.includes(i)} onClick={() => toggle(i, interests, setInterests)}>{i}</Pill>)}
           </div>
+        </div>
+
+        <div style={fieldStyle}>
+          <span style={labelStyle}>PASSWORD <span style={{ color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 }}>(optional — lets you log in without OTP)</span></span>
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showPw ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min 6 characters"
+              style={{ ...inputStyle, paddingRight: 50 }}
+              autoComplete="new-password"
+              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+            />
+            <button type="button" onClick={() => setShowPw((v) => !v)}
+              style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.08em' }}>
+              {showPw ? 'HIDE' : 'SHOW'}
+            </button>
+          </div>
+          {password && (
+            <input
+              type={showPw ? 'text' : 'password'}
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              placeholder="Confirm password"
+              style={{ ...inputStyle, marginTop: 8, borderColor: confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--line-2)' }}
+              autoComplete="new-password"
+              onFocus={(e) => (e.target.style.borderColor = confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--lime)')}
+              onBlur={(e) => (e.target.style.borderColor = confirmPw && confirmPw !== password ? 'var(--hot)' : 'var(--line-2)')}
+            />
+          )}
         </div>
 
         {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--hot)' }}>{error}</div>}
