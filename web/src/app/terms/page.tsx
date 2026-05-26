@@ -75,16 +75,17 @@ const TOC = [
   { id: 'payment',         label: '07', title: 'Payment & Commission' },
   { id: 'refunds',         label: '08', title: 'Refunds & Cancellations' },
   { id: 'safety',          label: '09', title: 'Safety Policy' },
-  { id: 'liability',       label: '10', title: 'Limitation of Liability' },
-  { id: 'indemnity',       label: '11', title: 'Indemnification' },
-  { id: 'warranties',      label: '12', title: 'Representations & Warranties' },
-  { id: 'ip',              label: '13', title: 'Intellectual Property' },
-  { id: 'privacy',         label: '14', title: 'Privacy & Data Protection' },
-  { id: 'prohibited',      label: '15', title: 'Prohibited Conduct' },
-  { id: 'termination',     label: '16', title: 'Term & Termination' },
-  { id: 'confidentiality', label: '17', title: 'Confidentiality' },
-  { id: 'governing-law',   label: '18', title: 'Governing Law & Disputes' },
-  { id: 'miscellaneous',   label: '19', title: 'Miscellaneous' },
+  { id: 'no-promotion',    label: '10', title: 'Platform Values & Prohibited Promotions' },
+  { id: 'liability',       label: '11', title: 'Limitation of Liability' },
+  { id: 'indemnity',       label: '12', title: 'Indemnification' },
+  { id: 'warranties',      label: '13', title: 'Representations & Warranties' },
+  { id: 'ip',              label: '14', title: 'Intellectual Property' },
+  { id: 'privacy',         label: '15', title: 'Privacy & Data Protection' },
+  { id: 'prohibited',      label: '16', title: 'Prohibited Conduct' },
+  { id: 'termination',     label: '17', title: 'Term & Termination' },
+  { id: 'confidentiality', label: '18', title: 'Confidentiality' },
+  { id: 'governing-law',   label: '19', title: 'Governing Law & Disputes' },
+  { id: 'miscellaneous',   label: '20', title: 'Miscellaneous' },
 ];
 
 export default function TermsPage() {
@@ -331,8 +332,25 @@ export default function TermsPage() {
             <P>Clique reserves the right to remove any Event listing that it reasonably believes poses a safety risk to Guests or the public, without notice and without liability.</P>
           </Section>
 
-          {/* 10 Liability */}
-          <Section id="liability" label="10 — Liability" title="Limitation of Liability">
+          {/* 10 Platform Values */}
+          <Section id="no-promotion" label="10 — Platform Values" title={<>Platform Values <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>&amp; Prohibited Promotions</span></>}>
+            <Highlight>
+              Clique is a social platform built for community, connection, and real-world experiences. We do not promote, advertise, endorse, or facilitate the marketing of alcohol, alcoholic beverages, nicotine products, tobacco, or any substance that is illegal under applicable Indian law.
+            </Highlight>
+            <P>The following promotional and advertising restrictions apply to all users, Hosts, and content posted on the Platform:</P>
+            <UL items={[
+              <><Strong>No Alcohol Promotion:</Strong> Clique strictly does not promote or advertise alcohol or alcoholic beverages of any kind. No Event listing, post, story, or any other content on the Platform may be used to market, advertise, or promote alcoholic products, alcohol brands, or sponsored alcohol activations.</>,
+              <><Strong>No Nicotine or Tobacco Promotion:</Strong> Clique strictly does not promote or advertise nicotine products, tobacco products, e-cigarettes, vapes, hookah, or any related products. Content that markets or endorses such products is prohibited on the Platform.</>,
+              <><Strong>No Promotion of Illegal Substances:</Strong> Clique does not promote, facilitate, or normalise the use, sale, or possession of any substance that is illegal under applicable Indian law, including but not limited to controlled drugs and narcotics.</>,
+              <><Strong>No Promotion of Illegal Activities:</Strong> Clique does not promote, encourage, or facilitate any activity, product, or service that is unlawful under applicable Indian law or that poses a risk to public health, safety, or morality.</>,
+              <><Strong>Content Moderation:</Strong> Any post, event listing, image, video, caption, or communication on the Platform that promotes prohibited substances or illegal activities will be removed immediately. The account responsible may be permanently banned without notice.</>,
+              <><Strong>Sponsorship Restrictions:</Strong> Hosts may not enter into or display sponsorship arrangements with alcohol brands, tobacco companies, nicotine brands, or any entity dealing in illegal substances in connection with any Event listed on the Platform.</>,
+            ]} />
+            <P>These restrictions reflect Clique&apos;s commitment to operating a responsible, safe, and legally compliant platform. Clique reserves the right to remove any content, listing, or account that violates these values, without liability.</P>
+          </Section>
+
+          {/* 11 Liability — label already set above, no change needed */}
+          <Section id="liability" label="11 — Liability" title="Limitation of Liability">
             <P>To the maximum extent permitted by applicable law:</P>
             <UL items={[
               'Clique shall not be responsible or liable for any injury, loss, damage, theft, or death occurring at any Event.',
@@ -347,8 +365,8 @@ export default function TermsPage() {
             </Highlight>
           </Section>
 
-          {/* 11 Indemnity */}
-          <Section id="indemnity" label="11 — Indemnity" title="Indemnification">
+          {/* 12 Indemnity */}
+          <Section id="indemnity" label="12 — Indemnity" title="Indemnification">
             <P>You agree to <Strong>indemnify, defend, and hold harmless</Strong> Clique, its officers, directors, employees, agents, and successors from and against all claims, liabilities, fines, demands, actions, losses, and proceedings (including reasonable legal costs) arising out of or related to:</P>
             <UL items={[
               'Your breach of any provision of these Terms.',
@@ -360,8 +378,8 @@ export default function TermsPage() {
             ]} />
           </Section>
 
-          {/* 12 Warranties */}
-          <Section id="warranties" label="12 — Warranties" title="Representations & Warranties">
+          {/* 13 Warranties */}
+          <Section id="warranties" label="13 — Warranties" title="Representations & Warranties">
             <div style={{ ...mono, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B544A', paddingTop: 8 }}>
               Host Representations
             </div>
@@ -386,8 +404,8 @@ export default function TermsPage() {
             ]} />
           </Section>
 
-          {/* 13 IP */}
-          <Section id="ip" label="13 — IP" title="Intellectual Property">
+          {/* 14 IP */}
+          <Section id="ip" label="14 — IP" title="Intellectual Property">
             <P>All intellectual property rights in and to the Clique Platform — including but not limited to software, design, trademarks, logos, content, and technology — are owned by or licensed to Clique.</P>
             <UL items={[
               'You may not reproduce, copy, distribute, or create derivative works from any part of the Platform without express written consent from Clique.',
@@ -397,8 +415,8 @@ export default function TermsPage() {
             ]} />
           </Section>
 
-          {/* 14 Privacy */}
-          <Section id="privacy" label="14 — Privacy" title="Privacy & Data Protection">
+          {/* 15 Privacy */}
+          <Section id="privacy" label="15 — Privacy" title="Privacy & Data Protection">
             <P>Clique is committed to protecting your personal data in accordance with applicable Indian data protection laws, including the Digital Personal Data Protection Act, 2023.</P>
             <UL items={[
               'Clique collects personal data (name, phone number, location, usage data) solely for the purpose of operating and improving the Platform.',
@@ -410,8 +428,8 @@ export default function TermsPage() {
             <P>For full details, please review our <a href="/privacy" style={{ color: '#C9F36E', textDecoration: 'underline' }}>Privacy Policy</a>.</P>
           </Section>
 
-          {/* 15 Prohibited */}
-          <Section id="prohibited" label="15 — Prohibited" title="Prohibited Conduct">
+          {/* 16 Prohibited */}
+          <Section id="prohibited" label="16 — Prohibited" title="Prohibited Conduct">
             <P>The following activities are strictly prohibited on the Platform:</P>
             <UL items={[
               'Creating false, misleading, or fraudulent Event listings.',
@@ -428,8 +446,8 @@ export default function TermsPage() {
             <P>Violation of any of these prohibitions may result in immediate account termination and may expose you to civil and criminal liability.</P>
           </Section>
 
-          {/* 16 Termination */}
-          <Section id="termination" label="16 — Termination" title="Term & Termination">
+          {/* 17 Termination */}
+          <Section id="termination" label="17 — Termination" title="Term & Termination">
             <P>These Terms commence on the date you first access or use the Platform and continue until terminated.</P>
 
             <div style={{ ...mono, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B544A', paddingTop: 8 }}>
@@ -468,8 +486,8 @@ export default function TermsPage() {
             ]} />
           </Section>
 
-          {/* 17 Confidentiality */}
-          <Section id="confidentiality" label="17 — Confidentiality" title="Confidentiality">
+          {/* 18 Confidentiality */}
+          <Section id="confidentiality" label="18 — Confidentiality" title="Confidentiality">
             <P>Both Hosts and Clique shall maintain the confidentiality of any non-public information obtained in connection with their use of the Platform or any agreement between them.</P>
             <UL items={[
               'Neither party shall disclose confidential information to any third party without prior written consent of the other party.',
@@ -478,8 +496,8 @@ export default function TermsPage() {
             ]} />
           </Section>
 
-          {/* 18 Governing Law */}
-          <Section id="governing-law" label="18 — Law & Disputes" title={<>Governing Law <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>&amp; Disputes</span></>}>
+          {/* 19 Governing Law */}
+          <Section id="governing-law" label="19 — Law & Disputes" title={<>Governing Law <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>&amp; Disputes</span></>}>
             <P>These Terms shall be governed by and construed in accordance with the <Strong>laws of India</Strong>.</P>
             <UL items={[
               'All disputes arising out of or relating to these Terms or the Platform shall be subject to the exclusive jurisdiction of the courts at the registered office of Clique.',
@@ -488,8 +506,8 @@ export default function TermsPage() {
             ]} />
           </Section>
 
-          {/* 19 Miscellaneous */}
-          <Section id="miscellaneous" label="19 — Miscellaneous" title="Miscellaneous">
+          {/* 20 Miscellaneous */}
+          <Section id="miscellaneous" label="20 — Miscellaneous" title="Miscellaneous">
             <UL items={[
               <><Strong>Entire Agreement:</Strong> These Terms, together with any Host Agreement and our Privacy Policy, constitute the entire agreement between you and Clique and supersede all prior agreements and understandings.</>,
               <><Strong>Amendments:</Strong> Clique may update these Terms from time to time. Material changes will be communicated via the Platform or by email. Continued use after notice constitutes acceptance.</>,
