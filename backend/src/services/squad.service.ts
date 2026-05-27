@@ -1,9 +1,14 @@
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import QRCode from 'qrcode';
 import { EventSquad } from '../models/EventSquad';
 import { Event } from '../models/Event';
 import { User } from '../models/User';
 import { JoinRequest } from '../models/JoinRequest';
 import { Booking } from '../models/Booking';
+import { Pass } from '../models/Pass';
 import { createError } from '../middleware/error.middleware';
+import { generatePass } from './booking.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -63,7 +68,63 @@ export async function getAllSquadsForEvent(hostId: string, eventId: string) {
   if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
 
   const squads = await EventSquad.find({ eventId }).sort({ createdAt: 1 });
-  return { squads };
+
+  // Enrich each squad with full member user details + their request status
+  const enriched = await Promise.all(
+    squads.map(async (sq) => {
+      const memberUserIds = sq.members.map((m) => m.userId);
+
+      const [users, requests, groupPass] = await Promise.all([
+        User.find({ _id: { $in: memberUserIds } }).select(
+          'name username profileImage gender phone connectedSocials city cliquescore'
+        ),
+        JoinRequest.find({ eventId, userId: { $in: memberUserIds } }).select(
+          'userId status createdAt'
+        ),
+        Pass.findOne({ groupId: sq._id.toString(), passType: 'group' }).select('_id status'),
+      ]);
+
+      const userMap  = Object.fromEntries(users.map((u) => [u._id.toString(), u]));
+      const reqMap   = Object.fromEntries(requests.map((r) => [r.userId.toString(), r]));
+
+      const membersEnriched = sq.members.map((m) => {
+        const uid  = m.userId.toString();
+        const user = userMap[uid];
+        const req  = reqMap[uid];
+        return {
+          userId:   uid,
+          name:     user?.name       ?? m.name,
+          username: user?.username   ?? m.username,
+          profileImage: user?.profileImage,
+          gender:   user?.gender,
+          phone:    user?.phone,
+          connectedSocials: user?.connectedSocials,
+          city:     user?.city,
+          cliquescore: user?.cliquescore,
+          requestStatus: req?.status ?? null,
+          joinedAt: m.joinedAt,
+        };
+      });
+
+      const allApproved = membersEnriched.every(
+        (m) => m.requestStatus === 'approved' || m.requestStatus === null
+      );
+      const anyPending  = membersEnriched.some((m) => m.requestStatus === 'requested');
+
+      return {
+        _id:         sq._id,
+        name:        sq.name,
+        creatorId:   sq.creatorId,
+        eventId:     sq.eventId,
+        members:     membersEnriched,
+        groupStatus: allApproved ? 'approved' : anyPending ? 'pending' : 'mixed',
+        groupPass:   groupPass ? { _id: groupPass._id, status: groupPass.status } : null,
+        createdAt:   sq.createdAt,
+      };
+    })
+  );
+
+  return { squads: enriched };
 }
 
 // ─── Invite ───────────────────────────────────────────────────────────────────
@@ -169,4 +230,143 @@ export async function leaveSquad(squadId: string, userId: string) {
   });
 
   return { disbanded: false };
+}
+
+// ─── Host: Approve Entire Group ───────────────────────────────────────────────
+
+export async function approveGroup(squadId: string, hostId: string) {
+  const squad = await EventSquad.findById(squadId);
+  if (!squad) throw createError('Group not found', 404);
+
+  const event = await Event.findById(squad.eventId).select('hostId title status capacity bookedCount');
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  if (event.status !== 'published') throw createError('Event is not active', 400);
+
+  const memberIds = squad.members.map((m) => m.userId.toString());
+  if (memberIds.length === 0) throw createError('Group has no members', 400);
+
+  // Check capacity — need slots for all members not yet confirmed
+  const alreadyBooked = await Booking.countDocuments({
+    eventId: squad.eventId,
+    userId: { $in: squad.members.map((m) => m.userId) },
+    status: { $in: ['confirmed', 'checked_in'] },
+  });
+  const needed = memberIds.length - alreadyBooked;
+  if (needed > 0) {
+    // Atomic capacity check and increment
+    const updatedEvent = await Event.findOneAndUpdate(
+      {
+        _id: squad.eventId,
+        status: 'published',
+        $expr: { $lte: [{ $add: ['$bookedCount', needed] }, '$capacity'] },
+      },
+      { $inc: { bookedCount: needed } },
+      { new: true }
+    );
+    if (!updatedEvent) throw createError('Not enough capacity for all group members', 400);
+  }
+
+  // For each member: approve their pending JoinRequest, create booking + individual pass
+  const results: { userId: string; bookingId: string; passId: string }[] = [];
+  let creatorBookingId = '';
+
+  for (const member of squad.members) {
+    const userId = member.userId.toString();
+
+    // Approve pending join request if it exists
+    await JoinRequest.findOneAndUpdate(
+      { userId: member.userId, eventId: squad.eventId, status: 'requested' },
+      { status: 'approved' }
+    );
+
+    // Skip if already has a confirmed booking
+    const existingBooking = await Booking.findOne({
+      userId: member.userId,
+      eventId: squad.eventId,
+      status: { $in: ['confirmed', 'checked_in'] },
+    });
+
+    let booking;
+    if (existingBooking) {
+      booking = existingBooking;
+    } else {
+      booking = await Booking.create({
+        userId:  member.userId,
+        eventId: squad.eventId,
+        hostId,
+        status:  'confirmed',
+        amount:  0,
+      });
+    }
+
+    // Generate individual pass if not already present
+    const existingPass = await Pass.findOne({ userId: member.userId, eventId: squad.eventId, passType: { $in: ['individual', null] } });
+    if (!existingPass) {
+      const pass = await generatePass(booking._id.toString(), userId, squad.eventId.toString());
+      await Booking.findByIdAndUpdate(booking._id, { passId: pass._id });
+      results.push({ userId, bookingId: booking._id.toString(), passId: pass._id.toString() });
+    } else {
+      results.push({ userId, bookingId: booking._id.toString(), passId: existingPass._id.toString() });
+    }
+
+    if (userId === squad.creatorId.toString()) {
+      creatorBookingId = booking._id.toString();
+    }
+  }
+
+  // If no creatorBookingId found (creator not a member — shouldn't happen), use first member's
+  if (!creatorBookingId && results.length > 0) {
+    creatorBookingId = results[0].bookingId;
+  }
+
+  // Generate ONE group pass for the creator (covers all members)
+  const existingGroupPass = await Pass.findOne({ groupId: squadId, passType: 'group' });
+  let groupPass;
+  if (existingGroupPass) {
+    groupPass = existingGroupPass;
+  } else {
+    groupPass = await generateGroupPass(
+      creatorBookingId,
+      squad.creatorId.toString(),
+      squad.eventId.toString(),
+      squadId,
+      memberIds
+    );
+  }
+
+  return { squad, individualPasses: results, groupPass };
+}
+
+async function generateGroupPass(
+  bookingId: string,
+  creatorId: string,
+  eventId: string,
+  squadId: string,
+  memberIds: string[]
+) {
+  // Temp hash placeholder
+  const tempHash = crypto.randomBytes(16).toString('hex');
+  const pass = await Pass.create({
+    bookingId,
+    userId:   creatorId,
+    eventId,
+    passType: 'group',
+    groupId:  squadId,
+    memberIds,
+    qrTokenHash: tempHash,
+    status: 'active',
+  });
+
+  const qrPayload = jwt.sign(
+    { passId: pass._id.toString(), eventId, userId: creatorId },
+    process.env.JWT_SECRET as string,
+    { expiresIn: '365d' }
+  );
+
+  const qrTokenHash = crypto.createHash('sha256').update(qrPayload).digest('hex');
+  const qrCodeUrl   = await QRCode.toDataURL(qrPayload);
+
+  await Pass.findByIdAndUpdate(pass._id, { qrTokenHash, qrCodeUrl });
+  return { ...pass.toObject(), qrCodeUrl };
 }

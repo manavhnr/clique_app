@@ -108,6 +108,9 @@ export interface Pass {
   bookingId: string;
   userId: string | User;
   eventId: string | Event;
+  passType?: 'individual' | 'group';
+  groupId?: string;
+  memberIds?: string[];
   qrCodeUrl?: string;
   status: 'active' | 'used' | 'expired' | 'cancelled';
   checkedInAt?: string;
@@ -131,6 +134,13 @@ export interface SquadMember {
   userId: string;
   name: string;
   username: string;
+  profileImage?: string;
+  gender?: string;
+  phone?: string;
+  connectedSocials?: { instagram?: string };
+  city?: string;
+  cliquescore?: number;
+  requestStatus?: 'requested' | 'approved' | 'rejected' | 'expired' | null;
   joinedAt: string;
 }
 
@@ -148,6 +158,8 @@ export interface Squad {
   creatorId: string;
   members: SquadMember[];
   invites: SquadInvite[];
+  groupStatus?: 'pending' | 'approved' | 'mixed';
+  groupPass?: { _id: string; status: string } | null;
   createdAt: string;
 }
 

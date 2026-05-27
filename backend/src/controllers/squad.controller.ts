@@ -8,6 +8,7 @@ import {
   inviteToSquad,
   respondToInvite,
   leaveSquad,
+  approveGroup,
 } from '../services/squad.service';
 
 export async function create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -57,5 +58,13 @@ export async function leave(req: AuthRequest, res: Response, next: NextFunction)
     const { squadId } = req.params;
     const result = await leaveSquad(squadId, req.user!.userId);
     sendSuccess(res, result, result.disbanded ? 'Squad disbanded' : 'Left squad');
+  } catch (err) { next(err); }
+}
+
+export async function approveGroupHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { squadId } = req.params;
+    const result = await approveGroup(squadId, req.user!.userId);
+    sendSuccess(res, result, 'Group approved — passes issued to all members');
   } catch (err) { next(err); }
 }

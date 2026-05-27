@@ -16,17 +16,9 @@ import { Event, EventMember, Squad } from '@/types';
 import { formatDate, formatTime, formatPrice, getImageUrl } from '@/lib/utils';
 import api from '@/lib/api';
 
-interface ConnectedSocials {
-  instagram?: string;
-  twitter?: string;
-  snapchat?: string;
-  facebook?: string;
-  linkedin?: string;
-}
-
 interface Booking {
   _id: string;
-  userId: { _id: string; name: string; username: string; profileImage?: string; connectedSocials?: ConnectedSocials };
+  userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; phone?: string; connectedSocials?: { instagram?: string }; city?: string };
   status: string;
   amount: number;
   createdAt: string;
@@ -34,7 +26,7 @@ interface Booking {
 
 interface PendingRequest {
   _id: string;
-  userId: { _id: string; name: string; username: string; profileImage?: string; connectedSocials?: ConnectedSocials; cliquescore?: number; city?: string };
+  userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; phone?: string; connectedSocials?: { instagram?: string }; cliquescore?: number; city?: string };
   status: string;
   message?: string;
   createdAt: string;
@@ -182,17 +174,30 @@ function EventHeader({ event, onRefresh }: { event: Event; onRefresh: () => void
 }
 
 function OverviewTab({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
+  const router = useRouter();
   const [cancelling, setCancelling] = useState(false);
+  const [deleting,   setDeleting]   = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const handleCancel = async () => {
     setCancelling(true);
     try {
       await api.patch(`/events/${event._id}/cancel`);
-      onRefresh();
-      setCancelOpen(false);
+      // Navigate to dashboard so it re-fetches fresh data (avoids stale cache)
+      router.push('/host/dashboard');
     } catch { /* ignore */ }
     finally { setCancelling(false); }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/events/${event._id}`);
+      // Navigate to dashboard — event is gone, fresh fetch will exclude it
+      router.push('/host/dashboard');
+    } catch { /* ignore */ }
+    finally { setDeleting(false); }
   };
 
   return (
@@ -216,7 +221,8 @@ function OverviewTab({ event, onRefresh }: { event: Event; onRefresh: () => void
         </div>
       )}
 
-      {event.status !== 'cancelled' && (
+      {/* Cancel — for published events */}
+      {event.status === 'published' && (
         <div className="pt-2">
           <Button variant="danger" className="w-full" onClick={() => setCancelOpen(true)}>
             <XCircle size={16} />
@@ -225,6 +231,17 @@ function OverviewTab({ event, onRefresh }: { event: Event; onRefresh: () => void
         </div>
       )}
 
+      {/* Delete — for draft events only */}
+      {event.status === 'draft' && (
+        <div className="pt-2">
+          <Button variant="danger" className="w-full" onClick={() => setDeleteOpen(true)}>
+            <Trash2 size={16} />
+            Delete Draft
+          </Button>
+        </div>
+      )}
+
+      {/* Cancel modal */}
       <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="Cancel Event?" size="sm">
         <div className="space-y-4">
           <div className="flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
@@ -239,36 +256,122 @@ function OverviewTab({ event, onRefresh }: { event: Event; onRefresh: () => void
           </div>
         </div>
       </Modal>
+
+      {/* Delete modal */}
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete Draft?" size="sm">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <AlertTriangle size={18} className="text-red-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-300 leading-relaxed">
+              This will permanently delete this draft. It cannot be recovered.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setDeleteOpen(false)}>Keep Draft</Button>
+            <Button variant="danger" className="flex-1" loading={deleting} onClick={handleDelete}>Yes, Delete</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
 
-const SOCIAL_ICONS: Record<string, string> = { instagram: '📷', twitter: '🐦', snapchat: '👻', facebook: '📘', linkedin: '💼' };
-
-function SocialLinks({ socials }: { socials?: ConnectedSocials }) {
-  if (!socials) return null;
-  const entries = Object.entries(socials).filter(([, v]) => !!v);
-  if (entries.length === 0) return <span className="text-xs text-muted">No socials</span>;
+function InstagramLink({ socials }: { socials?: { instagram?: string } }) {
+  if (!socials?.instagram) return null;
   return (
-    <div className="flex gap-2 flex-wrap">
-      {entries.map(([platform, handle]) => (
-        <a
-          key={platform}
-          href={
-            platform === 'instagram' ? `https://instagram.com/${handle}` :
-            platform === 'twitter'   ? `https://twitter.com/${handle}` :
-            platform === 'snapchat'  ? `https://snapchat.com/add/${handle}` :
-            platform === 'facebook'  ? `https://facebook.com/${handle}` :
-            platform === 'linkedin'  ? `https://linkedin.com/in/${handle}` : '#'
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors"
-        >
-          <span>{SOCIAL_ICONS[platform] ?? '🔗'}</span>
-          <span>@{handle}</span>
-        </a>
-      ))}
+    <a
+      href={`https://instagram.com/${socials.instagram}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1 text-xs text-pink-400 hover:text-pink-300 transition-colors"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+        <defs>
+          <linearGradient id="ig-h" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#FEDA75"/>
+            <stop offset="50%" stopColor="#D62976"/>
+            <stop offset="100%" stopColor="#4F5BD5"/>
+          </linearGradient>
+        </defs>
+        <path fill="url(#ig-h)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+      </svg>
+      @{socials.instagram}
+    </a>
+  );
+}
+
+function GenderBadge({ gender }: { gender?: string }) {
+  if (!gender || gender === 'prefer_not_to_say') return null;
+  const map: Record<string, { label: string; color: string }> = {
+    male:   { label: 'M', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+    female: { label: 'F', color: 'text-pink-400 bg-pink-500/10 border-pink-500/20' },
+    other:  { label: 'NB', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+  };
+  const cfg = map[gender];
+  if (!cfg) return null;
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cfg.color}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
+function AttendeeCard({
+  name, username, profileImage, gender, phone, connectedSocials, city, cliquescore,
+  right, requestStatus,
+}: {
+  name: string; username: string; profileImage?: string; gender?: string; phone?: string;
+  connectedSocials?: { instagram?: string }; city?: string; cliquescore?: number;
+  right?: React.ReactNode; requestStatus?: string | null;
+}) {
+  return (
+    <div className="bg-dark-card border border-dark-border rounded-xl p-4">
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary-light shrink-0 overflow-hidden">
+          {profileImage ? (
+            <img src={profileImage} alt={name} className="w-full h-full object-cover" />
+          ) : (
+            (name?.[0] ?? '?').toUpperCase()
+          )}
+        </div>
+
+        {/* Details */}
+        <div className="flex-1 min-w-0">
+          {/* Row 1: name + gender badge */}
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <p className="text-white text-sm font-semibold">{name || 'Unknown'}</p>
+            <GenderBadge gender={gender} />
+            {requestStatus === 'requested' && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-yellow-400 bg-yellow-500/10 border-yellow-500/20">
+                Pending
+              </span>
+            )}
+            {requestStatus === 'approved' && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-green-400 bg-green-500/10 border-green-500/20">
+                Approved
+              </span>
+            )}
+          </div>
+
+          {/* Row 2: username + city */}
+          <p className="text-xs text-muted">
+            @{username || '—'}{city ? ` · ${city}` : ''}
+            {cliquescore != null ? ` · ★ ${cliquescore}` : ''}
+          </p>
+
+          {/* Row 3: phone + instagram */}
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+            {phone && (
+              <span className="text-xs text-zinc-400 font-mono">{phone}</span>
+            )}
+            <InstagramLink socials={connectedSocials} />
+          </div>
+        </div>
+
+        {/* Right slot (actions) */}
+        {right && <div className="shrink-0">{right}</div>}
+      </div>
     </div>
   );
 }
@@ -280,35 +383,38 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
   squads: Squad[];
   onRefresh: () => void;
 }) {
-  const [approving, setApproving] = useState<string | null>(null);
-  const [rejecting, setRejecting] = useState<string | null>(null);
-
-  // Build a map: userId → squad name
-  const squadByUser: Record<string, string> = {};
-  squads.forEach((sq) => {
-    sq.members.forEach((m) => { squadByUser[m.userId] = sq.name; });
-  });
+  const [approving, setApproving]       = useState<string | null>(null);  // requestId
+  const [rejecting, setRejecting]       = useState<string | null>(null);  // requestId
+  const [approvingGroup, setApprovingGroup] = useState<string | null>(null); // squadId
 
   const handleApprove = async (requestId: string) => {
     setApproving(requestId);
-    try {
-      await api.patch(`/requests/${requestId}/approve`);
-      onRefresh();
-    } catch { /* ignore */ }
+    try { await api.patch(`/requests/${requestId}/approve`); onRefresh(); }
+    catch { /* ignore */ }
     finally { setApproving(null); }
   };
 
   const handleReject = async (requestId: string) => {
     setRejecting(requestId);
-    try {
-      await api.patch(`/requests/${requestId}/reject`);
-      onRefresh();
-    } catch { /* ignore */ }
+    try { await api.patch(`/requests/${requestId}/reject`); onRefresh(); }
+    catch { /* ignore */ }
     finally { setRejecting(null); }
   };
 
+  const handleApproveGroup = async (squadId: string) => {
+    setApprovingGroup(squadId);
+    try { await api.patch(`/squads/${squadId}/approve`); onRefresh(); }
+    catch { /* ignore */ }
+    finally { setApprovingGroup(null); }
+  };
+
   const enteredCount = bookings.filter((b) => b.status === 'checked_in').length;
-  const isEmpty = requests.length === 0 && bookings.length === 0;
+
+  // Split squads into pending (any member pending) and approved
+  const pendingGroups  = squads.filter((sq) => sq.groupStatus === 'pending' || sq.groupStatus === 'mixed');
+  const approvedGroups = squads.filter((sq) => sq.groupStatus === 'approved');
+
+  const isEmpty = requests.length === 0 && bookings.length === 0 && squads.length === 0;
 
   if (isEmpty) {
     return (
@@ -322,7 +428,51 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
 
   return (
     <div className="space-y-6">
-      {/* ── Pending requests ── */}
+
+      {/* ── Pending group requests ── */}
+      {pendingGroups.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-white">Pending Groups</p>
+            <Badge variant="yellow">{pendingGroups.length}</Badge>
+          </div>
+          <div className="space-y-4">
+            {pendingGroups.map((sq) => (
+              <div key={sq._id.toString()} className="bg-dark-card border border-yellow-500/20 rounded-xl overflow-hidden">
+                {/* Group header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border bg-yellow-500/5">
+                  <div>
+                    <p className="text-white text-sm font-semibold">{sq.name}</p>
+                    <p className="text-xs text-muted">{sq.members.length} members</p>
+                  </div>
+                  <button
+                    onClick={() => handleApproveGroup(sq._id.toString())}
+                    disabled={approvingGroup === sq._id.toString()}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold rounded-lg hover:bg-green-500/25 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={13} />
+                    {approvingGroup === sq._id.toString() ? 'Approving…' : 'Approve Group'}
+                  </button>
+                </div>
+                {/* Members */}
+                <div className="divide-y divide-dark-border">
+                  {sq.members.map((m) => (
+                    <div key={m.userId} className="px-4 py-3">
+                      <AttendeeCard
+                        name={m.name} username={m.username} profileImage={m.profileImage}
+                        gender={m.gender} phone={m.phone} connectedSocials={m.connectedSocials}
+                        city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Individual pending requests ── */}
       {requests.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -331,18 +481,19 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
           </div>
           <div className="space-y-2">
             {requests.map((r) => (
-              <div key={r._id} className="bg-dark-card border border-dark-border rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-yellow-500/20 flex items-center justify-center text-sm font-bold text-yellow-400 shrink-0">
-                    {r.userId?.name?.[0]?.toUpperCase() ?? '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium">{r.userId?.name ?? 'User'}</p>
-                    <p className="text-xs text-muted mb-1">@{r.userId?.username ?? '—'}{r.userId?.city ? ` · ${r.userId.city}` : ''}</p>
-                    <SocialLinks socials={r.userId?.connectedSocials} />
-                    {r.message && <p className="text-xs text-zinc-300 mt-2 italic">&ldquo;{r.message}&rdquo;</p>}
-                  </div>
-                  <div className="flex gap-2 shrink-0">
+              <AttendeeCard
+                key={r._id}
+                name={r.userId?.name ?? 'User'}
+                username={r.userId?.username ?? '—'}
+                profileImage={r.userId?.profileImage}
+                gender={(r.userId as any)?.gender}
+                phone={(r.userId as any)?.phone}
+                connectedSocials={r.userId?.connectedSocials}
+                city={r.userId?.city}
+                cliquescore={r.userId?.cliquescore}
+                requestStatus="requested"
+                right={
+                  <div className="flex gap-2">
                     <button
                       onClick={() => handleApprove(r._id)}
                       disabled={approving === r._id}
@@ -360,32 +511,58 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
                       {rejecting === r._id ? '…' : 'Decline'}
                     </button>
                   </div>
-                </div>
-              </div>
+                }
+              />
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Squads overview ── */}
-      {squads.length > 0 && (
+      {/* ── Approved groups on the list ── */}
+      {approvedGroups.length > 0 && (
         <div>
-          <p className="text-sm font-semibold text-white mb-3">Squads ({squads.length})</p>
-          <div className="space-y-2">
-            {squads.map((sq) => (
-              <div key={sq._id} className="flex items-center justify-between bg-dark-card border border-dark-border rounded-xl px-4 py-3">
-                <div>
-                  <p className="text-white text-sm font-medium">{sq.name}</p>
-                  <p className="text-xs text-muted">{sq.members.map((m) => '@' + m.username).join(', ')}</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-white">Groups on the List</p>
+            <Badge variant="green">{approvedGroups.length}</Badge>
+          </div>
+          <div className="space-y-3">
+            {approvedGroups.map((sq) => (
+              <div key={sq._id.toString()} className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border">
+                  <div>
+                    <p className="text-white text-sm font-semibold">{sq.name}</p>
+                    <p className="text-xs text-muted">{sq.members.length} members</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {sq.groupPass && (
+                      <span className="flex items-center gap-1 text-xs text-lime-400 bg-lime-400/10 border border-lime-400/20 px-2 py-1 rounded-full">
+                        <QrCode size={10} />
+                        Group pass issued
+                      </span>
+                    )}
+                    <Badge variant={sq.groupPass ? 'green' : 'default'}>
+                      {sq.groupPass ? 'Approved' : 'No pass yet'}
+                    </Badge>
+                  </div>
                 </div>
-                <Badge variant="default">{sq.members.length} members</Badge>
+                <div className="divide-y divide-dark-border">
+                  {sq.members.map((m) => (
+                    <div key={m.userId} className="px-4 py-3">
+                      <AttendeeCard
+                        name={m.name} username={m.username} profileImage={m.profileImage}
+                        gender={m.gender} phone={m.phone} connectedSocials={m.connectedSocials}
+                        city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Confirmed guests ── */}
+      {/* ── Individual confirmed guests ── */}
       {bookings.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -398,36 +575,29 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
           <div className="space-y-2">
             {bookings.map((b) => {
               const entered = b.status === 'checked_in';
-              const squadName = squadByUser[b.userId?._id];
               return (
-                <div key={b._id} className="bg-dark-card border border-dark-border rounded-xl p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary-light shrink-0">
-                      {b.userId?.name?.[0]?.toUpperCase() ?? '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-white text-sm font-medium">{b.userId?.name ?? 'User'}</p>
-                        {squadName && (
-                          <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-lime-400/10 text-lime-400 border border-lime-400/20">
-                            {squadName}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted mb-1">@{b.userId?.username ?? '—'}</p>
-                      <SocialLinks socials={b.userId?.connectedSocials} />
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                <AttendeeCard
+                  key={b._id}
+                  name={b.userId?.name ?? 'User'}
+                  username={b.userId?.username ?? '—'}
+                  profileImage={b.userId?.profileImage}
+                  gender={(b.userId as any)?.gender}
+                  phone={(b.userId as any)?.phone}
+                  connectedSocials={(b.userId as any)?.connectedSocials}
+                  city={(b.userId as any)?.city}
+                  requestStatus={null}
+                  right={
+                    <div className="flex items-center gap-2">
                       <BookingStatusBadge status={b.status} />
                       {(b.status === 'confirmed' || b.status === 'checked_in') && (
                         <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${entered ? 'bg-green-500/15 text-green-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
                           {entered ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
-                          {entered ? 'Entered' : 'Not entered'}
+                          {entered ? 'In' : 'Awaiting'}
                         </span>
                       )}
                     </div>
-                  </div>
-                </div>
+                  }
+                />
               );
             })}
           </div>

@@ -328,9 +328,12 @@ export default function HostDashboardPage() {
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const activeEvents    = events.filter((e) => e.status === 'published' || e.status === 'draft');
+  const inactiveEvents  = events.filter((e) => e.status === 'cancelled' || e.status === 'completed');
+
   const liveEvents = events.filter((e) => e.status === 'published').length;
-  const totalRSVPs = events.reduce((s, e) => s + e.bookedCount, 0);
-  const revenue    = events.reduce((s, e) => s + e.bookedCount * e.price, 0);
+  const totalRSVPs = activeEvents.reduce((s, e) => s + e.bookedCount, 0);
+  const revenue    = activeEvents.reduce((s, e) => s + e.bookedCount * e.price, 0);
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '96px 0' }}>
@@ -376,7 +379,7 @@ export default function HostDashboardPage() {
       {/* Your events */}
       <div style={{ marginBottom: 40 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 16 }}>YOUR EVENTS</div>
-        {events.length === 0 ? (
+        {activeEvents.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 16 }}>
             <div style={{ fontFamily: 'var(--display)', fontSize: 32, color: 'var(--dim)', marginBottom: 12 }}>○</div>
             <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginBottom: 8 }}>Nothing on the books.</div>
@@ -388,10 +391,15 @@ export default function HostDashboardPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {events.map((e) => <HostEventRow key={e._id} event={e} />)}
+            {activeEvents.map((e) => <HostEventRow key={e._id} event={e} />)}
           </div>
         )}
       </div>
+
+      {/* Past / cancelled events (collapsed section) */}
+      {inactiveEvents.length > 0 && (
+        <PastEventsSection events={inactiveEvents} />
+      )}
 
       {/* Scanner */}
       <div style={{ marginBottom: 40 }}>
@@ -428,16 +436,44 @@ export default function HostDashboardPage() {
   );
 }
 
-function HostEventRow({ event }: { event: Event }) {
+function PastEventsSection({ events }: { events: Event[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginBottom: 40 }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: open ? 14 : 0 }}
+      >
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)' }}>
+          PAST &amp; CANCELLED
+        </span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', transition: 'transform .2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+          ›
+        </span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', background: 'var(--line)', padding: '2px 8px', borderRadius: 999 }}>
+          {events.length}
+        </span>
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {events.map((e) => <HostEventRow key={e._id} event={e} dimmed />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HostEventRow({ event, dimmed = false }: { event: Event; dimmed?: boolean }) {
   const router = useRouter();
   const color  = CAT_COLORS[event.category] ?? '#E8E1D2';
   const filled = Math.min(100, (event.bookedCount / event.capacity) * 100);
+  const isCancelled = event.status === 'cancelled';
 
   return (
     <div onClick={() => router.push(`/host/events/${event._id}`)}
-      style={{ display: 'grid', gridTemplateColumns: '64px 1fr auto auto', gap: 18, alignItems: 'center', padding: 14, background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 12, cursor: 'pointer', transition: 'border-color .15s ease' }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--cream)')}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line-2)')}
+      style={{ display: 'grid', gridTemplateColumns: '64px 1fr auto auto', gap: 18, alignItems: 'center', padding: 14, background: '#14110E', border: `1px solid ${isCancelled ? 'rgba(255,61,110,0.15)' : 'var(--line-2)'}`, borderRadius: 12, cursor: 'pointer', transition: 'border-color .15s ease', opacity: dimmed ? 0.55 : 1 }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = dimmed ? 'rgba(255,61,110,0.3)' : 'var(--cream)')}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = isCancelled ? 'rgba(255,61,110,0.15)' : 'var(--line-2)')}
     >
       <div style={{ width: 64, height: 64, borderRadius: 8, background: color, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 8, flexShrink: 0 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(11,9,7,0.7)', letterSpacing: '.12em' }}>{(event.category ?? 'other').replace('_', ' ').toUpperCase()}</div>
@@ -446,7 +482,24 @@ function HostEventRow({ event }: { event: Event }) {
         </div>
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--paper)' }}>{event.title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--paper)' }}>{event.title}</div>
+          {event.status === 'cancelled' && (
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.12em', color: 'var(--hot)', background: 'rgba(255,61,110,0.12)', border: '1px solid rgba(255,61,110,0.25)', padding: '2px 7px', borderRadius: 999, textTransform: 'uppercase', flexShrink: 0 }}>
+              Cancelled
+            </span>
+          )}
+          {event.status === 'draft' && (
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.12em', color: 'var(--cream)', background: 'var(--line)', border: '1px solid var(--line-2)', padding: '2px 7px', borderRadius: 999, textTransform: 'uppercase', flexShrink: 0 }}>
+              Draft
+            </span>
+          )}
+          {event.status === 'completed' && (
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.12em', color: '#7DB4FF', background: 'rgba(125,180,255,0.1)', border: '1px solid rgba(125,180,255,0.2)', padding: '2px 7px', borderRadius: 999, textTransform: 'uppercase', flexShrink: 0 }}>
+              Completed
+            </span>
+          )}
+        </div>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.06em', marginTop: 4 }}>
           {event.locationName}{event.startTime ? ` · ${fmtHour(event.startTime)}` : ''}{event.endTime ? ` → ${fmtHour(event.endTime)}` : ''}
         </div>
