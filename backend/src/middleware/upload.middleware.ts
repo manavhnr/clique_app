@@ -1,26 +1,15 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { createError } from './error.middleware';
-
-const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime'];
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;  // 10 MB
+const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200 MB
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-  },
-});
+// Store files in memory as buffers — each controller uploads to Cloudinary
+const memory = multer.memoryStorage();
 
 export const uploadImage = multer({
-  storage,
+  storage: memory,
   limits: { fileSize: MAX_IMAGE_SIZE },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) return cb(null, true);
@@ -29,11 +18,11 @@ export const uploadImage = multer({
 });
 
 export const uploadMedia = multer({
-  storage,
+  storage: memory,
   limits: { fileSize: MAX_VIDEO_SIZE },
   fileFilter: (_req, file, cb) => {
     const allowed = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES];
     if (allowed.includes(file.mimetype)) return cb(null, true);
-    cb(new Error('Unsupported file type'));
+    cb(new Error('Unsupported file type — allowed: JPEG, PNG, WebP, MP4, MOV, WebM'));
   },
 });

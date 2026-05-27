@@ -38,8 +38,12 @@ router.get('/mine', myEvents);
 router.get('/:eventId', getEvent);
 
 // Host-only writes
-router.post('/', requireVerifiedHost, uploadMedia.array('images', 10), validate(createEventSchema), create);
-router.put('/:eventId', requireVerifiedHost, validate(updateEventSchema), update);
+router.post('/', requireVerifiedHost,
+  uploadMedia.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 3 }]),
+  validate(createEventSchema), create);
+router.put('/:eventId', requireVerifiedHost,
+  uploadMedia.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 3 }]),
+  validate(updateEventSchema), update);
 router.patch('/:eventId/publish', requireVerifiedHost, publish);
 router.patch('/:eventId/cancel', cancel);   // host or admin — enforced in service
 router.delete('/:eventId', requireVerifiedHost, remove);

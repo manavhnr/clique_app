@@ -16,7 +16,7 @@ export interface IUser extends Document {
   email?: string;
   dob?: Date;
   age?: number;
-  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  gender?: 'male' | 'female' | 'prefer_not_to_say';
   profileImage?: string;
   bio?: string;
   city?: string;
@@ -49,7 +49,7 @@ const userSchema = new Schema<IUser>(
     email: { type: String, trim: true, lowercase: true },
     dob: { type: Date },
     age: { type: Number },
-    gender: { type: String, enum: ['male', 'female', 'other', 'prefer_not_to_say'] },
+    gender: { type: String, enum: ['male', 'female', 'prefer_not_to_say'] },
     profileImage: { type: String },
     bio: { type: String, maxlength: 300 },
     city: { type: String },

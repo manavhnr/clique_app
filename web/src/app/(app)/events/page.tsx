@@ -6,7 +6,7 @@ import { Event } from '@/types';
 import api from '@/lib/api';
 
 const CATEGORIES = ['all', 'tonight', 'this weekend', 'near me', 'house party', 'warehouse', 'club', 'free'];
-const ALL_VIBES  = ['chill', 'techno', 'indie', 'queer', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient'];
+const ALL_VIBES  = ['chill', 'techno', 'indie', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient', 'bass', 'desi', 'bollywood'];
 
 function Spinner() {
   return <div style={{ width: 32, height: 32, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />;

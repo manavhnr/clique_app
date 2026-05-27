@@ -3,7 +3,7 @@ import { User } from '../models/User';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
 import { incrementEventCreationScore } from './cliquescore.service';
-import path from 'path';
+import { uploadFile } from '../utils/cloudinary';
 
 export async function applyForHost(
   userId: string,
@@ -17,8 +17,8 @@ export async function applyForHost(
   if (user.isVerifiedHost) throw createError('Already a verified host', 409);
   if (user.hostVerificationStatus === 'pending') throw createError('Application already pending', 409);
 
-  const documentUrl = documentFile ? `/uploads/${path.basename(documentFile.path)}` : undefined;
-  const selfieUrl = selfieFile ? `/uploads/${path.basename(selfieFile.path)}` : undefined;
+  const documentUrl = documentFile ? await uploadFile(documentFile, 'clique/host-docs') : undefined;
+  const selfieUrl   = selfieFile   ? await uploadFile(selfieFile,   'clique/host-docs') : undefined;
 
   const verification = await HostVerification.findOneAndUpdate(
     { userId },

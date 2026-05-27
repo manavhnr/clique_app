@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { X, Upload } from 'lucide-react';
+import { X, Upload, Film, Image as ImageIcon } from 'lucide-react';
 import LocationPicker, { PickedLocation } from '@/components/map/LocationPicker';
 import api from '@/lib/api';
 
@@ -16,7 +16,7 @@ const CATEGORIES = [
   { value: 'other', label: 'Other', color: '#E8E1D2' },
 ];
 
-const VIBE_TAGS = ['chill', 'techno', 'indie', 'queer', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient'];
+const VIBE_TAGS = ['chill', 'techno', 'indie', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient', 'bass', 'desi', 'bollywood'];
 const MUSIC_TAGS = ['Live DJ', 'Live Band', 'Playlist', 'Open Mic', 'Acoustic'];
 
 const PREVIEW_COLORS: Record<string, string> = {
@@ -58,8 +58,11 @@ export default function NewEventPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
-  const [images, setImages] = useState<File[]>([]);
+  const [images, setImages]               = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [videos, setVideos]               = useState<File[]>([]);
+  // video preview = object URL so <video> can play inline thumbnail
+  const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
 
   const [form, setForm] = useState({
     title: '', description: '', category: 'house_party',
@@ -92,7 +95,7 @@ export default function NewEventPage() {
 
   const handleImages = (files: FileList | null) => {
     if (!files) return;
-    const newFiles = Array.from(files).slice(0, 5);
+    const newFiles = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, 5 - images.length);
     setImages((prev) => [...prev, ...newFiles].slice(0, 5));
     newFiles.forEach((f) => {
       const reader = new FileReader();
@@ -104,6 +107,22 @@ export default function NewEventPage() {
   const removeImage = (i: number) => {
     setImages(images.filter((_, idx) => idx !== i));
     setImagePreviews(imagePreviews.filter((_, idx) => idx !== i));
+  };
+
+  const handleVideos = (files: FileList | null) => {
+    if (!files) return;
+    const newFiles = Array.from(files).filter((f) => f.type.startsWith('video/')).slice(0, 3 - videos.length);
+    setVideos((prev) => [...prev, ...newFiles].slice(0, 3));
+    newFiles.forEach((f) => {
+      const url = URL.createObjectURL(f);
+      setVideoPreviews((prev) => [...prev, url].slice(0, 3));
+    });
+  };
+
+  const removeVideo = (i: number) => {
+    URL.revokeObjectURL(videoPreviews[i]);
+    setVideos(videos.filter((_, idx) => idx !== i));
+    setVideoPreviews(videoPreviews.filter((_, idx) => idx !== i));
   };
 
   const handleSubmit = async (publish = false) => {
@@ -123,6 +142,7 @@ export default function NewEventPage() {
       });
       if (publish) fd.set('status', 'published');
       images.forEach((img) => fd.append('images', img));
+      videos.forEach((vid) => fd.append('videos', vid));
 
       const { data } = await api.post('/events', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
 
@@ -290,7 +310,8 @@ export default function NewEventPage() {
                 </div>
               </Field>
 
-              <Field label="IMAGES">
+              {/* ── IMAGES ── */}
+              <Field label="IMAGES" hint={`${imagePreviews.length}/5`}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 10 }}>
                   {imagePreviews.map((src, i) => (
                     <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--line-2)' }}>
@@ -305,9 +326,45 @@ export default function NewEventPage() {
                       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--lime)')}
                       onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line-2)')}
                     >
-                      <Upload size={18} color="var(--dim)" />
+                      <ImageIcon size={18} color="var(--dim)" />
                       <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em' }}>ADD</span>
-                      <input type="file" accept="image/*" multiple className="hidden" style={{ display: 'none' }} onChange={(e) => handleImages(e.target.files)} />
+                      <input type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display: 'none' }} onChange={(e) => { handleImages(e.target.files); e.target.value = ''; }} />
+                    </label>
+                  )}
+                </div>
+              </Field>
+
+              {/* ── VIDEOS ── */}
+              <Field label="VIDEOS" hint={`${videoPreviews.length}/3 · MP4 / MOV / WebM`}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {videoPreviews.map((src, i) => (
+                    <div key={i} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#0B0907', border: '1px solid var(--line-2)' }}>
+                      <video src={src} style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block' }} muted playsInline />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderTop: '1px solid var(--line-2)' }}>
+                        <Film size={12} color="var(--dim)" />
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {videos[i]?.name}
+                        </span>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)' }}>
+                          {(videos[i]?.size / 1024 / 1024).toFixed(1)} MB
+                        </span>
+                        <button type="button" onClick={() => removeVideo(i)} style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,61,110,0.15)', border: '1px solid rgba(255,61,110,0.3)', color: 'var(--hot)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                          <X size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {videoPreviews.length < 3 && (
+                    <label style={{ borderRadius: 10, border: '2px dashed var(--line-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '18px 20px', cursor: 'pointer', transition: 'border-color .15s ease' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--lime)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line-2)')}
+                    >
+                      <Film size={18} color="var(--dim)" />
+                      <div>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em', display: 'block' }}>ADD VIDEO</span>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#555', letterSpacing: '.06em' }}>MP4 · MOV · WEBM · up to 200 MB</span>
+                      </div>
+                      <input type="file" accept="video/mp4,video/quicktime,video/webm" multiple style={{ display: 'none' }} onChange={(e) => { handleVideos(e.target.files); e.target.value = ''; }} />
                     </label>
                   )}
                 </div>

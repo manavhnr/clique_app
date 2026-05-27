@@ -9,7 +9,7 @@ import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
 import { incrementEventCreationScore } from './cliquescore.service';
 import { notifyEventCancelled } from './notification.service';
-import path from 'path';
+import { uploadFile } from '../utils/cloudinary';
 import { z } from 'zod';
 import { createEventSchema, updateEventSchema } from '../validators/event.validator';
 
@@ -19,15 +19,20 @@ type UpdateEventInput = z.infer<typeof updateEventSchema>;
 export async function createEvent(
   hostId: string,
   data: CreateEventInput,
-  imageFiles: Express.Multer.File[]
+  imageFiles: Express.Multer.File[],
+  videoFiles: Express.Multer.File[] = []
 ) {
-  const images = imageFiles.map((f) => `/uploads/${path.basename(f.path)}`);
+  const [images, videos] = await Promise.all([
+    Promise.all(imageFiles.map((f) => uploadFile(f, 'clique/events/images'))),
+    Promise.all(videoFiles.map((f) => uploadFile(f, 'clique/events/videos'))),
+  ]);
 
   const event = await Event.create({
     hostId,
     title: data.title,
     description: data.description,
     images,
+    videos,
     category: data.category,
     vibeTags: data.vibeTags,
     musicTags: data.musicTags,
@@ -97,7 +102,13 @@ export async function getEventById(eventId: string, requesterId: string) {
   };
 }
 
-export async function updateEvent(eventId: string, hostId: string, data: UpdateEventInput) {
+export async function updateEvent(
+  eventId: string,
+  hostId: string,
+  data: UpdateEventInput,
+  imageFiles: Express.Multer.File[] = [],
+  videoFiles: Express.Multer.File[] = []
+) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
   if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
@@ -111,6 +122,16 @@ export async function updateEvent(eventId: string, hostId: string, data: UpdateE
     update.location = { type: 'Point', coordinates: [data.longitude, data.latitude] };
     delete update.latitude;
     delete update.longitude;
+  }
+
+  // Append any newly uploaded media to existing arrays
+  if (imageFiles.length > 0) {
+    const newImageUrls = await Promise.all(imageFiles.map((f) => uploadFile(f, 'clique/events/images')));
+    update.images = [...event.images, ...newImageUrls];
+  }
+  if (videoFiles.length > 0) {
+    const newVideoUrls = await Promise.all(videoFiles.map((f) => uploadFile(f, 'clique/events/videos')));
+    update.videos = [...event.videos, ...newVideoUrls];
   }
 
   const updated = await Event.findByIdAndUpdate(eventId, { $set: update }, { new: true, runValidators: true });

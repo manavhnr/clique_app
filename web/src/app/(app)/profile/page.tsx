@@ -8,8 +8,8 @@ import { User, Pass, Event } from '@/types';
 import { getImageUrl, formatDate } from '@/lib/utils';
 import api from '@/lib/api';
 
-const ALL_VIBES = ['chill', 'techno', 'indie', 'queer', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient'];
-const CITIES = ['NYC', 'LA', 'SF', 'CHI', 'ATL', 'MIA', 'BER', 'LDN', 'PAR', 'TYO', 'MEX', 'SEA', 'BOS', 'AUS', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
+const ALL_VIBES = ['chill', 'techno', 'indie', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient', 'bass', 'desi', 'bollywood'];
+const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Goa', 'Chandigarh', 'Kochi', 'Indore', 'Lucknow', 'Surat', 'Nagpur', 'Coimbatore', 'Vizag', 'Bhopal', 'Vadodara'];
 
 function InstagramLogo({ size = 20 }: { size?: number }) {
   return (

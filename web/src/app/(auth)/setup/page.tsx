@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 
-const ALL_VIBES     = ['chill', 'techno', 'indie', 'queer', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient'];
-const INTERESTS     = ['Techno', 'Hip-Hop', 'EDM', 'House', 'R&B', 'Pop', 'Afrobeats', 'Latin', 'Jazz', 'Dancing', 'Live Music', 'House Parties', 'Clubbing', 'Art Nights'];
-const CITIES        = ['NYC', 'LA', 'SF', 'CHI', 'ATL', 'MIA', 'BER', 'LDN', 'PAR', 'TYO', 'MEX', 'SEA', 'BOS', 'AUS', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
-const GENDERS       = [['Male', 'male'], ['Female', 'female'], ['Non-binary', 'other'], ['Prefer not to say', 'prefer_not_to_say']] as [string, string][];
+const ALL_VIBES     = ['chill', 'techno', 'indie', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient', 'bass', 'desi', 'bollywood'];
+const INTERESTS     = ['Techno', 'Hip-Hop', 'EDM', 'House', 'R&B', 'Pop', 'Bollywood', 'Afrobeats', 'Punjabi', 'Latin', 'Jazz', 'K-Pop', 'Reggaeton', 'Dancing', 'Live Music', 'House Parties', 'Clubbing', 'Art Nights', 'Rooftop Bars', 'Warehouse Raves'];
+const CITIES        = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Goa', 'Chandigarh', 'Kochi', 'Indore', 'Lucknow', 'Surat', 'Nagpur', 'Coimbatore', 'Vizag', 'Bhopal', 'Vadodara'];
+const GENDERS       = [['Male', 'male'], ['Female', 'female'], ['Prefer not to say', 'prefer_not_to_say']] as [string, string][];
 
 function AuthShell({ children, step }: { children: React.ReactNode; step?: number }) {
   const steps = ['PHONE', 'VERIFY', 'PROFILE'];

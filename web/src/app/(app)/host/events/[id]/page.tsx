@@ -305,7 +305,6 @@ function GenderBadge({ gender }: { gender?: string }) {
   const map: Record<string, { label: string; color: string }> = {
     male:   { label: 'M', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
     female: { label: 'F', color: 'text-pink-400 bg-pink-500/10 border-pink-500/20' },
-    other:  { label: 'NB', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
   };
   const cfg = map[gender];
   if (!cfg) return null;

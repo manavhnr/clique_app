@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendSuccess } from '../utils/response';
-import path from 'path';
+import { uploadFile } from '../utils/cloudinary';
 import {
   createPost,
   getPostById,
@@ -18,7 +18,7 @@ const parseLimit = (q: unknown) => Math.min(50, Math.max(1, parseInt(String(q ??
 export async function create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const files = (req.files as Express.Multer.File[]) ?? [];
-    const mediaUrls = files.map((f) => `/uploads/${path.basename(f.path)}`);
+    const mediaUrls = await Promise.all(files.map((f) => uploadFile(f, 'clique/posts')));
     const post = await createPost(req.user!.userId, req.body, mediaUrls);
     sendSuccess(res, { post }, 'Post created', 201);
   } catch (err) { next(err); }

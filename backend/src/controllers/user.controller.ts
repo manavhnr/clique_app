@@ -7,7 +7,7 @@ import { User } from '../models/User';
 import { hashOTP } from '../services/otp.service';
 import { createError } from '../middleware/error.middleware';
 import { sendSuccess } from '../utils/response';
-import path from 'path';
+import { uploadFile } from '../utils/cloudinary';
 
 export async function getMyProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -42,7 +42,7 @@ export async function uploadMyProfileImage(req: AuthRequest, res: Response, next
       res.status(400).json({ success: false, message: 'No image uploaded' });
       return;
     }
-    const imageUrl = `/uploads/${path.basename(req.file.path)}`;
+    const imageUrl = await uploadFile(req.file, 'clique/profiles', `profile-${req.user!.userId}`);
     const user = await updateProfileImage(req.user!.userId, imageUrl);
     sendSuccess(res, { user, imageUrl }, 'Profile image updated');
   } catch (err) {
