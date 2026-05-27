@@ -11,12 +11,28 @@ import api from '@/lib/api';
 const ALL_VIBES = ['chill', 'techno', 'indie', 'queer', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient'];
 const CITIES = ['NYC', 'LA', 'SF', 'CHI', 'ATL', 'MIA', 'BER', 'LDN', 'PAR', 'TYO', 'MEX', 'SEA', 'BOS', 'AUS', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
 
-const SOCIALS: { key: string; label: string; icon: string; urlFn: (h: string) => string }[] = [
-  { key: 'instagram', label: 'Instagram',  icon: '📷', urlFn: (h) => `https://instagram.com/${h}` },
-  { key: 'twitter',   label: 'Twitter / X', icon: '𝕏',  urlFn: (h) => `https://twitter.com/${h}` },
-  { key: 'snapchat',  label: 'Snapchat',   icon: '👻', urlFn: (h) => `https://snapchat.com/add/${h}` },
-  { key: 'facebook',  label: 'Facebook',   icon: '📘', urlFn: (h) => `https://facebook.com/${h}` },
-  { key: 'linkedin',  label: 'LinkedIn',   icon: '💼', urlFn: (h) => `https://linkedin.com/in/${h}` },
+function InstagramLogo({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%"   stopColor="#FEDA75" />
+          <stop offset="25%"  stopColor="#FA7E1E" />
+          <stop offset="50%"  stopColor="#D62976" />
+          <stop offset="75%"  stopColor="#962FBF" />
+          <stop offset="100%" stopColor="#4F5BD5" />
+        </linearGradient>
+      </defs>
+      <path
+        fill="url(#ig-grad)"
+        d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"
+      />
+    </svg>
+  );
+}
+
+const SOCIALS = [
+  { key: 'instagram', label: 'Instagram', urlFn: (h: string) => `https://instagram.com/${h}` },
 ];
 
 const CAT_COLORS: Record<string, string> = {
@@ -131,7 +147,7 @@ function SocialsSection({ profile, onSaved }: { profile: User; onSaved: (updated
       </div>
 
       <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 14, padding: '0 20px' }}>
-        {SOCIALS.map(({ key, label, icon, urlFn }, idx) => {
+        {SOCIALS.map(({ key, label, urlFn }, idx) => {
           const handle = (socials as Record<string, string | undefined>)[key];
           const isEditing = editing === key;
           const isLast = idx === SOCIALS.length - 1;
@@ -140,7 +156,7 @@ function SocialsSection({ profile, onSaved }: { profile: User; onSaved: (updated
             <div key={key} style={{ ...row, borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
               {/* Icon + label */}
               <div style={{ width: 130, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{icon}</span>
+                <InstagramLogo size={22} />
                 <span style={{ ...mono11, color: 'var(--cream)', textTransform: 'uppercase' }}>{label}</span>
               </div>
 
