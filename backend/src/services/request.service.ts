@@ -61,7 +61,7 @@ export async function getHostRequests(
   if (eventId) query.eventId = eventId;
 
   const requests = await JoinRequest.find(query)
-    .populate('userId', 'name username profileImage gender phone cliquescore city connectedSocials')
+    .populate('userId', 'name username profileImage gender age phone cliquescore city connectedSocials')
     .populate('eventId', 'title date')
     .sort({ createdAt: 1 })
     .skip((page - 1) * limit)

@@ -18,7 +18,7 @@ import api from '@/lib/api';
 
 interface Booking {
   _id: string;
-  userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; phone?: string; connectedSocials?: { instagram?: string }; city?: string };
+  userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; age?: number; phone?: string; connectedSocials?: { instagram?: string }; city?: string };
   status: string;
   amount: number;
   createdAt: string;
@@ -26,7 +26,7 @@ interface Booking {
 
 interface PendingRequest {
   _id: string;
-  userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; phone?: string; connectedSocials?: { instagram?: string }; cliquescore?: number; city?: string };
+  userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; age?: number; phone?: string; connectedSocials?: { instagram?: string }; cliquescore?: number; city?: string };
   status: string;
   message?: string;
   createdAt: string;
@@ -317,10 +317,10 @@ function GenderBadge({ gender }: { gender?: string }) {
 }
 
 function AttendeeCard({
-  name, username, profileImage, gender, phone, connectedSocials, city, cliquescore,
+  name, username, profileImage, gender, age, phone, connectedSocials, city, cliquescore,
   right, requestStatus,
 }: {
-  name: string; username: string; profileImage?: string; gender?: string; phone?: string;
+  name: string; username: string; profileImage?: string; gender?: string; age?: number; phone?: string;
   connectedSocials?: { instagram?: string }; city?: string; cliquescore?: number;
   right?: React.ReactNode; requestStatus?: string | null;
 }) {
@@ -338,10 +338,15 @@ function AttendeeCard({
 
         {/* Details */}
         <div className="flex-1 min-w-0">
-          {/* Row 1: name + gender badge */}
+          {/* Row 1: name + gender badge + age + status */}
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
             <p className="text-white text-sm font-semibold">{name || 'Unknown'}</p>
             <GenderBadge gender={gender} />
+            {age != null && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-zinc-400 bg-zinc-500/10 border-zinc-500/20">
+                {age}y
+              </span>
+            )}
             {requestStatus === 'requested' && (
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-yellow-400 bg-yellow-500/10 border-yellow-500/20">
                 Pending
@@ -354,7 +359,7 @@ function AttendeeCard({
             )}
           </div>
 
-          {/* Row 2: username + city */}
+          {/* Row 2: username + city + cliquescore */}
           <p className="text-xs text-muted">
             @{username || '—'}{city ? ` · ${city}` : ''}
             {cliquescore != null ? ` · ★ ${cliquescore}` : ''}
@@ -383,9 +388,9 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
   squads: Squad[];
   onRefresh: () => void;
 }) {
-  const [approving, setApproving]       = useState<string | null>(null);  // requestId
-  const [rejecting, setRejecting]       = useState<string | null>(null);  // requestId
-  const [approvingGroup, setApprovingGroup] = useState<string | null>(null); // squadId
+  const [approving, setApproving]           = useState<string | null>(null);  // requestId
+  const [rejecting, setRejecting]           = useState<string | null>(null);  // requestId
+  const [approvingGroup, setApprovingGroup] = useState<string | null>(null);  // squadId
 
   const handleApprove = async (requestId: string) => {
     setApproving(requestId);
@@ -414,7 +419,11 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
   const pendingGroups  = squads.filter((sq) => sq.groupStatus === 'pending' || sq.groupStatus === 'mixed');
   const approvedGroups = squads.filter((sq) => sq.groupStatus === 'approved');
 
-  const isEmpty = requests.length === 0 && bookings.length === 0 && squads.length === 0;
+  // Exclude group members from individual pending requests
+  const allGroupMemberUserIds = new Set(squads.flatMap((sq) => sq.members.map((m) => m.userId)));
+  const soloRequests = requests.filter((r) => !allGroupMemberUserIds.has(r.userId._id));
+
+  const isEmpty = soloRequests.length === 0 && bookings.length === 0 && squads.length === 0;
 
   if (isEmpty) {
     return (
@@ -437,57 +446,89 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
             <Badge variant="yellow">{pendingGroups.length}</Badge>
           </div>
           <div className="space-y-4">
-            {pendingGroups.map((sq) => (
-              <div key={sq._id.toString()} className="bg-dark-card border border-yellow-500/20 rounded-xl overflow-hidden">
-                {/* Group header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border bg-yellow-500/5">
-                  <div>
-                    <p className="text-white text-sm font-semibold">{sq.name}</p>
-                    <p className="text-xs text-muted">{sq.members.length} members</p>
-                  </div>
-                  <button
-                    onClick={() => handleApproveGroup(sq._id.toString())}
-                    disabled={approvingGroup === sq._id.toString()}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold rounded-lg hover:bg-green-500/25 transition-colors disabled:opacity-50"
-                  >
-                    <CheckCircle2 size={13} />
-                    {approvingGroup === sq._id.toString() ? 'Approving…' : 'Approve Group'}
-                  </button>
-                </div>
-                {/* Members */}
-                <div className="divide-y divide-dark-border">
-                  {sq.members.map((m) => (
-                    <div key={m.userId} className="px-4 py-3">
-                      <AttendeeCard
-                        name={m.name} username={m.username} profileImage={m.profileImage}
-                        gender={m.gender} phone={m.phone} connectedSocials={m.connectedSocials}
-                        city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
-                      />
+            {pendingGroups.map((sq) => {
+              const pendingMemberCount = sq.members.filter((m) => m.requestStatus === 'requested').length;
+              return (
+                <div key={sq._id.toString()} className="bg-dark-card border border-yellow-500/20 rounded-xl overflow-hidden">
+                  {/* Group header */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border bg-yellow-500/5">
+                    <div>
+                      <p className="text-white text-sm font-semibold">{sq.name}</p>
+                      <p className="text-xs text-muted">
+                        {sq.members.length} members
+                        {pendingMemberCount > 0 && ` · ${pendingMemberCount} pending`}
+                      </p>
                     </div>
-                  ))}
+                    {/* Only show Approve Group if there are still pending members */}
+                    {pendingMemberCount > 0 && (
+                      <button
+                        onClick={() => handleApproveGroup(sq._id.toString())}
+                        disabled={approvingGroup === sq._id.toString()}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold rounded-lg hover:bg-green-500/25 transition-colors disabled:opacity-50"
+                      >
+                        <CheckCircle2 size={13} />
+                        {approvingGroup === sq._id.toString() ? 'Approving…' : 'Approve All'}
+                      </button>
+                    )}
+                  </div>
+                  {/* Members — each with individual accept/decline if still pending */}
+                  <div className="divide-y divide-dark-border">
+                    {sq.members.map((m) => (
+                      <div key={m.userId} className="px-4 py-3">
+                        <AttendeeCard
+                          name={m.name} username={m.username} profileImage={m.profileImage}
+                          gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
+                          city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
+                          right={
+                            m.requestStatus === 'requested' && m.requestId ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleApprove(m.requestId!)}
+                                  disabled={approving === m.requestId}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-medium rounded-lg hover:bg-green-500/25 transition-colors disabled:opacity-50"
+                                >
+                                  <CheckCircle2 size={12} />
+                                  {approving === m.requestId ? '…' : 'Accept'}
+                                </button>
+                                <button
+                                  onClick={() => handleReject(m.requestId!)}
+                                  disabled={rejecting === m.requestId}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                >
+                                  <XCircle size={12} />
+                                  {rejecting === m.requestId ? '…' : 'Decline'}
+                                </button>
+                              </div>
+                            ) : undefined
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* ── Individual pending requests ── */}
-      {requests.length > 0 && (
+      {/* ── Individual pending requests (solo — not in any group) ── */}
+      {soloRequests.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold text-white">Pending Requests</p>
-            <Badge variant="yellow">{requests.length}</Badge>
+            <Badge variant="yellow">{soloRequests.length}</Badge>
           </div>
           <div className="space-y-2">
-            {requests.map((r) => (
+            {soloRequests.map((r) => (
               <AttendeeCard
                 key={r._id}
                 name={r.userId?.name ?? 'User'}
                 username={r.userId?.username ?? '—'}
                 profileImage={r.userId?.profileImage}
-                gender={(r.userId as any)?.gender}
-                phone={(r.userId as any)?.phone}
+                gender={r.userId?.gender}
+                age={r.userId?.age}
+                phone={r.userId?.phone}
                 connectedSocials={r.userId?.connectedSocials}
                 city={r.userId?.city}
                 cliquescore={r.userId?.cliquescore}
@@ -550,7 +591,7 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
                     <div key={m.userId} className="px-4 py-3">
                       <AttendeeCard
                         name={m.name} username={m.username} profileImage={m.profileImage}
-                        gender={m.gender} phone={m.phone} connectedSocials={m.connectedSocials}
+                        gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
                         city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
                       />
                     </div>
@@ -581,10 +622,11 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
                   name={b.userId?.name ?? 'User'}
                   username={b.userId?.username ?? '—'}
                   profileImage={b.userId?.profileImage}
-                  gender={(b.userId as any)?.gender}
-                  phone={(b.userId as any)?.phone}
-                  connectedSocials={(b.userId as any)?.connectedSocials}
-                  city={(b.userId as any)?.city}
+                  gender={b.userId?.gender}
+                  age={b.userId?.age}
+                  phone={b.userId?.phone}
+                  connectedSocials={b.userId?.connectedSocials}
+                  city={b.userId?.city}
                   requestStatus={null}
                   right={
                     <div className="flex items-center gap-2">

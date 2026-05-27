@@ -136,10 +136,12 @@ export interface SquadMember {
   username: string;
   profileImage?: string;
   gender?: string;
+  age?: number;
   phone?: string;
   connectedSocials?: { instagram?: string };
   city?: string;
   cliquescore?: number;
+  requestId?: string | null;
   requestStatus?: 'requested' | 'approved' | 'rejected' | 'expired' | null;
   joinedAt: string;
 }

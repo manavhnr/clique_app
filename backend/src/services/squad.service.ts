@@ -76,10 +76,10 @@ export async function getAllSquadsForEvent(hostId: string, eventId: string) {
 
       const [users, requests, groupPass] = await Promise.all([
         User.find({ _id: { $in: memberUserIds } }).select(
-          'name username profileImage gender phone connectedSocials city cliquescore'
+          'name username profileImage gender phone connectedSocials city cliquescore age'
         ),
         JoinRequest.find({ eventId, userId: { $in: memberUserIds } }).select(
-          'userId status createdAt'
+          '_id userId status createdAt'
         ),
         Pass.findOne({ groupId: sq._id.toString(), passType: 'group' }).select('_id status'),
       ]);
@@ -97,10 +97,12 @@ export async function getAllSquadsForEvent(hostId: string, eventId: string) {
           username: user?.username   ?? m.username,
           profileImage: user?.profileImage,
           gender:   user?.gender,
+          age:      user?.age,
           phone:    user?.phone,
           connectedSocials: user?.connectedSocials,
           city:     user?.city,
           cliquescore: user?.cliquescore,
+          requestId:     req?._id?.toString() ?? null,
           requestStatus: req?.status ?? null,
           joinedAt: m.joinedAt,
         };
