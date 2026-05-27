@@ -91,86 +91,6 @@ function useBreakpoint() {
   };
 }
 
-// ─────── Video Modal ───────
-function VideoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (open) {
-      videoRef.current?.play().catch(() => {});
-    } else {
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.currentTime = 0;
-      }
-    }
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 200,
-        background: 'rgba(0,0,0,0.94)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '16px',
-        animation: 'fadeIn .2s ease-out',
-      }}
-    >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        style={{
-          position: 'absolute', top: 20, right: 20,
-          background: 'rgba(255,255,255,0.08)',
-          border: '1px solid rgba(255,255,255,0.18)',
-          color: '#fff', width: 44, height: 44, borderRadius: '50%',
-          fontSize: 18, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'var(--mono)', zIndex: 1,
-          transition: 'background .15s',
-        }}
-      >✕</button>
-
-      {/* Label */}
-      <div style={{
-        position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)',
-        fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em',
-        color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', whiteSpace: 'nowrap',
-      }}>
-        PLAY THE NIGHT — CLIQUE
-      </div>
-
-      {/* Video */}
-      <video
-        ref={videoRef}
-        src="/videos/event-hero.mp4"
-        onClick={(e) => e.stopPropagation()}
-        controls
-        playsInline
-        style={{
-          maxWidth: 'min(90vw, 1100px)',
-          maxHeight: '82vh',
-          width: '100%',
-          borderRadius: 14,
-          outline: 'none',
-          boxShadow: '0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08)',
-          display: 'block',
-        }}
-      />
-    </div>
-  );
-}
 
 // ─────── Nav ───────
 interface NavProps {
@@ -275,16 +195,26 @@ function Nav({ timeStr, dayLabel, totalLive, totalOut }: NavProps) {
   );
 }
 
-// ─────── Timeline scrubber ───────
-function Timeline({ events, hour, setHour, auto, setAuto, onPlayVideo }: {
+// ─────── Timeline / video section ───────
+function Timeline({ events, hour, setHour, auto, setAuto }: {
   events: DemoEvent[];
   hour: number; setHour: (h: number) => void;
   auto: boolean; setAuto: (a: boolean | ((prev: boolean) => boolean)) => void;
-  onPlayVideo: () => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [drag, setDrag] = useState(false);
   const { isMobile } = useBreakpoint();
+
+  // Play / pause the inline video in sync with the `auto` toggle
+  useEffect(() => {
+    if (!videoRef.current) return;
+    if (auto) {
+      videoRef.current.play().catch(() => {});
+    } else {
+      videoRef.current.pause();
+    }
+  }, [auto]);
 
   function pointerMove(e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) {
     if (!trackRef.current) return;
@@ -318,6 +248,7 @@ function Timeline({ events, hour, setHour, auto, setAuto, onPlayVideo }: {
 
   return (
     <div style={{ marginTop: isMobile ? 48 : 80 }}>
+      {/* Header row */}
       <div style={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
@@ -327,29 +258,31 @@ function Timeline({ events, hour, setHour, auto, setAuto, onPlayVideo }: {
         marginBottom: isMobile ? 20 : 28,
       }}>
         <div>
-          <div className="clique-label" style={{ marginBottom: 6 }}>SCRUB THE NIGHT</div>
+          <div className="clique-label" style={{ marginBottom: 6 }}>
+            {auto ? 'NOW PLAYING' : 'SCRUB THE NIGHT'}
+          </div>
           <div style={{
             fontFamily: 'var(--display)',
             fontSize: isMobile ? 16 : 22,
             fontWeight: 600, color: 'var(--paper)',
           }}>
-            Drag the cursor.{!isMobile && ' The city responds.'}{' '}
-            <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--dim)' }}>— or hit play.</span>
+            {auto
+              ? <>The night is playing.{' '}<span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--dim)' }}>— click pause to scrub.</span></>
+              : <>Drag the cursor.{!isMobile && ' The city responds.'}{' '}<span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--dim)' }}>— or hit play.</span></>
+            }
           </div>
         </div>
         <button
-          onClick={() => {
-            setAuto((a) => !a);
-            if (!auto) onPlayVideo();
-          }}
+          onClick={() => setAuto((a) => !a)}
           style={{
-            background: 'transparent', color: 'var(--paper)',
+            background: auto ? 'var(--line-2)' : 'transparent',
+            color: 'var(--paper)',
             border: '1px solid var(--line-2)',
             padding: isMobile ? '10px 16px' : '12px 18px',
             borderRadius: 999, fontFamily: 'var(--mono)',
             fontSize: isMobile ? 11 : 12,
             fontWeight: 500, letterSpacing: '0.1em', cursor: 'pointer',
-            transition: 'border-color .15s, color .15s',
+            transition: 'background .15s, border-color .15s',
             whiteSpace: 'nowrap',
             alignSelf: isMobile ? 'flex-start' : 'auto',
           }}
@@ -358,68 +291,91 @@ function Timeline({ events, hour, setHour, auto, setAuto, onPlayVideo }: {
         </button>
       </div>
 
-      <div
-        ref={trackRef}
-        onMouseDown={onDown}
-        onTouchStart={onDown}
-        style={{
-          position: 'relative',
-          height: isMobile ? 100 : 130,
-          border: '1px solid var(--line-2)', borderRadius: 14,
-          overflow: 'hidden',
-          cursor: drag ? 'grabbing' : 'ew-resize',
-          background: '#0F0C09', userSelect: 'none',
-          touchAction: 'none',
-        }}
-      >
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #1a1428 0%, #0d0c1f 22%, #06070C 50%, #060a18 75%, #1d1408 100%)', opacity: 0.7 }} />
+      {/* ── Video (shown when playing) ── */}
+      {auto && (
+        <video
+          ref={videoRef}
+          src="/videos/event-hero.mp4"
+          playsInline
+          controls
+          style={{
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            borderRadius: 14,
+            border: '1px solid var(--line-2)',
+            background: '#000',
+            animation: 'fadeIn .25s ease-out',
+          }}
+        />
+      )}
 
-        {events.map((e, idx) => {
-          const left = hourToPct(e.start) * 100;
-          const w = (hourToPct(e.end) - hourToPct(e.start)) * 100;
-          const active = isLive(e, hour);
-          return (
-            <div key={e.id} title={e.title} style={{
-              position: 'absolute', height: isMobile ? 8 : 10, borderRadius: 4,
-              padding: '0 4px', display: 'flex', alignItems: 'center',
-              fontFamily: 'var(--mono)', fontSize: 8, letterSpacing: '.04em', color: 'var(--ink)',
-              whiteSpace: 'nowrap', overflow: 'hidden',
-              left: `${left}%`, width: `${w}%`,
-              top: (isMobile ? 12 : 16) + (idx % 3) * (isMobile ? 11 : 14),
-              background: active ? e.color : 'rgba(232,225,210,0.15)',
-              border: `1px solid ${active ? e.color : 'transparent'}`,
-              transform: active ? 'scaleY(1.2)' : 'none',
-              transition: 'background .25s ease, transform .25s ease',
+      {/* ── Scrubber (shown when paused) ── */}
+      {!auto && (
+        <div
+          ref={trackRef}
+          onMouseDown={onDown}
+          onTouchStart={onDown}
+          style={{
+            position: 'relative',
+            height: isMobile ? 100 : 130,
+            border: '1px solid var(--line-2)', borderRadius: 14,
+            overflow: 'hidden',
+            cursor: drag ? 'grabbing' : 'ew-resize',
+            background: '#0F0C09', userSelect: 'none',
+            touchAction: 'none',
+            animation: 'fadeIn .25s ease-out',
+          }}
+        >
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #1a1428 0%, #0d0c1f 22%, #06070C 50%, #060a18 75%, #1d1408 100%)', opacity: 0.7 }} />
+
+          {events.map((e, idx) => {
+            const left = hourToPct(e.start) * 100;
+            const w = (hourToPct(e.end) - hourToPct(e.start)) * 100;
+            const active = isLive(e, hour);
+            return (
+              <div key={e.id} title={e.title} style={{
+                position: 'absolute', height: isMobile ? 8 : 10, borderRadius: 4,
+                padding: '0 4px', display: 'flex', alignItems: 'center',
+                fontFamily: 'var(--mono)', fontSize: 8, letterSpacing: '.04em', color: 'var(--ink)',
+                whiteSpace: 'nowrap', overflow: 'hidden',
+                left: `${left}%`, width: `${w}%`,
+                top: (isMobile ? 12 : 16) + (idx % 3) * (isMobile ? 11 : 14),
+                background: active ? e.color : 'rgba(232,225,210,0.15)',
+                border: `1px solid ${active ? e.color : 'transparent'}`,
+                transform: active ? 'scaleY(1.2)' : 'none',
+                transition: 'background .25s ease, transform .25s ease',
+              }}>
+                <span style={{ opacity: active && !isMobile ? 1 : 0 }}>{e.title}</span>
+              </div>
+            );
+          })}
+
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 8, height: 22 }}>
+            {ticks.map((h) => (
+              <div key={h} style={{ position: 'absolute', left: `${hourToPct(h) * 100}%`, transform: 'translateX(-50%)' }}>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: isMobile ? 8 : 10, color: 'var(--dim)', letterSpacing: '.08em' }}>
+                  {h % 24 === 0 ? '00' : String(h % 24).padStart(2, '0')}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${handlePct * 100}%`, transform: 'translateX(-50%)', pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 2, marginLeft: -1, background: 'var(--lime)', boxShadow: '0 0 12px rgba(201,243,110,0.6)' }} />
+            <div style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', width: isMobile ? 18 : 16, height: isMobile ? 18 : 16, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 0 4px rgba(201,243,110,0.18), 0 0 18px rgba(201,243,110,0.5)' }} />
+            <div style={{
+              position: 'absolute', top: isMobile ? -34 : -38, left: '50%', transform: 'translateX(-50%)',
+              fontFamily: 'var(--mono)', fontSize: isMobile ? 10 : 12,
+              color: 'var(--ink)', background: 'var(--lime)',
+              padding: isMobile ? '3px 6px' : '4px 8px',
+              borderRadius: 4, whiteSpace: 'nowrap', letterSpacing: '.04em',
             }}>
-              <span style={{ opacity: active && !isMobile ? 1 : 0 }}>{e.title}</span>
+              {fmtClock(hour)}
             </div>
-          );
-        })}
-
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 8, height: 22 }}>
-          {ticks.map((h) => (
-            <div key={h} style={{ position: 'absolute', left: `${hourToPct(h) * 100}%`, transform: 'translateX(-50%)' }}>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: isMobile ? 8 : 10, color: 'var(--dim)', letterSpacing: '.08em' }}>
-                {h % 24 === 0 ? '00' : String(h % 24).padStart(2, '0')}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${handlePct * 100}%`, transform: 'translateX(-50%)', pointerEvents: 'none' }}>
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 2, marginLeft: -1, background: 'var(--lime)', boxShadow: '0 0 12px rgba(201,243,110,0.6)' }} />
-          <div style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', width: isMobile ? 18 : 16, height: isMobile ? 18 : 16, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 0 4px rgba(201,243,110,0.18), 0 0 18px rgba(201,243,110,0.5)' }} />
-          <div style={{
-            position: 'absolute', top: isMobile ? -34 : -38, left: '50%', transform: 'translateX(-50%)',
-            fontFamily: 'var(--mono)', fontSize: isMobile ? 10 : 12,
-            color: 'var(--ink)', background: 'var(--lime)',
-            padding: isMobile ? '3px 6px' : '4px 8px',
-            borderRadius: 4, whiteSpace: 'nowrap', letterSpacing: '.04em',
-          }}>
-            {fmtClock(hour)}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -502,9 +458,8 @@ interface HeroProps {
   totalLive: number;
   totalOut: number;
   featured: DemoEvent;
-  onPlayVideo: () => void;
 }
-function Hero({ events, hour, setHour, auto, setAuto, timeStr, dayLabel, totalLive, totalOut, featured, onPlayVideo }: HeroProps) {
+function Hero({ events, hour, setHour, auto, setAuto, timeStr, dayLabel, totalLive, totalOut, featured }: HeroProps) {
   const { isMobile, isTablet } = useBreakpoint();
   const hPad = isMobile ? '16px' : isTablet ? '28px' : '40px';
   const vPadTop = isMobile ? '88px' : isTablet ? '110px' : '140px';
@@ -579,7 +534,7 @@ function Hero({ events, hour, setHour, auto, setAuto, timeStr, dayLabel, totalLi
         </div>
       </div>
 
-      <Timeline events={events} hour={hour} setHour={setHour} auto={auto} setAuto={setAuto} onPlayVideo={onPlayVideo} />
+      <Timeline events={events} hour={hour} setHour={setHour} auto={auto} setAuto={setAuto} />
       <FloatingTicket event={featured} hour={hour} />
     </section>
   );
@@ -803,7 +758,6 @@ export default function LandingPage() {
 function LandingInner({ initHour }: { initHour: number }) {
   const [hour, setHour] = useState(initHour);
   const [auto, setAuto] = useState(false);
-  const [videoOpen, setVideoOpen] = useState(false);
   const [events, setEvents] = useState<DemoEvent[]>([]);
   const [eventsReady, setEventsReady] = useState(false);
 
@@ -829,11 +783,6 @@ function LandingInner({ initHour }: { initHour: number }) {
     return () => clearInterval(id);
   }, [auto]);
 
-  // When auto stops, close video
-  useEffect(() => {
-    if (!auto) setVideoOpen(false);
-  }, [auto]);
-
   if (!eventsReady) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -851,15 +800,6 @@ function LandingInner({ initHour }: { initHour: number }) {
     ? [...liveEvents].sort((a, b) => b.rsvp - a.rsvp)[0]
     : events.slice().sort((a, b) => a.start - b.start).find((e) => e.start >= hour) ?? events[0];
 
-  function handlePlayVideo() {
-    setVideoOpen(true);
-  }
-
-  function handleCloseVideo() {
-    setVideoOpen(false);
-    setAuto(false);
-  }
-
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink)', color: 'var(--paper)' }}>
       <Nav timeStr={timeStr} dayLabel={dayLabel} totalLive={totalLive} totalOut={totalOut} />
@@ -869,12 +809,10 @@ function LandingInner({ initHour }: { initHour: number }) {
         timeStr={timeStr} dayLabel={dayLabel}
         totalLive={totalLive} totalOut={totalOut}
         featured={featured}
-        onPlayVideo={handlePlayVideo}
       />
       <TonightGrid events={events} hour={hour} />
       <SignupBand />
       <MiniFooter />
-      <VideoModal open={videoOpen} onClose={handleCloseVideo} />
     </div>
   );
 }
