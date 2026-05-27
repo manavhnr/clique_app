@@ -290,13 +290,21 @@ function FloatingTicket({ event, hour }: { event: DemoEvent; hour: number }) {
         </button>
       </div>
       <div style={{ padding: 18, opacity: open ? 1 : 0, transition: 'opacity .25s ease' }}>
-        <div style={{ position: 'relative', background: event.color, borderRadius: 12, height: 100, marginBottom: 16, overflow: 'hidden', display: 'flex', alignItems: 'flex-end', padding: 14 }}>
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
-            {Array.from({ length: 12 }).map((_, i) => (
-              <line key={i} x1={i * 9} y1="0" x2={i * 9 - 30} y2="100" stroke="rgba(11,9,7,0.18)" strokeWidth="0.4" />
-            ))}
-          </svg>
-          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', zIndex: 1, lineHeight: 0.95 }}>{event.title}</div>
+        <div style={{ position: 'relative', borderRadius: 12, height: 140, marginBottom: 16, overflow: 'hidden', display: 'flex', alignItems: 'flex-end', padding: 14 }}>
+          {/* Video background */}
+          <video
+            src="/videos/event-hero.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          {/* Dark gradient overlay so text stays readable */}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)' }} />
+          {/* Live colour accent dot */}
+          <div style={{ position: 'absolute', top: 12, left: 12, width: 8, height: 8, borderRadius: '50%', background: event.color, boxShadow: `0 0 10px ${event.color}` }} />
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, color: '#fff', zIndex: 1, lineHeight: 0.95, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{event.title}</div>
         </div>
         {[
           ['WHEN',  `${fmtHour(event.start)} → ${fmtHour(event.end)}`],
