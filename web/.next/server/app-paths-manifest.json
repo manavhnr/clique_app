@@ -1,1 +1,18 @@
-{}
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/otp/page": "app/(auth)/otp/page.js",
+  "/(auth)/signup/page": "app/(auth)/signup/page.js",
+  "/(auth)/setup/page": "app/(auth)/setup/page.js",
+  "/page": "app/page.js",
+  "/terms/page": "app/terms/page.js",
+  "/(app)/become-host/page": "app/(app)/become-host/page.js",
+  "/(app)/events/page": "app/(app)/events/page.js",
+  "/(app)/host/events/[id]/page": "app/(app)/host/events/[id]/page.js",
+  "/(app)/events/[id]/page": "app/(app)/events/[id]/page.js",
+  "/(app)/host/events/new/page": "app/(app)/host/events/new/page.js",
+  "/(app)/host/dashboard/page": "app/(app)/host/dashboard/page.js",
+  "/(app)/profile/edit/page": "app/(app)/profile/edit/page.js",
+  "/(app)/passes/page": "app/(app)/passes/page.js",
+  "/(app)/profile/page": "app/(app)/profile/page.js"
+}

@@ -72,10 +72,10 @@
   .font-serif    { font-family: var(--serif); }
   .font-mono     { font-family: var(--mono); }
 
-  .display-xxl { font-family: var(--display); font-weight: 800; font-size: clamp(64px, 10.5vw, 200px); line-height: 0.86; letter-spacing: -0.045em; }
-  .display-xl  { font-family: var(--display); font-weight: 700; font-size: clamp(56px, 8.6vw, 132px); line-height: 0.92; letter-spacing: -0.035em; }
-  .display-l   { font-family: var(--display); font-weight: 700; font-size: clamp(40px, 5.4vw, 84px); line-height: 0.96; letter-spacing: -0.03em; }
-  .display-m   { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 3vw, 44px); line-height: 1.0; letter-spacing: -0.02em; }
+  .display-xxl { font-family: var(--display); font-weight: 800; font-size: clamp(52px, 10.5vw, 200px); line-height: 0.86; letter-spacing: -0.045em; }
+  .display-xl  { font-family: var(--display); font-weight: 700; font-size: clamp(40px, 8.6vw, 132px); line-height: 0.92; letter-spacing: -0.035em; }
+  .display-l   { font-family: var(--display); font-weight: 700; font-size: clamp(32px, 5.4vw, 84px); line-height: 0.96; letter-spacing: -0.03em; }
+  .display-m   { font-family: var(--display); font-weight: 700; font-size: clamp(20px, 3vw, 44px); line-height: 1.0; letter-spacing: -0.02em; }
   .text-italic-serif { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.02em; }
 
   .clique-label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--dim); }
@@ -101,5 +101,48 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Mobile (portrait & landscape up to 639px) ─── */
+@media (max-width: 639px) {
+  .display-xxl {
+    font-size: clamp(48px, 14vw, 72px);
+    line-height: 0.88;
+  }
+  .display-xl {
+    font-size: clamp(34px, 11vw, 52px);
+    line-height: 0.92;
+  }
+  .display-m {
+    font-size: clamp(18px, 5vw, 26px);
+  }
+}
+
+/* ─── Tablet landscape / small desktop (640px–1023px) ─── */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .display-xxl {
+    font-size: clamp(56px, 10vw, 110px);
+  }
+  .display-xl {
+    font-size: clamp(40px, 7.5vw, 80px);
+  }
+}
+
+/* ─── Landscape phone (short height, wide) ─── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .display-xxl {
+    font-size: clamp(36px, 9vw, 64px);
+    line-height: 0.9;
+  }
+  .display-xl {
+    font-size: clamp(28px, 7vw, 48px);
+  }
+}
+
+/* ─── Prevent horizontal overflow ─── */
+@media (max-width: 639px) {
+  img, video, iframe {
+    max-width: 100%;
   }
 }
