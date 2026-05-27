@@ -1,5 +1,13 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IConnectedSocials {
+  instagram?: string;
+  twitter?: string;
+  snapchat?: string;
+  facebook?: string;
+  linkedin?: string;
+}
+
 export interface IUser extends Document {
   name: string;        // set during profile setup, empty string at signup
   username: string;
@@ -15,6 +23,7 @@ export interface IUser extends Document {
   location?: { type: 'Point'; coordinates: [number, number] };
   interests: string[];
   vibeTags: string[];
+  connectedSocials: IConnectedSocials;
   cliquescore: number;
   role: 'attendee' | 'host' | 'admin';
   isVerifiedHost: boolean;
@@ -50,6 +59,17 @@ const userSchema = new Schema<IUser>(
     },
     interests: { type: [String], default: [] },
     vibeTags: { type: [String], default: [] },
+    connectedSocials: {
+      type: {
+        instagram: { type: String, trim: true },
+        twitter: { type: String, trim: true },
+        snapchat: { type: String, trim: true },
+        facebook: { type: String, trim: true },
+        linkedin: { type: String, trim: true },
+      },
+      default: {},
+      _id: false,
+    },
     cliquescore: { type: Number, default: 0, min: 0 },
     role: { type: String, enum: ['attendee', 'host', 'admin'], default: 'attendee' },
     isVerifiedHost: { type: Boolean, default: false },

@@ -39,4 +39,13 @@ export const updateProfileSchema = z.object({
       longitude: z.number().min(-180).max(180),
     })
     .optional(),
+  connectedSocials: z
+    .object({
+      instagram: z.string().max(100).optional(),
+      twitter:   z.string().max(100).optional(),
+      snapchat:  z.string().max(100).optional(),
+      facebook:  z.string().max(100).optional(),
+      linkedin:  z.string().max(100).optional(),
+    })
+    .optional(),
 });

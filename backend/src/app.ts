@@ -23,6 +23,7 @@ import adminRouter from './routes/admin.routes';
 import reportRouter from './routes/report.routes';
 import eventRatingRouter from './routes/eventRating.routes';
 import messageRouter from './routes/message.routes';
+import squadRouter from './routes/squad.routes';
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/reports', reportRouter);
 app.use('/api/v1/ratings', eventRatingRouter);
 app.use('/api/v1/messages', messageRouter);
+app.use('/api/v1/squads', squadRouter);
 
 app.use(errorHandler);
 

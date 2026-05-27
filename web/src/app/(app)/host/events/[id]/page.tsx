@@ -12,15 +12,31 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import Spinner from '@/components/ui/Spinner';
-import { Event, EventMember } from '@/types';
+import { Event, EventMember, Squad } from '@/types';
 import { formatDate, formatTime, formatPrice, getImageUrl } from '@/lib/utils';
 import api from '@/lib/api';
 
+interface ConnectedSocials {
+  instagram?: string;
+  twitter?: string;
+  snapchat?: string;
+  facebook?: string;
+  linkedin?: string;
+}
+
 interface Booking {
   _id: string;
-  userId: { _id: string; name: string; username: string; profileImage?: string };
+  userId: { _id: string; name: string; username: string; profileImage?: string; connectedSocials?: ConnectedSocials };
   status: string;
   amount: number;
+  createdAt: string;
+}
+
+interface PendingRequest {
+  _id: string;
+  userId: { _id: string; name: string; username: string; profileImage?: string; connectedSocials?: ConnectedSocials; cliquescore?: number; city?: string };
+  status: string;
+  message?: string;
   createdAt: string;
 }
 
@@ -29,24 +45,29 @@ export default function HostEventPage() {
   const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [requests, setRequests] = useState<PendingRequest[]>([]);
+  const [squads, setSquads] = useState<Squad[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'team' | 'scanner'>('overview');
 
   useEffect(() => {
-    Promise.all([
-      api.get(`/events/${id}`),
-      api.get(`/bookings/my`).catch(() => ({ data: { data: { bookings: [] } } })),
-    ]).then(([evtRes]) => {
-      setEvent(evtRes.data.data.event);
-    }).catch(() => {})
-    .finally(() => setLoading(false));
+    api.get(`/events/${id}`)
+      .then((evtRes) => setEvent(evtRes.data.data.event))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
     if (activeTab === 'guests') {
-      api.get(`/bookings/event/${id}`)
-        .then((res) => { if (res?.data?.data?.bookings) setBookings(res.data.data.bookings); })
-        .catch(() => {});
+      Promise.all([
+        api.get(`/bookings/event/${id}`).catch(() => null),
+        api.get(`/requests/host?eventId=${id}`).catch(() => null),
+        api.get(`/squads/event/${id}/all`).catch(() => null),
+      ]).then(([bRes, rRes, sRes]) => {
+        if (bRes?.data?.data?.bookings) setBookings(bRes.data.data.bookings);
+        if (rRes?.data?.data?.requests) setRequests(rRes.data.data.requests);
+        if (sRes?.data?.data?.squads) setSquads(sRes.data.data.squads);
+      });
     }
   }, [activeTab, id]);
 
@@ -85,7 +106,17 @@ export default function HostEventPage() {
       </div>
 
       {activeTab === 'overview' && <OverviewTab event={event} onRefresh={refreshEvent} />}
-      {activeTab === 'guests' && <GuestsTab eventId={id} bookings={bookings} />}
+      {activeTab === 'guests' && <GuestsTab eventId={id} bookings={bookings} requests={requests} squads={squads} onRefresh={() => {
+        Promise.all([
+          api.get(`/bookings/event/${id}`).catch(() => null),
+          api.get(`/requests/host?eventId=${id}`).catch(() => null),
+          api.get(`/squads/event/${id}/all`).catch(() => null),
+        ]).then(([bRes, rRes, sRes]) => {
+          if (bRes?.data?.data?.bookings) setBookings(bRes.data.data.bookings);
+          if (rRes?.data?.data?.requests) setRequests(rRes.data.data.requests);
+          if (sRes?.data?.data?.squads) setSquads(sRes.data.data.squads);
+        });
+      }} />}
       {activeTab === 'team' && <TeamTab event={event} onRefresh={refreshEvent} />}
       {activeTab === 'scanner' && <ScannerTab event={event} />}
     </div>
@@ -212,56 +243,196 @@ function OverviewTab({ event, onRefresh }: { event: Event; onRefresh: () => void
   );
 }
 
-function GuestsTab({ eventId, bookings }: { eventId: string; bookings: Booking[] }) {
-  if (bookings.length === 0) {
+const SOCIAL_ICONS: Record<string, string> = { instagram: '📷', twitter: '🐦', snapchat: '👻', facebook: '📘', linkedin: '💼' };
+
+function SocialLinks({ socials }: { socials?: ConnectedSocials }) {
+  if (!socials) return null;
+  const entries = Object.entries(socials).filter(([, v]) => !!v);
+  if (entries.length === 0) return <span className="text-xs text-muted">No socials</span>;
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {entries.map(([platform, handle]) => (
+        <a
+          key={platform}
+          href={
+            platform === 'instagram' ? `https://instagram.com/${handle}` :
+            platform === 'twitter'   ? `https://twitter.com/${handle}` :
+            platform === 'snapchat'  ? `https://snapchat.com/add/${handle}` :
+            platform === 'facebook'  ? `https://facebook.com/${handle}` :
+            platform === 'linkedin'  ? `https://linkedin.com/in/${handle}` : '#'
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors"
+        >
+          <span>{SOCIAL_ICONS[platform] ?? '🔗'}</span>
+          <span>@{handle}</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }: {
+  eventId: string;
+  bookings: Booking[];
+  requests: PendingRequest[];
+  squads: Squad[];
+  onRefresh: () => void;
+}) {
+  const [approving, setApproving] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<string | null>(null);
+
+  // Build a map: userId → squad name
+  const squadByUser: Record<string, string> = {};
+  squads.forEach((sq) => {
+    sq.members.forEach((m) => { squadByUser[m.userId] = sq.name; });
+  });
+
+  const handleApprove = async (requestId: string) => {
+    setApproving(requestId);
+    try {
+      await api.patch(`/requests/${requestId}/approve`);
+      onRefresh();
+    } catch { /* ignore */ }
+    finally { setApproving(null); }
+  };
+
+  const handleReject = async (requestId: string) => {
+    setRejecting(requestId);
+    try {
+      await api.patch(`/requests/${requestId}/reject`);
+      onRefresh();
+    } catch { /* ignore */ }
+    finally { setRejecting(null); }
+  };
+
+  const enteredCount = bookings.filter((b) => b.status === 'checked_in').length;
+  const isEmpty = requests.length === 0 && bookings.length === 0;
+
+  if (isEmpty) {
     return (
       <div className="text-center py-12 bg-dark-card border border-dark-border rounded-xl">
         <Users size={32} className="text-muted mx-auto mb-3" />
-        <p className="text-white font-semibold mb-1">No bookings yet</p>
-        <p className="text-sm text-muted">Guest list will appear here as people book.</p>
+        <p className="text-white font-semibold mb-1">No registrations yet</p>
+        <p className="text-sm text-muted">Pending and confirmed guests will appear here.</p>
       </div>
     );
   }
 
-  const enteredCount = bookings.filter((b) => b.status === 'checked_in').length;
-
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm text-muted">{bookings.length} bookings</p>
-        <p className="text-sm text-muted">
-          <span className="text-green-400 font-medium">{enteredCount}</span> entered
-          {' · '}
-          <span className="text-zinc-400 font-medium">{bookings.length - enteredCount}</span> awaiting
-        </p>
-      </div>
-      {bookings.map((b) => {
-        const entered = b.status === 'checked_in';
-        return (
-          <div key={b._id} className="flex items-center gap-3 bg-dark-card border border-dark-border rounded-xl p-3">
-            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary-light shrink-0">
-              {b.userId?.name?.[0]?.toUpperCase() ?? '?'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium truncate">{b.userId?.name ?? 'User'}</p>
-              <p className="text-xs text-muted">@{b.userId?.username ?? '—'}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <BookingStatusBadge status={b.status} />
-              {(b.status === 'confirmed' || b.status === 'checked_in') && (
-                <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                  entered
-                    ? 'bg-green-500/15 text-green-400'
-                    : 'bg-zinc-700/50 text-zinc-400'
-                }`}>
-                  {entered ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
-                  {entered ? 'Entered' : 'Not entered'}
-                </span>
-              )}
-            </div>
+    <div className="space-y-6">
+      {/* ── Pending requests ── */}
+      {requests.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-white">Pending Requests</p>
+            <Badge variant="yellow">{requests.length}</Badge>
           </div>
-        );
-      })}
+          <div className="space-y-2">
+            {requests.map((r) => (
+              <div key={r._id} className="bg-dark-card border border-dark-border rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-yellow-500/20 flex items-center justify-center text-sm font-bold text-yellow-400 shrink-0">
+                    {r.userId?.name?.[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium">{r.userId?.name ?? 'User'}</p>
+                    <p className="text-xs text-muted mb-1">@{r.userId?.username ?? '—'}{r.userId?.city ? ` · ${r.userId.city}` : ''}</p>
+                    <SocialLinks socials={r.userId?.connectedSocials} />
+                    {r.message && <p className="text-xs text-zinc-300 mt-2 italic">&ldquo;{r.message}&rdquo;</p>}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => handleApprove(r._id)}
+                      disabled={approving === r._id}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-medium rounded-lg hover:bg-green-500/25 transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={12} />
+                      {approving === r._id ? '…' : 'Accept'}
+                    </button>
+                    <button
+                      onClick={() => handleReject(r._id)}
+                      disabled={rejecting === r._id}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                    >
+                      <XCircle size={12} />
+                      {rejecting === r._id ? '…' : 'Decline'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Squads overview ── */}
+      {squads.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-white mb-3">Squads ({squads.length})</p>
+          <div className="space-y-2">
+            {squads.map((sq) => (
+              <div key={sq._id} className="flex items-center justify-between bg-dark-card border border-dark-border rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-white text-sm font-medium">{sq.name}</p>
+                  <p className="text-xs text-muted">{sq.members.map((m) => '@' + m.username).join(', ')}</p>
+                </div>
+                <Badge variant="default">{sq.members.length} members</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirmed guests ── */}
+      {bookings.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-white">On the List</p>
+            <p className="text-sm text-muted">
+              <span className="text-green-400 font-medium">{enteredCount}</span> entered ·{' '}
+              <span className="text-zinc-400 font-medium">{bookings.length - enteredCount}</span> awaiting
+            </p>
+          </div>
+          <div className="space-y-2">
+            {bookings.map((b) => {
+              const entered = b.status === 'checked_in';
+              const squadName = squadByUser[b.userId?._id];
+              return (
+                <div key={b._id} className="bg-dark-card border border-dark-border rounded-xl p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary-light shrink-0">
+                      {b.userId?.name?.[0]?.toUpperCase() ?? '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-white text-sm font-medium">{b.userId?.name ?? 'User'}</p>
+                        {squadName && (
+                          <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-lime-400/10 text-lime-400 border border-lime-400/20">
+                            {squadName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted mb-1">@{b.userId?.username ?? '—'}</p>
+                      <SocialLinks socials={b.userId?.connectedSocials} />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <BookingStatusBadge status={b.status} />
+                      {(b.status === 'confirmed' || b.status === 'checked_in') && (
+                        <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${entered ? 'bg-green-500/15 text-green-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
+                          {entered ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+                          {entered ? 'Entered' : 'Not entered'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

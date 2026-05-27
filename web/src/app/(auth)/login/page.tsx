@@ -54,7 +54,7 @@ export default function LoginPage() {
     try {
       const { data } = await api.post('/auth/login', { identifier: identifier.trim(), password });
       login(data.data.token, data.data.user);
-      router.push(data.data.user.hasCompletedSetup ? '/events' : '/setup');
+      router.push('/events');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message ?? 'Invalid phone/username or password.');

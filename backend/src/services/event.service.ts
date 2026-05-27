@@ -3,6 +3,7 @@ import { Event, IEvent } from '../models/Event';
 import { SavedEvent } from '../models/SavedEvent';
 import { Booking } from '../models/Booking';
 import { Pass } from '../models/Pass';
+import { JoinRequest } from '../models/JoinRequest';
 import { User } from '../models/User';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
@@ -43,6 +44,8 @@ export async function createEvent(
     capacity: data.capacity,
     privacy: data.privacy,
     approvalRequired: data.approvalRequired,
+    requiresSocials: data.requiresSocials,
+    requiredSocials: data.requiredSocials,
     ageLimit: data.ageLimit,
     refundPolicy: data.refundPolicy,
     status: data.status,
@@ -74,6 +77,7 @@ export async function getEventById(eventId: string, requesterId: string) {
   }
 
   const saved = await SavedEvent.findOne({ userId: requesterId, eventId });
+  const userRequest = await JoinRequest.findOne({ userId: requesterId, eventId }).select('status rejectionReason createdAt');
   const userBooking = await Booking.findOne({
     userId: requesterId,
     eventId,
@@ -88,6 +92,7 @@ export async function getEventById(eventId: string, requesterId: string) {
       address,
       saved: !!saved,
       userBooking: userBooking || null,
+      userRequest: userRequest || null,
     },
   };
 }

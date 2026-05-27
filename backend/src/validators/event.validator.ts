@@ -43,6 +43,15 @@ export const createEventSchema = z.object({
   capacity: z.coerce.number().int().min(1),
   privacy: z.enum(['public', 'private']).default('public'),
   approvalRequired: boolField.default(false),
+  requiresSocials: boolField.default(false),
+  requiredSocials: z.preprocess(
+    (v) => {
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string' && v !== '') return [v];
+      return [];
+    },
+    z.array(z.enum(['instagram', 'twitter', 'snapchat', 'facebook', 'linkedin'])).max(5)
+  ).default([]),
   ageLimit: optionalInt,
   refundPolicy: z.string().max(500).optional(),
   status: z.enum(['draft', 'published']).default('draft'),

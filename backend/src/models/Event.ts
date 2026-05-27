@@ -33,6 +33,8 @@ export interface IEvent extends Document {
   ageLimit?: number;
   refundPolicy?: string;
   status: 'draft' | 'published' | 'cancelled' | 'completed' | 'blocked';
+  requiresSocials: boolean;
+  requiredSocials: string[];
   isFeatured: boolean;
   likeCount: number;
   commentCount: number;
@@ -83,6 +85,8 @@ const eventSchema = new Schema<IEvent>(
       enum: ['draft', 'published', 'cancelled', 'completed', 'blocked'],
       default: 'draft',
     },
+    requiresSocials: { type: Boolean, default: false },
+    requiredSocials: { type: [String], default: [] },
     isFeatured: { type: Boolean, default: false },
     likeCount: { type: Number, default: 0 },
     commentCount: { type: Number, default: 0 },

@@ -71,6 +71,10 @@ export default function SetupPage() {
   const [password, setPassword]   = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [showPw, setShowPw]       = useState(false);
+  const [socialsNow, setSocialsNow] = useState<boolean | null>(null);
+  const [instagram, setInstagram] = useState('');
+  const [twitter, setTwitter]     = useState('');
+  const [snapchat, setSnapchat]   = useState('');
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
 
@@ -95,12 +99,20 @@ export default function SetupPage() {
 
     setLoading(true);
     try {
+      const connectedSocials: Record<string, string> = {};
+      if (socialsNow) {
+        if (instagram.trim()) connectedSocials.instagram = instagram.trim().replace(/^@/, '');
+        if (twitter.trim())   connectedSocials.twitter   = twitter.trim().replace(/^@/, '');
+        if (snapchat.trim())  connectedSocials.snapchat  = snapchat.trim().replace(/^@/, '');
+      }
+
       const { data } = await api.put('/users/profile', {
         name, username, bio, city, dob, gender,
         vibeTags: vibes,
         interests,
         hasCompletedSetup: true,
         password,
+        ...(Object.keys(connectedSocials).length > 0 ? { connectedSocials } : {}),
       });
       updateUser(data.data.user);
       router.push('/events');
@@ -199,6 +211,66 @@ export default function SetupPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {INTERESTS.map((i) => <Pill key={i} on={interests.includes(i)} onClick={() => toggle(i, interests, setInterests)}>{i}</Pill>)}
           </div>
+        </div>
+
+        {/* ── Social connections ── */}
+        <div style={{ border: '1px solid var(--line-2)', borderRadius: 14, padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: socialsNow === null ? 0 : 18 }}>
+            <div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase', marginBottom: 6 }}>CONNECT YOUR SOCIALS</div>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 13, color: 'var(--cream)', lineHeight: 1.4 }}>
+                Some events require a connected social account to register. Hosts can view your handle.
+              </div>
+            </div>
+            {socialsNow === null && (
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginTop: 2 }}>
+                <button type="button" onClick={() => setSocialsNow(true)}
+                  style={{ padding: '7px 14px', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Set up now
+                </button>
+                <button type="button" onClick={() => setSocialsNow(false)}
+                  style={{ padding: '7px 14px', background: 'transparent', color: 'var(--dim)', border: '1px solid var(--line-2)', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Set up later
+                </button>
+              </div>
+            )}
+          </div>
+
+          {socialsNow === true && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                { label: 'INSTAGRAM', value: instagram, set: setInstagram, placeholder: '@yourhandle' },
+                { label: 'TWITTER / X', value: twitter,   set: setTwitter,   placeholder: '@yourhandle' },
+                { label: 'SNAPCHAT',    value: snapchat,  set: setSnapchat,  placeholder: '@yourhandle' },
+              ].map(({ label, value, set, placeholder }) => (
+                <label key={label} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>{label}</span>
+                  <input
+                    style={inputStyle} value={value}
+                    onChange={(e) => set(e.target.value)}
+                    placeholder={placeholder}
+                    autoCapitalize="none"
+                    onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+                    onBlur={(e)  => (e.target.style.borderColor = 'var(--line-2)')}
+                  />
+                </label>
+              ))}
+              <button type="button" onClick={() => setSocialsNow(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--dim)', fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                ← Skip for now
+              </button>
+            </div>
+          )}
+
+          {socialsNow === false && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>Skipped — you can add these in your profile later.</span>
+              <button type="button" onClick={() => setSocialsNow(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--lime)', fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Connect now
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={fieldStyle}>
