@@ -17,13 +17,10 @@ async function generateUniqueUsername(): Promise<string> {
   }
   throw new Error('Could not generate unique username');
 }
-import { OTP } from '../models/OTP';
 import { User, IUser } from '../models/User';
 import { RefreshToken } from '../models/RefreshToken';
-import { generateOTP, hashOTP, sendOTP } from './otp.service';
 import { createError } from '../middleware/error.middleware';
 
-const OTP_TTL_MINUTES = 10;
 const REFRESH_TTL_DAYS = 30;
 
 function signAccessToken(userId: string, role: string): string {
@@ -45,29 +42,16 @@ async function issueRefreshToken(userId: string): Promise<string> {
   return raw;
 }
 
-export async function initiateOTP(phone: string): Promise<void> {
-  const otp = generateOTP();
-  const otpHash = hashOTP(otp);
-  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
-
-  await OTP.deleteMany({ phone });
-  await OTP.create({ phone, otpHash, expiresAt });
-
-  await sendOTP(phone, otp);
+// OTP sending is disabled — send-otp endpoint is a no-op
+export async function initiateOTP(_phone: string): Promise<void> {
+  // OTP authentication is bypassed; nothing to send
 }
 
+// OTP verification is disabled — login directly with phone number
 export async function verifyOTPAndLogin(
   phone: string,
-  otp: string
+  _otp: string
 ): Promise<{ token: string; refreshToken: string; user: IUser; isNewUser: boolean; needsSetup: boolean }> {
-  const record = await OTP.findOne({ phone });
-
-  if (!record) throw createError('OTP not found or expired', 400);
-  if (record.otpHash !== hashOTP(otp)) throw createError('Invalid OTP', 400);
-  if (record.expiresAt < new Date()) throw createError('OTP expired', 400);
-
-  await OTP.deleteOne({ _id: record._id });
-
   let isNewUser = false;
   const normalizedPhone = normalizePhone(phone);
   let user = await User.findOne({ phone: normalizedPhone });

@@ -12,7 +12,7 @@ export async function sendOTP(phone: string, otp: string): Promise<void> {
   const isProduction = process.env.APP_ENV === 'production';
 
   if (isProduction) {
-    await sendViaTwilio(phone, otp);
+    await sendViaMSG91(phone, otp);
   } else {
     console.log(`\n[OTP] ─────────────────────────`);
     console.log(`[OTP] Phone : ${phone}`);
@@ -21,30 +21,40 @@ export async function sendOTP(phone: string, otp: string): Promise<void> {
   }
 }
 
-function toE164(phone: string): string {
+/** Convert any phone format → MSG91 format (country code + digits, no +) */
+function toMSG91Mobile(phone: string): string {
   const digits = phone.replace(/\D/g, '');
-  if (phone.startsWith('+')) return `+${digits}`;
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
-  return `+${digits}`;
+  if (digits.length === 10) return `91${digits}`;                     // bare 10-digit Indian
+  if (digits.length === 12 && digits.startsWith('91')) return digits; // already 91XXXXXXXXXX
+  if (digits.length === 13 && digits.startsWith('091')) return digits.slice(1); // 091…
+  return digits; // pass through for other country codes
 }
 
-async function sendViaTwilio(phone: string, otp: string): Promise<void> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
+async function sendViaMSG91(phone: string, otp: string): Promise<void> {
+  const authKey    = process.env.MSG91_AUTH_KEY;
+  const templateId = process.env.MSG91_TEMPLATE_ID;
 
-  if (!accountSid || !authToken || !from) {
-    throw new Error('Twilio credentials not configured');
+  if (!authKey || !templateId) {
+    throw new Error('MSG91 credentials not configured (MSG91_AUTH_KEY, MSG91_TEMPLATE_ID)');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const twilio = require('twilio') as (sid: string, token: string) => { messages: { create: (opts: Record<string, string>) => Promise<void> } };
-  const client = twilio(accountSid, authToken);
+  const mobile = toMSG91Mobile(phone);
 
-  await client.messages.create({
-    body: `Your Clique OTP is ${otp}. Valid for 10 minutes.`,
-    from,
-    to: toE164(phone),
+  const url = new URL('https://control.msg91.com/api/v5/otp');
+  url.searchParams.set('template_id', templateId);
+  url.searchParams.set('mobile', mobile);
+  url.searchParams.set('otp', otp);
+
+  const response = await fetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      authkey: authKey,
+      'content-type': 'application/json',
+    },
   });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`MSG91 OTP send failed (${response.status}): ${body}`);
+  }
 }
