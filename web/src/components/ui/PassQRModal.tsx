@@ -61,10 +61,20 @@ export default function PassQRModal({ open, onClose, pass, event, onViewPasses }
 
         <div className="flex flex-col items-center gap-2">
           <div className="p-4 bg-white rounded-2xl shadow-lg">
-            {pass.qrCodeUrl ? (
+            {/* Prefer the JWT token so the scanner can verify the signature.
+                Falls back to the Cloudinary image URL, and last-resort to pass._id. */}
+            {(pass as Pass & { qrToken?: string }).qrToken ? (
+              <QRCodeSVG
+                value={(pass as Pass & { qrToken?: string }).qrToken!}
+                size={192}
+                bgColor="#FFFFFF"
+                fgColor="#0B0907"
+                level="M"
+              />
+            ) : pass.qrCodeUrl ? (
               <img src={pass.qrCodeUrl} alt="QR Pass" className="w-48 h-48 object-contain" />
             ) : (
-              <QRCodeSVG value={pass._id} size={192} />
+              <QRCodeSVG value={pass._id} size={192} bgColor="#FFFFFF" fgColor="#0B0907" level="M" />
             )}
           </div>
           <p className="text-xs text-muted">Show this QR at the door for entry</p>

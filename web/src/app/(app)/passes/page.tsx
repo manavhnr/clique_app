@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 import { Pass, Event, Booking } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { usePayment } from '@/hooks/usePayment';
@@ -86,13 +87,23 @@ function PassQRModal({ pass, event, onClose }: { pass: Pass; event: Event | null
               <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 28, color: 'var(--dim)' }}>○</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em' }}>{pass.status.toUpperCase()}</div>
             </div>
-          ) : pass.qrCodeUrl ? (
-            <div style={{ background: 'var(--paper)', borderRadius: 12, padding: 12 }}>
-              <img src={pass.qrCodeUrl} alt="QR Code" style={{ width: 176, height: 176, objectFit: 'contain' }} />
-            </div>
           ) : (
-            <div style={{ background: 'var(--paper)', borderRadius: 12, padding: 12 }}>
-              <PseudoQR seed={pass._id} size={176} />
+            /* Real scannable QR — prefer the JWT token (from getPassById), fall back to Cloudinary image */
+            <div style={{ background: 'var(--paper)', borderRadius: 12, padding: 14 }}>
+              {(pass as Pass & { qrToken?: string }).qrToken ? (
+                <QRCodeSVG
+                  value={(pass as Pass & { qrToken?: string }).qrToken!}
+                  size={176}
+                  bgColor="#FFFFFF"
+                  fgColor="#0B0907"
+                  level="M"
+                />
+              ) : pass.qrCodeUrl ? (
+                <img src={pass.qrCodeUrl} alt="QR Code" style={{ width: 176, height: 176, objectFit: 'contain', display: 'block' }} />
+              ) : (
+                /* Last-resort: generate QR from pass ID — scanner will reject it, but at least it's a real QR */
+                <QRCodeSVG value={pass._id} size={176} bgColor="#FFFFFF" fgColor="#0B0907" level="M" />
+              )}
             </div>
           )}
         </div>

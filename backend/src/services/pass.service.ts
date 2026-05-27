@@ -55,13 +55,27 @@ export async function getPassById(passId: string, userId: string) {
   if (!pass) throw createError('Pass not found', 404);
 
   // Individual: must be owner. Group: must be in memberIds or creator
-  const isOwner    = pass.userId.toString() === userId;
-  const isMember   = pass.passType === 'group' && pass.memberIds?.some((m) => m.toString() === userId);
+  const isOwner  = pass.userId._id
+    ? pass.userId._id.toString() === userId
+    : pass.userId.toString() === userId;
+  const isMember = pass.passType === 'group' && pass.memberIds?.some((m) => m.toString() === userId);
   if (!isOwner && !isMember) throw createError('Forbidden', 403);
 
   if (pass.status === 'cancelled') throw createError('Pass has been cancelled', 400);
 
-  return pass;
+  // Generate a fresh scannable JWT token so the frontend can render a real QR code.
+  // The token embeds passId + eventId + userId — identical payload to what was originally
+  // encoded into the Cloudinary QR image, so the scanner can verify it with jwt.verify().
+  const eventId = (pass.eventId as { _id?: unknown })?._id?.toString() ?? pass.eventId.toString();
+  const ownerId = (pass.userId as { _id?: unknown })?._id?.toString() ?? pass.userId.toString();
+
+  const qrToken = jwt.sign(
+    { passId: pass._id.toString(), eventId, userId: ownerId },
+    process.env.JWT_SECRET as string,
+    { expiresIn: '365d' },
+  );
+
+  return { ...pass.toObject(), qrToken };
 }
 
 // ─── Verify QR Pass (read-only, no check-in) ─────────────────────────────────

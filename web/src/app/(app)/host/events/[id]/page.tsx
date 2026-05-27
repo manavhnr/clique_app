@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import jsQR from 'jsqr';
 import {
   ArrowLeft, Users, QrCode, UserPlus, Trash2, CheckCircle2,
   XCircle, Shield, Edit2, Globe, AlertTriangle, UserCheck,
@@ -965,10 +966,10 @@ function ScannerTab({ event }: { event: Event }) {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-    import('jsqr').then(({ default: jsQR }) => {
-      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-      if (code?.data) handleDecode(code.data);
-    });
+    // jsQR is imported statically at the top — no dynamic import per frame.
+    // 'attemptBoth' handles both normal and inverted QR codes (dark-on-light and light-on-dark).
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+    if (code?.data && !processingRef.current) handleDecode(code.data);
 
     rafRef.current = requestAnimationFrame(tick);
   }, [handleDecode]);
