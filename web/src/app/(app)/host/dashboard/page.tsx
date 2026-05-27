@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Event } from '@/types';
 import api from '@/lib/api';
+import jsQR from 'jsqr';
 
 const CAT_COLORS: Record<string, string> = {
   house_party: '#C9F36E',
@@ -91,9 +92,6 @@ function ScannerModal({ events, onClose }: ScannerModalProps) {
     ctx.drawImage(video, 0, 0);
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const jsQR = require('jsqr') as (d: Uint8ClampedArray, w: number, h: number, o?: object) => { data: string } | null;
     const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
 
     if (code && code.data && code.data !== lastTokenRef.current && !processingRef.current) {
@@ -135,14 +133,21 @@ function ScannerModal({ events, onClose }: ScannerModalProps) {
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      // Attach stream to the video element — it is always in the DOM (just hidden)
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        await video.play();
       }
       setCameraActive(true);
       rafRef.current = requestAnimationFrame(scanLoop);
-    } catch {
-      setCameraError('Camera permission denied — allow camera access and try again');
+    } catch (err) {
+      const msg = (err as { name?: string }).name === 'NotAllowedError'
+        ? 'Camera permission denied — tap Allow when your browser asks, then try again.'
+        : (err as { name?: string }).name === 'NotFoundError'
+        ? 'No camera found on this device.'
+        : 'Could not start camera. Make sure the page is loaded over HTTPS.';
+      setCameraError(msg);
     }
   }
 
@@ -185,86 +190,91 @@ function ScannerModal({ events, onClose }: ScannerModalProps) {
             </div>
 
             {cameraError && (
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.08em', padding: '10px 14px', background: 'rgba(255,61,110,0.08)', border: '1px solid rgba(255,61,110,0.2)', borderRadius: 8 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.08em', padding: '10px 14px', background: 'rgba(255,61,110,0.08)', border: '1px solid rgba(255,61,110,0.2)', borderRadius: 8, lineHeight: 1.5 }}>
                 {cameraError}
               </div>
             )}
 
-            <button onClick={startCamera} disabled={!selectedEventId}
+            <button onClick={startCamera} disabled={!selectedEventId || publishedEvents.length === 0}
               style={{ background: selectedEventId ? 'var(--lime)' : 'var(--line)', color: selectedEventId ? 'var(--ink)' : 'var(--dim)', border: 'none', padding: '16px 0', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', cursor: selectedEventId ? 'pointer' : 'not-allowed', transition: 'all .15s ease', fontWeight: 600 }}>
               ↗ Start scanning
             </button>
 
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', textAlign: 'center' }}>
-              Your browser will request camera permission
+              Your browser will ask for camera permission
             </div>
           </div>
         )}
 
-        {/* Camera view */}
-        {cameraActive && (
-          <div style={{ position: 'relative', background: '#000', lineHeight: 0 }}>
-            <video ref={videoRef} playsInline muted style={{ width: '100%', maxHeight: 380, objectFit: 'cover', display: 'block' }} />
+        {/*
+          Video is ALWAYS mounted so videoRef.current is populated before startCamera() attaches
+          the MediaStream. CSS display:none hides it until cameraActive is true.
+        */}
+        <div style={{ position: 'relative', background: '#000', lineHeight: 0, display: cameraActive ? 'block' : 'none' }}>
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            autoPlay
+            style={{ width: '100%', maxHeight: 380, objectFit: 'cover', display: 'block' }}
+          />
 
-            {/* Finder frame overlay */}
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div style={{ width: 200, height: 200, position: 'relative' }}>
-                {/* corners */}
-                {[
-                  { top: 0, left: 0, borderTop: '3px solid var(--lime)', borderLeft: '3px solid var(--lime)' },
-                  { top: 0, right: 0, borderTop: '3px solid var(--lime)', borderRight: '3px solid var(--lime)' },
-                  { bottom: 0, left: 0, borderBottom: '3px solid var(--lime)', borderLeft: '3px solid var(--lime)' },
-                  { bottom: 0, right: 0, borderBottom: '3px solid var(--lime)', borderRight: '3px solid var(--lime)' },
-                ].map((s, i) => (
-                  <div key={i} style={{ position: 'absolute', width: 24, height: 24, ...s }} />
-                ))}
-                {/* scan line */}
-                {!result && (
-                  <div style={{ position: 'absolute', left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent 0%, var(--lime) 40%, var(--lime) 60%, transparent 100%)', top: '50%', opacity: 0.8, animation: 'scanLine 1.8s ease-in-out infinite' }} />
-                )}
-              </div>
+          {/* Finder frame overlay */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ width: 200, height: 200, position: 'relative' }}>
+              {[
+                { top: 0,    left: 0,  borderTop:    '3px solid var(--lime)', borderLeft:   '3px solid var(--lime)' },
+                { top: 0,    right: 0, borderTop:    '3px solid var(--lime)', borderRight:  '3px solid var(--lime)' },
+                { bottom: 0, left: 0,  borderBottom: '3px solid var(--lime)', borderLeft:   '3px solid var(--lime)' },
+                { bottom: 0, right: 0, borderBottom: '3px solid var(--lime)', borderRight:  '3px solid var(--lime)' },
+              ].map((s, i) => (
+                <div key={i} style={{ position: 'absolute', width: 24, height: 24, ...s }} />
+              ))}
+              {!result && (
+                <div style={{ position: 'absolute', left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent 0%, var(--lime) 40%, var(--lime) 60%, transparent 100%)', top: '50%', opacity: 0.8, animation: 'scanLine 1.8s ease-in-out infinite' }} />
+              )}
             </div>
+          </div>
 
-            {/* Result overlay */}
-            {result && (
+          {/* Scan result overlay */}
+          {result && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: result.ok ? 'rgba(201,243,110,0.15)' : 'rgba(255,61,110,0.12)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              gap: 10, backdropFilter: 'blur(2px)',
+              animation: 'riseIn .2s ease-out',
+            }}>
               <div style={{
-                position: 'absolute', inset: 0,
-                background: result.ok ? 'rgba(201,243,110,0.15)' : 'rgba(255,61,110,0.12)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                gap: 10, backdropFilter: 'blur(2px)',
-                animation: 'riseIn .2s ease-out',
+                width: 56, height: 56, borderRadius: '50%',
+                background: result.ok ? 'var(--lime)' : 'var(--hot)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 28, fontFamily: 'var(--mono)', color: result.ok ? 'var(--ink)' : 'var(--paper)',
+                boxShadow: result.ok ? '0 0 40px rgba(201,243,110,0.5)' : '0 0 40px rgba(255,61,110,0.4)',
               }}>
-                <div style={{
-                  width: 56, height: 56, borderRadius: '50%',
-                  background: result.ok ? 'var(--lime)' : 'var(--hot)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 28, fontFamily: 'var(--mono)', color: result.ok ? 'var(--ink)' : 'var(--paper)',
-                  boxShadow: result.ok ? '0 0 40px rgba(201,243,110,0.5)' : '0 0 40px rgba(255,61,110,0.4)',
-                }}>
-                  {result.ok ? '✓' : '✗'}
-                </div>
-                <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 14, letterSpacing: '.1em', color: result.ok ? 'var(--lime)' : 'var(--hot)', textTransform: 'uppercase' }}>
-                  {result.message}
-                </div>
-                {result.ok && result.guestName && (
-                  <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--paper)' }}>
-                    {result.guestName}
-                    {result.guestUsername && (
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--dim)', marginLeft: 8 }}>@{result.guestUsername}</span>
-                    )}
-                  </div>
-                )}
-                {!result.ok && (
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.06em', opacity: 0.8 }}>
-                    {result.message === 'Pass already used' ? 'ALREADY CHECKED IN' : 'DENY ENTRY'}
-                  </div>
-                )}
+                {result.ok ? '✓' : '✗'}
               </div>
-            )}
-          </div>
-        )}
+              <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 14, letterSpacing: '.1em', color: result.ok ? 'var(--lime)' : 'var(--hot)', textTransform: 'uppercase' }}>
+                {result.message}
+              </div>
+              {result.ok && result.guestName && (
+                <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--paper)' }}>
+                  {result.guestName}
+                  {result.guestUsername && (
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--dim)', marginLeft: 8 }}>@{result.guestUsername}</span>
+                  )}
+                </div>
+              )}
+              {!result.ok && (
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.06em', opacity: 0.8 }}>
+                  {result.message === 'Pass already used' ? 'ALREADY CHECKED IN' : 'DENY ENTRY'}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
-        {/* Hidden canvas for jsQR decoding */}
+        {/* Canvas for jsQR — always hidden */}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
 
         {/* Session stats */}
