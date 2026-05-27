@@ -14,7 +14,7 @@ export async function getProfile(userId: string): Promise<IUser> {
 
 export async function getUserById(targetId: string, requesterId: string): Promise<Partial<IUser>> {
   const user = await User.findById(targetId).select(
-    'name username profileImage bio city interests vibeTags cliquescore followerCount followingCount postCount role isVerifiedHost createdAt'
+    'name username profileImage bio city interests vibeTags cliquescore followerCount followingCount postCount role isVerifiedHost connectedSocials createdAt'
   );
   if (!user) throw createError('User not found', 404);
   if (user.isBanned && targetId !== requesterId) throw createError('User not found', 404);

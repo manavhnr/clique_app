@@ -6,10 +6,11 @@ import {
   ActivityIndicator,
   Image,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { useState, useCallback } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
@@ -120,6 +121,31 @@ export default function ProfileScreen() {
             <Text className="text-primary text-xs font-semibold">Verified Host</Text>
           </View>
         )}
+
+        {/* Instagram link */}
+        {u?.connectedSocials?.instagram ? (
+          <TouchableOpacity
+            onPress={() => Linking.openURL(`https://instagram.com/${u.connectedSocials.instagram}`)}
+            activeOpacity={0.75}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: 12,
+              backgroundColor: '#1a0a1a',
+              borderWidth: 1,
+              borderColor: '#3d1230',
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 999,
+              gap: 7,
+            }}
+          >
+            <FontAwesome5 name="instagram" size={15} color="#E1306C" />
+            <Text style={{ color: '#E1306C', fontSize: 13, fontWeight: '600' }}>
+              @{u.connectedSocials.instagram}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Action buttons */}

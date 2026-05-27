@@ -1,7 +1,7 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import PostCard from '@/components/PostCard';
@@ -82,6 +82,31 @@ export default function UserProfileScreen() {
           </View>
         )}
         {profile.bio ? <Text className="text-muted text-sm mt-3 text-center">{profile.bio}</Text> : null}
+
+        {/* Instagram link */}
+        {profile.connectedSocials?.instagram ? (
+          <TouchableOpacity
+            onPress={() => Linking.openURL(`https://instagram.com/${profile.connectedSocials.instagram}`)}
+            activeOpacity={0.75}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: 12,
+              backgroundColor: '#1a0a1a',
+              borderWidth: 1,
+              borderColor: '#3d1230',
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 999,
+              gap: 7,
+            }}
+          >
+            <FontAwesome5 name="instagram" size={15} color="#E1306C" />
+            <Text style={{ color: '#E1306C', fontSize: 13, fontWeight: '600' }}>
+              @{profile.connectedSocials.instagram}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <View className="flex-row justify-around px-5 py-4 bg-dark-card border-y border-dark-border mb-5">
