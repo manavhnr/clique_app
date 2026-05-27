@@ -5,6 +5,17 @@ import EventCard from '@/components/EventCard';
 import { Event } from '@/types';
 import api from '@/lib/api';
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return mobile;
+}
+
 const CATEGORIES = ['all', 'tonight', 'this weekend', 'near me', 'house party', 'warehouse', 'club', 'free'];
 const ALL_VIBES  = ['chill', 'techno', 'indie', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient', 'bass', 'desi', 'bollywood'];
 
@@ -21,6 +32,7 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 export default function EventsPage() {
+  const isMobile = useIsMobile();
   const [query, setQuery]           = useState('');
   const [activeCat, setActiveCat]   = useState('all');
   const [activeVibes, setActiveVibes] = useState<string[]>([]);
@@ -65,19 +77,19 @@ export default function EventsPage() {
   return (
     <div>
       {/* Page head */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24, marginBottom: 32, paddingBottom: 24, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: isMobile ? 20 : 32, paddingBottom: isMobile ? 16 : 24, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 8 }}>
             TONIGHT · YOUR CITY
           </div>
-          <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'clamp(40px, 5vw, 64px)', lineHeight: 0.95, letterSpacing: '-0.03em', margin: 0 }}>
+          <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 'clamp(32px, 9vw, 48px)' : 'clamp(40px, 5vw, 64px)', lineHeight: 0.95, letterSpacing: '-0.03em', margin: 0 }}>
             What&apos;s open<br />
             <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>right now.</span>
           </h1>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>OPEN NOW</div>
-          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 56, lineHeight: 1, letterSpacing: '-0.03em' }}>
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 36 : 56, lineHeight: 1, letterSpacing: '-0.03em' }}>
             {String(events.length).padStart(2, '0')}
           </div>
         </div>
@@ -138,7 +150,7 @@ export default function EventsPage() {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: isMobile ? 12 : 18 }}>
           {events.map((e) => <EventCard key={e._id} event={e} />)}
         </div>
       )}

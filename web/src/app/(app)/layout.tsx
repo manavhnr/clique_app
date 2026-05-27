@@ -1,17 +1,73 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
+// ─── Nav items ────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { to: '/events',         label: 'Tonight',      match: ['/events'] },
-  { to: '/passes',         label: 'My passes',    match: ['/passes'] },
-  { to: '/host/dashboard', label: 'Host',         match: ['/host'] },
-  { to: '/profile',        label: 'Profile',      match: ['/profile'] },
+  { to: '/events',         label: 'Tonight',   match: ['/events'],         icon: NavIconEvents  },
+  { to: '/passes',         label: 'My passes', match: ['/passes'],         icon: NavIconPasses  },
+  { to: '/host/dashboard', label: 'Host',      match: ['/host'],           icon: NavIconHost    },
+  { to: '/profile',        label: 'Profile',   match: ['/profile'],        icon: NavIconProfile },
 ];
 
+// ─── Inline SVG icons (no lucide dependency) ─────────────────────────────────
+function NavIconEvents({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="2" y="3" width="12" height="11" rx="2" />
+      <path d="M5 1v3M11 1v3M2 7h12" />
+    </svg>
+  );
+}
+function NavIconPasses({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="1" y="4" width="14" height="8" rx="2" />
+      <path d="M10 4v8M6 7h-.01M6 9h-.01" />
+    </svg>
+  );
+}
+function NavIconHost({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M8 1l1.8 3.6L14 5.4l-3 2.9.7 4.1L8 10.4l-3.7 2 .7-4.1L2 5.4l4.2-.8L8 1z" />
+    </svg>
+  );
+}
+function NavIconProfile({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="8" cy="5" r="3" />
+      <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+    </svg>
+  );
+}
+function IconMenu({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M3 5h14M3 10h14M3 15h14" />
+    </svg>
+  );
+}
+function IconChevronLeft({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 3L5 8l5 5" />
+    </svg>
+  );
+}
+function IconChevronRight({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3l5 5-5 5" />
+    </svg>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function Spinner() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--ink)' }}>
@@ -27,79 +83,360 @@ function AvatarInitial({ name, size = 36 }: { name: string; size?: number }) {
   const color = colors[Math.abs(h) % colors.length];
   return (
     <span style={{ width: size, height: size, borderRadius: '50%', background: color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 700, fontSize: size * 0.42, color: 'var(--ink)', flexShrink: 0 }}>
-      ME
+      {name?.[0]?.toUpperCase() ?? 'C'}
     </span>
   );
 }
 
+// ─── Breakpoint hook ──────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return mobile;
+}
+
+// ─── Sidebar nav list (shared between desktop sidebar + mobile drawer) ────────
+function SidebarNav({
+  collapsed,
+  pathname,
+  user,
+  logout,
+  onLinkClick,
+}: {
+  collapsed: boolean;
+  pathname: string;
+  user: { name: string; username: string; city?: string } | null;
+  logout: () => void;
+  onLinkClick?: () => void;
+}) {
+  return (
+    <>
+      {/* Logo */}
+      <Link
+        href="/events"
+        onClick={onLinkClick}
+        style={{
+          display: 'flex', alignItems: 'center',
+          gap: collapsed ? 0 : 10,
+          overflow: 'hidden',
+          flexShrink: 0,
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          padding: collapsed ? '0 4px' : '0 2px',
+        }}
+      >
+        <span style={{ width: 9, height: 9, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 18px var(--lime)', animation: 'pulse 2s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
+        {!collapsed && (
+          <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.04em', whiteSpace: 'nowrap', overflow: 'hidden' }}>CLIQUE</span>
+        )}
+      </Link>
+
+      {/* Nav links */}
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, overflow: 'hidden' }}>
+        {NAV_ITEMS.map((item) => {
+          const active = item.match.some((m) => pathname === m || pathname.startsWith(m + '/'));
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.to}
+              href={item.to}
+              onClick={onLinkClick}
+              title={collapsed ? item.label : undefined}
+              style={{
+                display: 'flex', alignItems: 'center',
+                gap: collapsed ? 0 : 12,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                padding: collapsed ? '10px 0' : '10px 12px',
+                borderRadius: 10,
+                fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase',
+                color: active ? 'var(--paper)' : 'var(--cream)',
+                background: active ? 'var(--line)' : 'transparent',
+                transition: 'all .15s ease',
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
+              {/* Active indicator dot (collapsed) or icon */}
+              <span style={{
+                flexShrink: 0,
+                color: active ? 'var(--lime)' : 'var(--dim)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color .15s ease',
+              }}>
+                <Icon size={16} />
+              </span>
+              {!collapsed && (
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>
+              )}
+              {/* Active lime dot on the left edge when collapsed */}
+              {collapsed && active && (
+                <span style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, background: 'var(--lime)', borderRadius: '0 2px 2px 0', boxShadow: '0 0 6px var(--lime)' }} />
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* User card + logout */}
+      {user && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
+          {!collapsed && (
+            <Link
+              href="/profile"
+              onClick={onLinkClick}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 10, border: '1px solid var(--line-2)', overflow: 'hidden' }}
+            >
+              <AvatarInitial name={user.name || 'C'} size={34} />
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                <div style={{ fontFamily: 'var(--display)', fontSize: 13, fontWeight: 600, lineHeight: 1.1, color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginTop: 3, whiteSpace: 'nowrap' }}>@{user.username}</div>
+              </div>
+            </Link>
+          )}
+          {collapsed && (
+            <Link href="/profile" onClick={onLinkClick} style={{ display: 'flex', justifyContent: 'center', padding: '6px 0' }}>
+              <AvatarInitial name={user.name || 'C'} size={30} />
+            </Link>
+          )}
+          <button
+            onClick={() => { logout(); onLinkClick?.(); }}
+            style={{
+              background: 'transparent', border: 'none',
+              fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.12em', color: 'var(--dim)',
+              textTransform: 'uppercase', padding: collapsed ? '4px 0' : '4px 8px',
+              cursor: 'pointer', textAlign: collapsed ? 'center' : 'left',
+              whiteSpace: 'nowrap', overflow: 'hidden',
+            }}
+          >
+            {collapsed ? '↗' : '↗ Log out'}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Root layout ──────────────────────────────────────────────────────────────
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const isMobile = useIsMobile();
+
+  // Sidebar collapsed state (desktop only), persisted
+  const [collapsed, setCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
   }, [isLoading, user, router]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('clique_sidebar_collapsed');
+    if (saved === 'true') setCollapsed(true);
+  }, []);
+
+  const toggleCollapse = useCallback(() => {
+    setCollapsed((c) => {
+      localStorage.setItem('clique_sidebar_collapsed', String(!c));
+      return !c;
+    });
+  }, []);
+
+  // Close drawer on route change
+  useEffect(() => { setDrawerOpen(false); }, [pathname]);
+
   if (isLoading) return <Spinner />;
   if (!user) return null;
 
-  return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* Sidebar — never scrolls */}
-      <aside style={{
-        width: 240, flexShrink: 0,
-        borderRight: '1px solid var(--line)', padding: '28px 22px',
-        display: 'flex', flexDirection: 'column', gap: 38,
-        background: '#0E0C09', overflow: 'hidden',
-      }}>
-        <Link href="/events" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 9, height: 9, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 18px var(--lime)', animation: 'pulse 2s ease-in-out infinite', display: 'inline-block' }} />
-          <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.04em' }}>CLIQUE</span>
-        </Link>
+  const handleLogout = () => { logout(); router.push('/'); };
+  const sidebarW = collapsed ? 64 : 240;
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--ink)' }}>
+
+      {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
+      {!isMobile && (
+        <aside style={{
+          width: sidebarW,
+          flexShrink: 0,
+          borderRight: '1px solid var(--line)',
+          padding: '28px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 32,
+          background: '#0E0C09',
+          overflow: 'hidden',
+          position: 'relative',
+          transition: 'width .25s cubic-bezier(.4,0,.2,1)',
+        }}>
+          <SidebarNav
+            collapsed={collapsed}
+            pathname={pathname}
+            user={user}
+            logout={handleLogout}
+          />
+
+          {/* Collapse toggle button */}
+          <button
+            onClick={toggleCollapse}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{
+              position: 'absolute',
+              bottom: 24,
+              right: collapsed ? '50%' : 16,
+              transform: collapsed ? 'translateX(50%)' : 'none',
+              width: 28, height: 28,
+              background: 'var(--line-2)', border: '1px solid var(--line)',
+              borderRadius: 8,
+              color: 'var(--dim)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all .25s ease',
+              zIndex: 1,
+            }}
+          >
+            {collapsed ? <IconChevronRight size={13} /> : <IconChevronLeft size={13} />}
+          </button>
+        </aside>
+      )}
+
+      {/* ── Mobile: slide-out drawer overlay ────────────────────────────── */}
+      {isMobile && drawerOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(11,9,7,0.75)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 40,
+              animation: 'fadeIn .2s ease-out',
+            }}
+          />
+          {/* Drawer */}
+          <aside style={{
+            position: 'fixed', left: 0, top: 0, bottom: 0,
+            width: 260,
+            zIndex: 50,
+            background: '#0E0C09',
+            borderRight: '1px solid var(--line)',
+            padding: '28px 16px',
+            display: 'flex', flexDirection: 'column', gap: 32,
+            animation: 'slideInLeft .22s cubic-bezier(.4,0,.2,1)',
+            overflow: 'hidden',
+          }}>
+            <SidebarNav
+              collapsed={false}
+              pathname={pathname}
+              user={user}
+              logout={handleLogout}
+              onLinkClick={() => setDrawerOpen(false)}
+            />
+          </aside>
+        </>
+      )}
+
+      {/* ── Main content area ────────────────────────────────────────────── */}
+      <main style={{
+        flex: 1,
+        minWidth: 0,
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        {/* Mobile top bar */}
+        {isMobile && (
+          <div style={{
+            position: 'sticky', top: 0, zIndex: 30,
+            height: 52,
+            background: 'rgba(11,9,7,0.96)',
+            backdropFilter: 'blur(12px)',
+            borderBottom: '1px solid var(--line)',
+            display: 'flex', alignItems: 'center',
+            padding: '0 16px',
+            gap: 14,
+            flexShrink: 0,
+          }}>
+            <button
+              onClick={() => setDrawerOpen(true)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--cream)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            >
+              <IconMenu size={20} />
+            </button>
+            <Link href="/events" style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+              <span style={{ width: 8, height: 8, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 12px var(--lime)', display: 'inline-block', animation: 'pulse 2s ease-in-out infinite' }} />
+              <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.04em' }}>CLIQUE</span>
+            </Link>
+            <Link href="/profile" style={{ display: 'flex', alignItems: 'center' }}>
+              <AvatarInitial name={user.name || 'C'} size={30} />
+            </Link>
+          </div>
+        )}
+
+        {/* Page content */}
+        <div style={{
+          flex: 1,
+          padding: isMobile ? '20px 16px 88px' : '36px 40px 60px',
+          overflowY: 'auto',
+        }}>
+          {children}
+        </div>
+      </main>
+
+      {/* ── Mobile bottom navigation bar ─────────────────────────────────── */}
+      {isMobile && (
+        <nav style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          zIndex: 30,
+          height: 64,
+          background: 'rgba(14,12,9,0.97)',
+          backdropFilter: 'blur(16px)',
+          borderTop: '1px solid var(--line)',
+          display: 'flex', alignItems: 'stretch',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}>
           {NAV_ITEMS.map((item) => {
             const active = item.match.some((m) => pathname === m || pathname.startsWith(m + '/'));
+            const Icon = item.icon;
             return (
-              <Link key={item.to} href={item.to} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 12px', borderRadius: 10,
-                fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase',
-                color: active ? 'var(--paper)' : 'var(--cream)',
-                background: active ? 'var(--line)' : 'transparent',
-                transition: 'all .15s ease', whiteSpace: 'nowrap',
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? 'var(--lime)' : 'var(--line-2)', transform: active ? 'scale(1.3)' : 'none', boxShadow: active ? '0 0 10px var(--lime)' : 'none', flexShrink: 0, transition: 'all .15s ease' }} />
-                {item.label}
+              <Link
+                key={item.to}
+                href={item.to}
+                style={{
+                  flex: 1,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  gap: 4,
+                  color: active ? 'var(--lime)' : 'var(--dim)',
+                  transition: 'color .15s ease',
+                  position: 'relative',
+                  textDecoration: 'none',
+                }}
+              >
+                {/* Active line at top */}
+                {active && (
+                  <span style={{ position: 'absolute', top: 0, left: '20%', right: '20%', height: 2, background: 'var(--lime)', borderRadius: '0 0 2px 2px', boxShadow: '0 0 8px var(--lime)' }} />
+                )}
+                <Icon size={18} />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+                  {item.label === 'My passes' ? 'Passes' : item.label}
+                </span>
               </Link>
             );
           })}
         </nav>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Link href="/profile" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 10, border: '1px solid var(--line-2)', transition: 'background .15s ease' }}>
-            <AvatarInitial name={user.name} size={36} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, lineHeight: 1.1, color: 'var(--paper)' }}>{user.name}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginTop: 3 }}>@{user.username} · {user.city ?? ''}</div>
-            </div>
-          </Link>
-          <button onClick={logout} style={{ background: 'transparent', border: 'none', fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.12em', color: 'var(--dim)', textTransform: 'uppercase', padding: '4px 8px', cursor: 'pointer', textAlign: 'left' }}>
-            ↗ Log out
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content — only this scrolls */}
-      <main style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '36px 40px 80px' }}>
-        {children}
-      </main>
+      )}
 
       <style>{`
-        @media (max-width: 860px) {
-          [data-app-grid] { grid-template-columns: 1fr !important; }
-          [data-app-aside] { position: sticky; top: 0; z-index: 30; height: auto !important; flex-direction: row !important; align-items: center !important; border-right: none !important; border-bottom: 1px solid var(--line) !important; padding: 14px 20px !important; gap: 20px !important; overflow-x: auto; }
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
         }
       `}</style>
     </div>

@@ -9,6 +9,17 @@ import { usePayment } from '@/hooks/usePayment';
 import { formatDate, formatPrice } from '@/lib/utils';
 import api from '@/lib/api';
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return mobile;
+}
+
 function PseudoQR({ seed, size = 72 }: { seed: string; size?: number }) {
   function hash(s: string) {
     let h = 2166136261;
@@ -107,6 +118,7 @@ const TABS = [
 ];
 
 export default function PassesPage() {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const { user } = useAuth();
   const { paying, initiatePayment } = usePayment();
@@ -171,17 +183,17 @@ export default function PassesPage() {
   return (
     <div>
       {/* Page head */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24, marginBottom: 32, paddingBottom: 24, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: isMobile ? 20 : 32, paddingBottom: isMobile ? 16 : 24, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 8 }}>YOUR PASSES</div>
-          <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'clamp(40px, 5vw, 64px)', lineHeight: 0.95, letterSpacing: '-0.03em', margin: 0 }}>
+          <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 'clamp(32px, 9vw, 48px)' : 'clamp(40px, 5vw, 64px)', lineHeight: 0.95, letterSpacing: '-0.03em', margin: 0 }}>
             The list.<br />
             <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>Show at the door.</span>
           </h1>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>ACTIVE</div>
-          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 56, lineHeight: 1, letterSpacing: '-0.03em' }}>
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 36 : 56, lineHeight: 1, letterSpacing: '-0.03em' }}>
             {String(activeCount).padStart(2, '0')}
           </div>
         </div>
@@ -247,7 +259,7 @@ export default function PassesPage() {
           )}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: isMobile ? 12 : 18 }}>
           {displayPasses.map((pass) => (
             <PassCard key={pass._id} pass={pass} onOpen={() => handleOpenPass(pass)} />
           ))}
