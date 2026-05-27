@@ -11,6 +11,14 @@ import api from '@/lib/api';
 const ALL_VIBES = ['chill', 'techno', 'indie', 'queer', 'rooftop', 'late', 'loud', 'dance', 'food', 'ambient'];
 const CITIES = ['NYC', 'LA', 'SF', 'CHI', 'ATL', 'MIA', 'BER', 'LDN', 'PAR', 'TYO', 'MEX', 'SEA', 'BOS', 'AUS', 'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
 
+const SOCIALS: { key: string; label: string; icon: string; urlFn: (h: string) => string }[] = [
+  { key: 'instagram', label: 'Instagram',  icon: '📷', urlFn: (h) => `https://instagram.com/${h}` },
+  { key: 'twitter',   label: 'Twitter / X', icon: '𝕏',  urlFn: (h) => `https://twitter.com/${h}` },
+  { key: 'snapchat',  label: 'Snapchat',   icon: '👻', urlFn: (h) => `https://snapchat.com/add/${h}` },
+  { key: 'facebook',  label: 'Facebook',   icon: '📘', urlFn: (h) => `https://facebook.com/${h}` },
+  { key: 'linkedin',  label: 'LinkedIn',   icon: '💼', urlFn: (h) => `https://linkedin.com/in/${h}` },
+];
+
 const CAT_COLORS: Record<string, string> = {
   house_party: '#C9F36E',
   warehouse: '#FF3D6E',
@@ -50,6 +58,172 @@ const inputStyle: React.CSSProperties = {
   padding: '14px 16px', borderRadius: 12, fontFamily: 'var(--display)', fontSize: 16,
   outline: 'none', transition: 'border-color .15s ease', boxSizing: 'border-box',
 };
+
+function SocialsSection({ profile, onSaved }: { profile: User; onSaved: (updated: User) => void }) {
+  const [editing, setEditing] = useState<string | null>(null); // platform key being edited
+  const [input, setInput]     = useState('');
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState('');
+
+  const socials = profile.connectedSocials ?? {};
+
+  const startEdit = (key: string) => {
+    setEditing(key);
+    setInput((socials as Record<string, string | undefined>)[key] ?? '');
+    setError('');
+  };
+
+  const cancelEdit = () => { setEditing(null); setInput(''); setError(''); };
+
+  const handleSave = async (key: string) => {
+    setSaving(true); setError('');
+    const handle = input.trim().replace(/^@/, '');
+    // Merge: keep all existing socials, update this one (or remove if blank)
+    const updated: Record<string, string> = {};
+    SOCIALS.forEach(({ key: k }) => {
+      const existing = (socials as Record<string, string | undefined>)[k];
+      if (k === key) { if (handle) updated[k] = handle; }
+      else if (existing) updated[k] = existing;
+    });
+    try {
+      const { data } = await api.put('/users/profile', { connectedSocials: updated });
+      onSaved(data.data.user);
+      cancelEdit();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? 'Failed to save');
+    } finally { setSaving(false); }
+  };
+
+  const handleDisconnect = async (key: string) => {
+    setSaving(true);
+    const updated: Record<string, string> = {};
+    SOCIALS.forEach(({ key: k }) => {
+      if (k === key) return; // omit this one
+      const existing = (socials as Record<string, string | undefined>)[k];
+      if (existing) updated[k] = existing;
+    });
+    try {
+      const { data } = await api.put('/users/profile', { connectedSocials: updated });
+      onSaved(data.data.user);
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
+  };
+
+  const row: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 16,
+    padding: '14px 0', borderBottom: '1px solid var(--line)',
+  };
+  const mono11: React.CSSProperties = { fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em' };
+  const inlineSt: React.CSSProperties = {
+    flex: 1, background: '#0B0907', border: '1px solid var(--lime)', color: 'var(--paper)',
+    padding: '9px 14px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15,
+    outline: 'none',
+  };
+
+  return (
+    <div style={{ marginBottom: 40 }}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 4 }}>
+        CONNECTED SOCIALS
+      </div>
+      <div style={{ fontFamily: 'var(--display)', fontSize: 13, color: 'var(--dim)', marginBottom: 18 }}>
+        Hosts can view these when you register for events.
+      </div>
+
+      <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 14, padding: '0 20px' }}>
+        {SOCIALS.map(({ key, label, icon, urlFn }, idx) => {
+          const handle = (socials as Record<string, string | undefined>)[key];
+          const isEditing = editing === key;
+          const isLast = idx === SOCIALS.length - 1;
+
+          return (
+            <div key={key} style={{ ...row, borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
+              {/* Icon + label */}
+              <div style={{ width: 130, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{icon}</span>
+                <span style={{ ...mono11, color: 'var(--cream)', textTransform: 'uppercase' }}>{label}</span>
+              </div>
+
+              {isEditing ? (
+                /* ── Edit mode ── */
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--dim)' }}>@</span>
+                    <input
+                      style={{ ...inlineSt, paddingLeft: 30 }}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value.replace(/^@/, ''))}
+                      placeholder="yourhandle"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSave(key); if (e.key === 'Escape') cancelEdit(); }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleSave(key)}
+                    disabled={saving}
+                    style={{ padding: '9px 16px', background: 'var(--lime)', color: 'var(--ink)', border: 'none', borderRadius: 999, ...mono11, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                  >
+                    {saving ? '…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    style={{ padding: '9px 14px', background: 'transparent', color: 'var(--dim)', border: '1px solid var(--line-2)', borderRadius: 999, ...mono11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    Cancel
+                  </button>
+                  {error && <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)' }}>{error}</span>}
+                </div>
+              ) : handle ? (
+                /* ── Connected ── */
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--lime)', boxShadow: '0 0 8px var(--lime)', flexShrink: 0 }} />
+                  <a
+                    href={urlFn(handle)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--paper)', textDecoration: 'none', flex: 1 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--lime)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--paper)')}
+                  >
+                    @{handle} ↗
+                  </a>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={() => startEdit(key)}
+                      style={{ padding: '5px 12px', background: 'transparent', color: 'var(--cream)', border: '1px solid var(--line-2)', borderRadius: 999, ...mono11, cursor: 'pointer' }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDisconnect(key)}
+                      disabled={saving}
+                      style={{ padding: '5px 12px', background: 'transparent', color: 'var(--hot)', border: '1px solid rgba(255,61,110,0.3)', borderRadius: 999, ...mono11, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.5 : 1 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── Not connected ── */
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ ...mono11, color: 'var(--dim)' }}>NOT CONNECTED</span>
+                  <button
+                    onClick={() => startEdit(key)}
+                    style={{ padding: '7px 16px', background: 'transparent', color: 'var(--lime)', border: '1px solid rgba(201,243,110,0.35)', borderRadius: 999, ...mono11, cursor: 'pointer', transition: 'background .15s ease' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(201,243,110,0.08)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    + Connect
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
@@ -110,6 +284,11 @@ export default function ProfilePage() {
       setEditing(false);
     } catch {}
     finally { setSaving(false); }
+  }
+
+  function handleSocialSaved(updated: User) {
+    setProfile(updated);
+    updateUser(updated);
   }
 
   if (loading) return (
@@ -184,6 +363,9 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Connected socials */}
+      <SocialsSection profile={p} onSaved={handleSocialSaved} />
 
       {/* Recent passes */}
       {recentPasses.length > 0 && (
