@@ -177,7 +177,7 @@ export async function getEventBookings(hostId: string, eventId: string) {
   if (event.hostId.toString() !== hostId) throw createError('Access denied', 403);
 
   const bookings = await Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
-    .populate('userId', 'name username profileImage connectedSocials')
+    .populate({ path: 'userId', select: '+phone name username profileImage connectedSocials gender age city cliquescore' })
     .sort({ createdAt: -1 });
 
   return { bookings };

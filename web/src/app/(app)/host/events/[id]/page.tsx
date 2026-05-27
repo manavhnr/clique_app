@@ -18,7 +18,7 @@ import api from '@/lib/api';
 
 interface Booking {
   _id: string;
-  userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; age?: number; phone?: string; connectedSocials?: { instagram?: string }; city?: string };
+  userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; age?: number; phone?: string; connectedSocials?: { instagram?: string }; city?: string; cliquescore?: number };
   status: string;
   amount: number;
   createdAt: string;
@@ -98,7 +98,7 @@ export default function HostEventPage() {
       </div>
 
       {activeTab === 'overview' && <OverviewTab event={event} onRefresh={refreshEvent} />}
-      {activeTab === 'guests' && <GuestsTab eventId={id} bookings={bookings} requests={requests} squads={squads} onRefresh={() => {
+      {activeTab === 'guests' && <GuestsTab eventId={id} eventTitle={event.title} bookings={bookings} requests={requests} squads={squads} onRefresh={() => {
         Promise.all([
           api.get(`/bookings/event/${id}`).catch(() => null),
           api.get(`/requests/host?eventId=${id}`).catch(() => null),
@@ -317,11 +317,12 @@ function GenderBadge({ gender }: { gender?: string }) {
 
 function AttendeeCard({
   name, username, profileImage, gender, age, phone, connectedSocials, city, cliquescore,
-  right, requestStatus,
+  right, requestStatus, entryType, squadName,
 }: {
   name: string; username: string; profileImage?: string; gender?: string; age?: number; phone?: string;
   connectedSocials?: { instagram?: string }; city?: string; cliquescore?: number;
   right?: React.ReactNode; requestStatus?: string | null;
+  entryType?: EntryType; squadName?: string;
 }) {
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4">
@@ -337,7 +338,7 @@ function AttendeeCard({
 
         {/* Details */}
         <div className="flex-1 min-w-0">
-          {/* Row 1: name + gender badge + age + status */}
+          {/* Row 1: name + gender badge + age + entry type + request status */}
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
             <p className="text-white text-sm font-semibold">{name || 'Unknown'}</p>
             <GenderBadge gender={gender} />
@@ -346,6 +347,7 @@ function AttendeeCard({
                 {age}y
               </span>
             )}
+            {entryType && <EntryTypeBadge type={entryType} squadName={squadName} />}
             {requestStatus === 'requested' && (
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-yellow-400 bg-yellow-500/10 border-yellow-500/20">
                 Pending
@@ -364,11 +366,8 @@ function AttendeeCard({
             {cliquescore != null ? ` · ★ ${cliquescore}` : ''}
           </p>
 
-          {/* Row 3: phone + instagram */}
+          {/* Row 3: instagram */}
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            {phone && (
-              <span className="text-xs text-zinc-400 font-mono">{phone}</span>
-            )}
             <InstagramLink socials={connectedSocials} />
           </div>
         </div>
@@ -380,8 +379,80 @@ function AttendeeCard({
   );
 }
 
-function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }: {
+// ── Entry type derivation ────────────────────────────────────────────────────
+
+type EntryType = 'stag' | 'solo' | 'group' | 'mixed';
+
+function getEntryType(gender: string | undefined, squadName: string | undefined, squadMembers?: { gender?: string }[]): EntryType {
+  if (squadName && squadMembers) {
+    const hasMale   = squadMembers.some((m) => m.gender === 'male');
+    const hasFemale = squadMembers.some((m) => m.gender === 'female');
+    if (hasMale && hasFemale) return 'mixed';
+    return 'group';
+  }
+  if (gender === 'male') return 'stag';
+  return 'solo';
+}
+
+function EntryTypeBadge({ type, squadName }: { type: EntryType; squadName?: string }) {
+  const map: Record<EntryType, { label: string; color: string }> = {
+    stag:  { label: 'STAG',  color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+    solo:  { label: 'SOLO',  color: 'text-pink-400 bg-pink-500/10 border-pink-500/20' },
+    group: { label: squadName ? `GROUP · ${squadName}` : 'GROUP', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
+    mixed: { label: squadName ? `MIXED · ${squadName}` : 'MIXED', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+  };
+  const { label, color } = map[type];
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap ${color}`}>
+      {label}
+    </span>
+  );
+}
+
+// ── CSV export ───────────────────────────────────────────────────────────────
+
+function exportGuestsCSV(bookings: Booking[], squads: Squad[], eventTitle: string) {
+  const squadByUserId = new Map<string, Squad>();
+  for (const sq of squads) {
+    for (const m of sq.members) squadByUserId.set(m.userId, sq);
+  }
+
+  const rows = [
+    ['Name', 'Username', 'Phone', 'Gender', 'Age', 'City', 'Instagram', 'Entry Type', 'Status', 'Booked At'],
+    ...bookings.map((b) => {
+      const u = b.userId;
+      const sq = squadByUserId.get(u?._id ?? '');
+      const entryType = getEntryType(u?.gender, sq?.name, sq?.members);
+      return [
+        u?.name ?? '',
+        u?.username ?? '',
+        u?.phone ?? '',
+        u?.gender ?? '',
+        u?.age != null ? String(u.age) : '',
+        u?.city ?? '',
+        u?.connectedSocials?.instagram ?? '',
+        entryType.toUpperCase() + (sq ? ` (${sq.name})` : ''),
+        b.status,
+        new Date(b.createdAt).toLocaleString('en-IN'),
+      ];
+    }),
+  ];
+
+  const csv = rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${eventTitle.replace(/[^a-z0-9]/gi, '_')}_guests.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── GuestsTab ────────────────────────────────────────────────────────────────
+
+function GuestsTab({ eventId: _eventId, eventTitle, bookings, requests, squads, onRefresh }: {
   eventId: string;
+  eventTitle: string;
   bookings: Booking[];
   requests: PendingRequest[];
   squads: Squad[];
@@ -390,6 +461,12 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
   const [approving, setApproving]           = useState<string | null>(null);  // requestId
   const [rejecting, setRejecting]           = useState<string | null>(null);  // requestId
   const [approvingGroup, setApprovingGroup] = useState<string | null>(null);  // squadId
+
+  // Build lookup: userId → squad (for entry type & CSV)
+  const squadByUserId = new Map<string, Squad>();
+  for (const sq of squads) {
+    for (const m of sq.members) squadByUserId.set(m.userId, sq);
+  }
 
   const handleApprove = async (requestId: string) => {
     setApproving(requestId);
@@ -447,18 +524,21 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
           <div className="space-y-4">
             {pendingGroups.map((sq) => {
               const pendingMemberCount = sq.members.filter((m) => m.requestStatus === 'requested').length;
+              const entryType = getEntryType(undefined, sq.name, sq.members);
               return (
                 <div key={sq._id.toString()} className="bg-dark-card border border-yellow-500/20 rounded-xl overflow-hidden">
                   {/* Group header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border bg-yellow-500/5">
                     <div>
-                      <p className="text-white text-sm font-semibold">{sq.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white text-sm font-semibold">{sq.name}</p>
+                        <EntryTypeBadge type={entryType} />
+                      </div>
                       <p className="text-xs text-muted">
                         {sq.members.length} members
                         {pendingMemberCount > 0 && ` · ${pendingMemberCount} pending`}
                       </p>
                     </div>
-                    {/* Only show Approve Group if there are still pending members */}
                     {pendingMemberCount > 0 && (
                       <button
                         onClick={() => handleApproveGroup(sq._id.toString())}
@@ -470,7 +550,7 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
                       </button>
                     )}
                   </div>
-                  {/* Members — each with individual accept/decline if still pending */}
+                  {/* Members */}
                   <div className="divide-y divide-dark-border">
                     {sq.members.map((m) => (
                       <div key={m.userId} className="px-4 py-3">
@@ -478,6 +558,8 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
                           name={m.name} username={m.username} profileImage={m.profileImage}
                           gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
                           city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
+                          entryType={getEntryType(m.gender, sq.name, sq.members)}
+                          squadName={sq.name}
                           right={
                             m.requestStatus === 'requested' && m.requestId ? (
                               <div className="flex gap-2">
@@ -532,6 +614,7 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
                 city={r.userId?.city}
                 cliquescore={r.userId?.cliquescore}
                 requestStatus="requested"
+                entryType={getEntryType(r.userId?.gender, undefined)}
                 right={
                   <div className="flex gap-2">
                     <button
@@ -566,38 +649,46 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
             <Badge variant="green">{approvedGroups.length}</Badge>
           </div>
           <div className="space-y-3">
-            {approvedGroups.map((sq) => (
-              <div key={sq._id.toString()} className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border">
-                  <div>
-                    <p className="text-white text-sm font-semibold">{sq.name}</p>
-                    <p className="text-xs text-muted">{sq.members.length} members</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {sq.groupPass && (
-                      <span className="flex items-center gap-1 text-xs text-lime-400 bg-lime-400/10 border border-lime-400/20 px-2 py-1 rounded-full">
-                        <QrCode size={10} />
-                        Group pass issued
-                      </span>
-                    )}
-                    <Badge variant={sq.groupPass ? 'green' : 'default'}>
-                      {sq.groupPass ? 'Approved' : 'No pass yet'}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="divide-y divide-dark-border">
-                  {sq.members.map((m) => (
-                    <div key={m.userId} className="px-4 py-3">
-                      <AttendeeCard
-                        name={m.name} username={m.username} profileImage={m.profileImage}
-                        gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
-                        city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
-                      />
+            {approvedGroups.map((sq) => {
+              const entryType = getEntryType(undefined, sq.name, sq.members);
+              return (
+                <div key={sq._id.toString()} className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white text-sm font-semibold">{sq.name}</p>
+                        <EntryTypeBadge type={entryType} />
+                      </div>
+                      <p className="text-xs text-muted">{sq.members.length} members</p>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      {sq.groupPass && (
+                        <span className="flex items-center gap-1 text-xs text-lime-400 bg-lime-400/10 border border-lime-400/20 px-2 py-1 rounded-full">
+                          <QrCode size={10} />
+                          Group pass issued
+                        </span>
+                      )}
+                      <Badge variant={sq.groupPass ? 'green' : 'default'}>
+                        {sq.groupPass ? 'Approved' : 'No pass yet'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-dark-border">
+                    {sq.members.map((m) => (
+                      <div key={m.userId} className="px-4 py-3">
+                        <AttendeeCard
+                          name={m.name} username={m.username} profileImage={m.profileImage}
+                          gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
+                          city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
+                          entryType={getEntryType(m.gender, sq.name, sq.members)}
+                          squadName={sq.name}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -606,15 +697,29 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
       {bookings.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-white">On the List</p>
-            <p className="text-sm text-muted">
-              <span className="text-green-400 font-medium">{enteredCount}</span> entered ·{' '}
-              <span className="text-zinc-400 font-medium">{bookings.length - enteredCount}</span> awaiting
-            </p>
+            <div>
+              <p className="text-sm font-semibold text-white">On the List</p>
+              <p className="text-xs text-muted mt-0.5">
+                <span className="text-green-400 font-medium">{enteredCount}</span> entered ·{' '}
+                <span className="text-zinc-400 font-medium">{bookings.length - enteredCount}</span> awaiting
+              </p>
+            </div>
+            {/* CSV Export */}
+            <button
+              onClick={() => exportGuestsCSV(bookings, squads, eventTitle)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs font-medium rounded-lg hover:bg-zinc-700 hover:text-white transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export CSV
+            </button>
           </div>
           <div className="space-y-2">
             {bookings.map((b) => {
-              const entered = b.status === 'checked_in';
+              const entered  = b.status === 'checked_in';
+              const sq       = squadByUserId.get(b.userId?._id ?? '');
+              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members);
               return (
                 <AttendeeCard
                   key={b._id}
@@ -627,6 +732,8 @@ function GuestsTab({ eventId: _eventId, bookings, requests, squads, onRefresh }:
                   connectedSocials={b.userId?.connectedSocials}
                   city={b.userId?.city}
                   requestStatus={null}
+                  entryType={entryType}
+                  squadName={sq?.name}
                   right={
                     <div className="flex items-center gap-2">
                       <BookingStatusBadge status={b.status} />

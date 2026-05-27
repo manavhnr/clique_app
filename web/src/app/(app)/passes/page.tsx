@@ -305,7 +305,7 @@ function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, minHeight: 64, alignItems: 'flex-start', paddingBottom: 26 }}>
         <div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>
-            {evt ? evt.category.replace('_', ' ').toUpperCase() : 'EVENT'}
+            {evt?.category ? evt.category.replace('_', ' ').toUpperCase() : 'EVENT'}
           </div>
           <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--paper)', marginTop: 6 }}>
             {evt?.title ?? 'Event'}
