@@ -37,44 +37,28 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [mode, setMode]           = useState<'password' | 'otp'>('password');
   const [identifier, setIdentifier] = useState('');
-  const [password, setPassword]   = useState('');
-  const [phone, setPhone]         = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState('');
+  const [password, setPassword]     = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
 
-  // ── Password login ──────────────────────────────────────────────────────
-  const handlePasswordLogin = async (e: React.FormEvent) => {
+  const canSubmit = identifier.trim().length > 0 && password.length > 0 && !loading;
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canSubmit) return;
     setError('');
-    if (!identifier.trim()) { setError('Please enter your phone number or username.'); return; }
-    if (!password)           { setError('Please enter your password.'); return; }
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/login', { identifier: identifier.trim(), password });
+      const { data } = await api.post('/auth/login', {
+        identifier: identifier.trim(),
+        password,
+      });
       login(data.data.token, data.data.user);
       router.push('/events');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message ?? 'Invalid phone/username or password.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── OTP login ───────────────────────────────────────────────────────────
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!phone.trim()) { setError('Please enter your phone number.'); return; }
-    setLoading(true);
-    try {
-      await api.post('/auth/send-otp', { phone: phone.trim() });
-      router.push(`/otp?phone=${encodeURIComponent(phone.trim())}`);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Failed to send OTP. Check the number and try again.');
     } finally {
       setLoading(false);
     }
@@ -86,104 +70,60 @@ export default function LoginPage() {
         Welcome back.<br />
         <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>Doors are open.</span>
       </div>
-      <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--cream)', lineHeight: 1.4, marginBottom: 24 }}>
+      <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--cream)', lineHeight: 1.4, marginBottom: 28 }}>
         Sign in to your account.
       </div>
 
-      {/* Mode toggle */}
-      <div style={{ display: 'flex', background: '#0B0907', border: '1px solid var(--line-2)', borderRadius: 12, padding: 4, marginBottom: 24 }}>
-        {(['password', 'otp'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => { setMode(m); setError(''); }}
-            style={{
-              flex: 1, padding: '9px 0', borderRadius: 9, border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase',
-              background: mode === m ? 'var(--lime)' : 'transparent',
-              color: mode === m ? 'var(--ink)' : 'var(--dim)',
-              transition: 'all .15s ease',
-            }}
-          >
-            {m === 'password' ? 'Password' : 'One-time code'}
-          </button>
-        ))}
-      </div>
+      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>PHONE OR USERNAME</span>
+          <input
+            style={inputStyle}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="+91 98765 43210"
+            autoComplete="username"
+            autoFocus
+            onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+          />
+        </label>
 
-      {/* ── Password form ── */}
-      {mode === 'password' && (
-        <form onSubmit={handlePasswordLogin} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>PHONE OR USERNAME</span>
-            <input
-              style={inputStyle}
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="+91 98765 43210"
-              autoComplete="username"
-              autoFocus
-              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-            />
-          </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>PASSWORD</span>
+          <input
+            type="password"
+            style={inputStyle}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="current-password"
+            onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+          />
+        </label>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>PASSWORD</span>
-            <input
-              type="password"
-              style={inputStyle}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
-              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-            />
-          </label>
+        {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--hot)' }}>{error}</div>}
 
-          {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--hot)' }}>{error}</div>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px 22px', borderRadius: 999, fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
-          >
-            {loading && <Spinner />}
-            {loading ? 'Signing in…' : 'Sign in →'}
-          </button>
-        </form>
-      )}
-
-      {/* ── OTP form ── */}
-      {mode === 'otp' && (
-        <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>MOBILE NUMBER</span>
-            <input
-              type="tel"
-              style={inputStyle}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-              autoComplete="tel"
-              autoFocus
-              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-            />
-          </label>
-
-          {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--hot)' }}>{error}</div>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px 22px', borderRadius: 999, fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
-          >
-            {loading && <Spinner />}
-            {loading ? 'Sending code…' : 'Text me the code →'}
-          </button>
-        </form>
-      )}
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            background: canSubmit ? 'var(--lime)' : 'var(--line-2)',
+            color: canSubmit ? 'var(--ink)' : 'var(--dim)',
+            border: `1px solid ${canSubmit ? 'var(--lime)' : 'var(--line-2)'}`,
+            padding: '16px 22px', borderRadius: 999,
+            fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 13,
+            letterSpacing: '.08em', textTransform: 'uppercase',
+            cursor: canSubmit ? 'pointer' : 'not-allowed',
+            transition: 'background .2s, color .2s, border-color .2s',
+          }}
+        >
+          {loading && <Spinner />}
+          {loading ? 'Signing in…' : 'Sign in →'}
+        </button>
+      </form>
 
       <div style={{ textAlign: 'center', fontFamily: 'var(--display)', fontSize: 14, color: 'var(--cream)', marginTop: 22 }}>
         No account?{' '}

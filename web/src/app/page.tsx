@@ -691,14 +691,6 @@ function SignupBand() {
           }}>
             I already have one
           </Link>
-          <div style={{
-            fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)',
-            letterSpacing: '.12em', display: 'inline-flex', alignItems: 'center',
-            gap: 8, marginTop: 6, justifyContent: isMobile ? 'flex-start' : 'center',
-          }}>
-            <span style={{ width: 6, height: 6, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 8px var(--lime)', flexShrink: 0 }} />
-            12,400 already on the list
-          </div>
         </div>
       </div>
     </section>
