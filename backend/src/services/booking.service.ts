@@ -8,6 +8,7 @@ import { Pass } from '../models/Pass';
 import { JoinRequest } from '../models/JoinRequest';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
+import { uploadBuffer } from '../utils/cloudinary';
 import { incrementEventAttendance } from './cliquescore.service';
 import { notifyBookingConfirmed } from './notification.service';
 
@@ -28,8 +29,9 @@ export async function generatePass(bookingId: string, userId: string, eventId: s
   // Hash of JWT stored in DB — used for uniqueness and tamper detection
   const qrTokenHash = crypto.createHash('sha256').update(qrPayload).digest('hex');
 
-  // Generate QR code as base64 data URL
-  const qrCodeUrl = await QRCode.toDataURL(qrPayload);
+  // Generate QR code as PNG buffer and upload to Cloudinary CDN
+  const qrBuffer  = await QRCode.toBuffer(qrPayload, { type: 'png', width: 400, margin: 2 });
+  const qrCodeUrl = await uploadBuffer(qrBuffer, pass._id.toString());
 
   await Pass.findByIdAndUpdate(pass._id, { qrTokenHash, qrCodeUrl });
 

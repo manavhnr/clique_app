@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import QRCode from 'qrcode';
+import { uploadBuffer } from '../utils/cloudinary';
 import { EventSquad } from '../models/EventSquad';
 import { Event } from '../models/Event';
 import { User } from '../models/User';
@@ -367,7 +368,8 @@ async function generateGroupPass(
   );
 
   const qrTokenHash = crypto.createHash('sha256').update(qrPayload).digest('hex');
-  const qrCodeUrl   = await QRCode.toDataURL(qrPayload);
+  const qrBuffer    = await QRCode.toBuffer(qrPayload, { type: 'png', width: 400, margin: 2 });
+  const qrCodeUrl   = await uploadBuffer(qrBuffer, `group-${pass._id.toString()}`);
 
   await Pass.findByIdAndUpdate(pass._id, { qrTokenHash, qrCodeUrl });
   return { ...pass.toObject(), qrCodeUrl };
