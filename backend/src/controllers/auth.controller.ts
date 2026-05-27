@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { initiateOTP, verifyOTPAndLogin, loginWithPassword, refreshAccessToken, revokeRefreshToken, getCurrentUser } from '../services/auth.service';
+import { initiateOTP, verifyOTPAndLogin, loginWithPassword, registerWithPassword, refreshAccessToken, revokeRefreshToken, getCurrentUser } from '../services/auth.service';
 import { sendSuccess } from '../utils/response';
 import { AuthRequest } from '../middleware/auth.middleware';
 
@@ -20,6 +20,14 @@ export async function verifyOTP(req: Request, res: Response, next: NextFunction)
       isNewUser ? 'Account created' : 'Login successful',
       isNewUser ? 201 : 200
     );
+  } catch (err) { next(err); }
+}
+
+export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { phone, password } = req.body;
+    const { token, refreshToken, user, needsSetup } = await registerWithPassword(phone, password);
+    sendSuccess(res, { token, refreshToken, user, needsSetup }, 'Account created', 201);
   } catch (err) { next(err); }
 }
 

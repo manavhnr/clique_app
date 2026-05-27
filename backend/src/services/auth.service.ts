@@ -132,3 +132,32 @@ export async function getCurrentUser(userId: string): Promise<IUser> {
   if (user.isBanned) throw createError('Account banned', 403);
   return user;
 }
+
+export async function registerWithPassword(
+  phone: string,
+  password: string
+): Promise<{ token: string; refreshToken: string; user: IUser; needsSetup: boolean }> {
+  const normalizedPhone = normalizePhone(phone);
+
+  const existing = await User.findOne({ phone: normalizedPhone });
+  if (existing) throw createError('An account with this number already exists', 409);
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const username = await generateUniqueUsername();
+
+  const user = await User.create({
+    phone: normalizedPhone,
+    password: passwordHash,
+    name: '',
+    username,
+  });
+
+  const token = signAccessToken(user._id.toString(), user.role);
+  const refreshToken = await issueRefreshToken(user._id.toString());
+
+  // strip password before returning
+  const userObj = user.toObject() as IUser & { password?: string };
+  delete userObj.password;
+
+  return { token, refreshToken, user: userObj as IUser, needsSetup: true };
+}
