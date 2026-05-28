@@ -52,18 +52,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(storedToken);
         setRefreshToken(storedRefresh);
         setUser(JSON.parse(storedUser));
-        // Refresh user from server to pick up any role/status changes (e.g. admin, host approval)
+        // Refresh user + token from server to pick up role/status changes (e.g. admin, host approval)
         try {
           const { data } = await axios.get(`${API_BASE_URL}/auth/me`, {
             headers: { Authorization: `Bearer ${storedToken}` },
           });
           const freshUser: User = data.data?.user;
+          const freshToken: string | undefined = data.data?.token;
           if (freshUser) {
             await SecureStore.setItemAsync('auth_user', JSON.stringify(freshUser));
             setUser(freshUser);
           }
+          if (freshToken) {
+            await SecureStore.setItemAsync('auth_token', freshToken);
+            setToken(freshToken);
+          }
         } catch {
-          // Network failure or token expired — keep cached user, let other flows handle expiry
+          // Network failure or token expired — keep cached values, let other flows handle expiry
         }
       }
       setIsLoading(false);

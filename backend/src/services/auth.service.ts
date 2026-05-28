@@ -23,7 +23,7 @@ import { createError } from '../middleware/error.middleware';
 
 const REFRESH_TTL_DAYS = 30;
 
-function signAccessToken(userId: string, role: string): string {
+export function signAccessToken(userId: string, role: string): string {
   return jwt.sign(
     { userId, role },
     process.env.JWT_SECRET as string,

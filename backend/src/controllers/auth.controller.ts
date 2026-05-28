@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { initiateOTP, verifyOTPAndLogin, loginWithPassword, registerWithPassword, refreshAccessToken, revokeRefreshToken, getCurrentUser } from '../services/auth.service';
+import { initiateOTP, verifyOTPAndLogin, loginWithPassword, registerWithPassword, refreshAccessToken, revokeRefreshToken, getCurrentUser, signAccessToken } from '../services/auth.service';
 import { sendSuccess } from '../utils/response';
 import { AuthRequest } from '../middleware/auth.middleware';
 
@@ -62,6 +62,8 @@ export async function logout(req: Request, res: Response, next: NextFunction): P
 export async function getMe(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const user = await getCurrentUser(req.user!.userId);
-    sendSuccess(res, { user });
+    // Re-issue token with current DB role so stale JWTs (e.g. after manual role change) self-heal
+    const freshToken = signAccessToken(user._id.toString(), user.role);
+    sendSuccess(res, { user, token: freshToken });
   } catch (err) { next(err); }
 }
