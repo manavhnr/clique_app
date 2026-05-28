@@ -6,6 +6,7 @@ import {
   listEvents, blockEvent, unblockEvent,
   listReports, resolveReport,
   getDashboardStats,
+  listPendingHosts, listAllHosts, approveHostAdmin, rejectHostAdmin,
 } from '../services/admin.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
@@ -76,5 +77,34 @@ export async function resolveRep(req: AuthRequest, res: Response, next: NextFunc
     }
     await resolveReport(req.params.reportId, req.user!.userId, resolution);
     sendSuccess(res, null, `Report ${resolution}`);
+  } catch (err) { next(err); }
+}
+
+export async function pendingHosts(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await listPendingHosts(parsePage(req.query.page), parseLimit(req.query.limit));
+    sendSuccess(res, result);
+  } catch (err) { next(err); }
+}
+
+export async function allHosts(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await listAllHosts(parsePage(req.query.page), parseLimit(req.query.limit), req.query.status as string);
+    sendSuccess(res, result);
+  } catch (err) { next(err); }
+}
+
+export async function approveHost(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await approveHostAdmin(req.params.userId, req.user!.userId);
+    sendSuccess(res, null, 'Host approved');
+  } catch (err) { next(err); }
+}
+
+export async function rejectHost(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const reason = req.body.rejectionReason ?? 'Application rejected by admin';
+    await rejectHostAdmin(req.params.userId, req.user!.userId, reason);
+    sendSuccess(res, null, 'Host application rejected');
   } catch (err) { next(err); }
 }

@@ -5,6 +5,7 @@ import {
   stats, users, ban, unban,
   events, blockEv, unblockEv,
   reports, resolveRep,
+  pendingHosts, allHosts, approveHost, rejectHost,
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -20,5 +21,9 @@ router.patch('/events/:eventId/block', blockEv);
 router.patch('/events/:eventId/unblock', unblockEv);
 router.get('/reports', reports);
 router.patch('/reports/:reportId/resolve', resolveRep);
+router.get('/hosts/pending', pendingHosts);
+router.get('/hosts', allHosts);
+router.patch('/hosts/:userId/approve', approveHost);
+router.patch('/hosts/:userId/reject', rejectHost);
 
 export default router;

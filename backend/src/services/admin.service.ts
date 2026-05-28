@@ -3,9 +3,10 @@ import { Event } from '../models/Event';
 import { Report } from '../models/Report';
 import { Pass } from '../models/Pass';
 import { Booking } from '../models/Booking';
+import { HostVerification } from '../models/HostVerification';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
-import { applyReportPenalty } from './cliquescore.service';
+import { applyReportPenalty, incrementEventCreationScore } from './cliquescore.service';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,65 @@ export async function resolveReport(reportId: string, adminId: string, resolutio
   if (!report) throw createError('Report not found', 404);
   await Report.findByIdAndUpdate(reportId, { status: resolution });
   await writeAuditLog({ actorId: adminId, action: `REPORT_${resolution.toUpperCase()}`, targetType: 'Report', targetId: reportId });
+}
+
+// ─── Host Verifications ───────────────────────────────────────────────────────
+
+export async function listPendingHosts(page: number, limit: number) {
+  const verifications = await HostVerification.find({ status: 'pending' })
+    .populate('userId', 'name username phone profileImage city createdAt')
+    .sort({ createdAt: 1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
+  const total = await HostVerification.countDocuments({ status: 'pending' });
+  return { verifications, total, page, limit };
+}
+
+export async function listAllHosts(page: number, limit: number, status?: string) {
+  const query = status ? { status } : {};
+  const verifications = await HostVerification.find(query)
+    .populate('userId', 'name username phone profileImage city isVerifiedHost createdAt')
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
+  const total = await HostVerification.countDocuments(query);
+  return { verifications, total, page, limit };
+}
+
+export async function approveHostAdmin(targetUserId: string, adminId: string) {
+  const verification = await HostVerification.findOne({ userId: targetUserId });
+  if (!verification) throw createError('Verification application not found', 404);
+  if (verification.status === 'approved') throw createError('Already approved', 409);
+
+  await HostVerification.findOneAndUpdate(
+    { userId: targetUserId },
+    { status: 'approved', reviewedBy: adminId }
+  );
+  await User.findByIdAndUpdate(targetUserId, {
+    role: 'host',
+    isVerifiedHost: true,
+    hostVerificationStatus: 'approved',
+  });
+  await writeAuditLog({ actorId: adminId, action: 'HOST_APPROVED', targetType: 'User', targetId: targetUserId });
+  await incrementEventCreationScore(targetUserId);
+}
+
+export async function rejectHostAdmin(targetUserId: string, adminId: string, rejectionReason: string) {
+  const verification = await HostVerification.findOne({ userId: targetUserId });
+  if (!verification) throw createError('Verification application not found', 404);
+
+  await HostVerification.findOneAndUpdate(
+    { userId: targetUserId },
+    { status: 'rejected', rejectionReason, reviewedBy: adminId }
+  );
+  await User.findByIdAndUpdate(targetUserId, { hostVerificationStatus: 'rejected' });
+  await writeAuditLog({
+    actorId: adminId,
+    action: 'HOST_REJECTED',
+    targetType: 'User',
+    targetId: targetUserId,
+    metadata: { rejectionReason },
+  });
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
