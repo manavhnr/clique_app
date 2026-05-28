@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import axios from 'axios';
+import { API_BASE_URL } from '@/constants/api';
 
 export type User = {
   _id: string;
@@ -46,9 +48,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedRefresh = await SecureStore.getItemAsync('auth_refresh_token');
       const storedUser = await SecureStore.getItemAsync('auth_user');
       if (storedToken && storedUser) {
+        // Set cached values immediately so the app can render
         setToken(storedToken);
         setRefreshToken(storedRefresh);
         setUser(JSON.parse(storedUser));
+        // Refresh user from server to pick up any role/status changes (e.g. admin, host approval)
+        try {
+          const { data } = await axios.get(`${API_BASE_URL}/auth/me`, {
+            headers: { Authorization: `Bearer ${storedToken}` },
+          });
+          const freshUser: User = data.data?.user;
+          if (freshUser) {
+            await SecureStore.setItemAsync('auth_user', JSON.stringify(freshUser));
+            setUser(freshUser);
+          }
+        } catch {
+          // Network failure or token expired — keep cached user, let other flows handle expiry
+        }
       }
       setIsLoading(false);
     })();
