@@ -25,7 +25,7 @@ export async function hostRequests(req: AuthRequest, res: Response, next: NextFu
     const page = parsePage(req.query.page);
     const limit = parseLimit(req.query.limit);
     const eventId = req.query.eventId as string | undefined;
-    const result = await getHostRequests(req.user!.userId, eventId, page, limit);
+    const result = await getHostRequests(req.user!.userId, eventId, page, limit, req.query.status as string | undefined);
     sendSuccess(res, result);
   } catch (err) { next(err); }
 }

@@ -35,11 +35,10 @@ export async function updateProfile(userId: string, data: UpdateProfileInput): P
   }
 
   // Mark setup complete when all required fields are present
-  const currentUser = await User.findById(userId).select('name hasCompletedSetup password');
+  const currentUser = await User.findById(userId).select('name hasCompletedSetup');
   if (currentUser && !currentUser.hasCompletedSetup) {
     const finalName = (rest.name as string | undefined)?.trim() || currentUser.name;
-    const hasPassword = !!update.password || !!currentUser.password;
-    if (finalName && hasPassword) {
+    if (finalName) {
       update.hasCompletedSetup = true;
     }
   }

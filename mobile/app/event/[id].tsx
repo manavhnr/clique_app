@@ -1,21 +1,38 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Image,
+  StatusBar,
+  Dimensions,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
+const { width } = Dimensions.get('window');
+const COVER_H = Math.round(width * 0.56);
+
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
+  const [saved, setSaved] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
 
   useEffect(() => {
     api.get(`/events/${id}`)
-      .then(({ data }) => setEvent(data.data?.event))
+      .then(({ data }) => {
+        setEvent(data.data?.event);
+        setSaved(data.data?.event?.isSaved ?? false);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
@@ -25,41 +42,52 @@ export default function EventDetailScreen() {
     setBooking(true);
     try {
       await api.post('/bookings', { eventId: event._id });
-      Alert.alert('Booked!', 'Your booking is confirmed. Check your passes.', [
+      Alert.alert('Booked!', 'Your pass is confirmed.', [
         { text: 'View Pass', onPress: () => router.push('/(main)/passes') },
         { text: 'OK' },
       ]);
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message ?? 'Booking failed');
-    } finally {
-      setBooking(false);
-    }
+    } finally { setBooking(false); }
   };
 
   const handleRequest = async () => {
     if (!event) return;
     try {
       await api.post('/requests', { eventId: event._id });
-      Alert.alert('Requested', 'Your access request has been sent to the host.');
+      Alert.alert('Requested', 'Your access request has been sent.');
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message ?? 'Request failed');
     }
   };
 
+  const handleSave = async () => {
+    if (!event) return;
+    try {
+      if (saved) {
+        await api.delete(`/events/${event._id}/save`);
+      } else {
+        await api.post(`/events/${event._id}/save`);
+      }
+      setSaved(s => !s);
+    } catch { }
+  };
+
   if (loading) {
     return (
-      <View className="flex-1 bg-dark items-center justify-center">
-        <ActivityIndicator color="#7C3AED" />
+      <View style={{ flex: 1, backgroundColor: '#0A0A0F', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color="#2563EB" size="large" />
       </View>
     );
   }
 
   if (!event) {
     return (
-      <View className="flex-1 bg-dark items-center justify-center px-6">
-        <Text className="text-white text-lg">Event not found</Text>
-        <TouchableOpacity onPress={() => router.back()} className="mt-4">
-          <Text className="text-primary">← Go back</Text>
+      <View style={{ flex: 1, backgroundColor: '#0A0A0F', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Ionicons name="calendar-outline" size={48} color="#374151" />
+        <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600', marginTop: 16, marginBottom: 8 }}>Event not found</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={{ color: '#2563EB', fontSize: 14 }}>Go back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -68,115 +96,174 @@ export default function EventDetailScreen() {
   const spotsLeft = (event.capacity ?? 0) - (event.bookedCount ?? 0);
   const isFull = spotsLeft <= 0;
   const isOwnEvent = event.hostId?._id === user?._id;
+  const isPrivate = event.privacy === 'private';
+  const isBooked = event.userBookingStatus === 'confirmed';
+  const dateStr = event.date
+    ? new Date(event.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
 
   return (
-    <View className="flex-1 bg-dark">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {event.images?.[0] ? (
-          <Image source={{ uri: event.images[0] }} className="w-full h-64" resizeMode="cover" />
-        ) : (
-          <View className="w-full h-64 bg-primary/20 items-center justify-center">
-            <Ionicons name="calendar" size={80} color="#7C3AED" />
+    <View style={{ flex: 1, backgroundColor: '#0A0A0F' }}>
+      <StatusBar barStyle="light-content" />
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        {/* Cover image */}
+        <View style={{ width, height: COVER_H, backgroundColor: '#111827' }}>
+          {event.images?.[0]
+            ? <Image source={{ uri: event.images[0] }} style={{ width, height: COVER_H }} resizeMode="cover" />
+            : <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="calendar" size={56} color="#374151" />
+              </View>
+          }
+          {/* Gradient overlay for back/save buttons */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', padding: 16, paddingTop: 52 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="arrow-back" size={20} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSave}
+                style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#F59E0B' : '#fff'} />
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
+        </View>
 
-        <TouchableOpacity onPress={() => router.back()} className="absolute top-12 left-5 bg-black/40 rounded-full p-2">
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity>
-
-        <View className="px-5 pt-5 pb-32">
-          <View className="flex-row items-start justify-between mb-3">
-            <Text className="text-white text-2xl font-bold flex-1 mr-3">{event.title}</Text>
-            <View className={`flex-row items-center gap-1 px-3 py-1 rounded-full ${event.privacy === 'private' ? 'bg-yellow-400/20' : 'bg-green-400/20'}`}>
-              {event.privacy === 'private' && <Ionicons name="lock-closed" size={10} color="#facc15" />}
-              <Text className={`text-xs font-medium ${event.privacy === 'private' ? 'text-yellow-400' : 'text-green-400'}`}>
-                {event.privacy === 'private' ? 'Private' : 'Public'}
+        {/* Content */}
+        <View style={{ padding: 20 }}>
+          {/* Title + privacy badge */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', flex: 1, lineHeight: 28, marginRight: 12 }}>
+              {event.title}
+            </Text>
+            <View style={{
+              backgroundColor: isPrivate ? '#422006' : '#14532d',
+              borderRadius: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              marginTop: 4,
+            }}>
+              <Text style={{ color: isPrivate ? '#fb923c' : '#4ade80', fontSize: 11, fontWeight: '700' }}>
+                {isPrivate ? 'Private' : 'Public'}
               </Text>
             </View>
           </View>
 
-          <TouchableOpacity onPress={() => router.push(`/user/${event.hostId?._id}`)} className="flex-row items-center mb-5">
-            <View className="w-8 h-8 rounded-full bg-dark-card border border-dark-border items-center justify-center mr-2 overflow-hidden">
-              {event.hostId?.profileImage ? (
-                <Image source={{ uri: event.hostId.profileImage }} style={{ width: 32, height: 32 }} />
-              ) : (
-                <Ionicons name="person" size={16} color="#6B7280" />
-              )}
+          {/* Host */}
+          <TouchableOpacity
+            onPress={() => router.push(`/user/${event.hostId?._id}`)}
+            style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
+            activeOpacity={0.7}
+          >
+            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#1F2937', overflow: 'hidden', marginRight: 10 }}>
+              {event.hostId?.profileImage
+                ? <Image source={{ uri: event.hostId.profileImage }} style={{ width: 32, height: 32 }} resizeMode="cover" />
+                : <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person" size={15} color="#6B7280" />
+                  </View>
+              }
             </View>
-            <Text className="text-primary text-sm font-medium">{event.hostId?.name ?? 'Host'}</Text>
+            <Text style={{ color: '#2563EB', fontSize: 14, fontWeight: '600' }}>{event.hostId?.name ?? 'Host'}</Text>
             {event.hostId?.isVerifiedHost && (
-              <Ionicons name="checkmark-circle" size={14} color="#7C3AED" style={{ marginLeft: 4 }} />
+              <Ionicons name="checkmark-circle" size={14} color="#2563EB" style={{ marginLeft: 4 }} />
             )}
           </TouchableOpacity>
 
-          <View className="bg-dark-card border border-dark-border rounded-2xl p-4 mb-4 gap-3">
-            <InfoRow
-              icon="calendar-outline"
-              label={event.date ? new Date(event.date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
+          {/* Info pills row */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+            {dateStr && <InfoPill icon="calendar-outline" label={dateStr} />}
+            {(event.startTime || event.endTime) && (
+              <InfoPill icon="time-outline" label={[event.startTime, event.endTime].filter(Boolean).join(' – ')} />
+            )}
+            {event.locationName && <InfoPill icon="location-outline" label={event.locationName} />}
+            <InfoPill
+              icon="people-outline"
+              label={isFull ? 'Sold out' : `${spotsLeft} spots left`}
+              accent={isFull ? '#ef4444' : undefined}
             />
-            <InfoRow icon="time-outline" label={`${event.startTime} – ${event.endTime}`} />
-            <InfoRow icon="location-outline" label={event.locationName} />
-            <InfoRow icon="people-outline" label={isFull ? 'Sold out' : `${spotsLeft} spots left`} highlight={isFull} />
-            <InfoRow icon="cash-outline" label={event.price > 0 ? `₹${event.price}` : 'Free Entry'} />
+            <InfoPill
+              icon="cash-outline"
+              label={event.price > 0 ? `₹${event.price}` : 'Free Entry'}
+              accent={event.price > 0 ? '#F59E0B' : '#22c55e'}
+            />
           </View>
 
+          {/* Description */}
           {event.description ? (
-            <View className="mb-4">
-              <Text className="text-white font-semibold mb-2">About</Text>
-              <Text className="text-muted text-sm leading-5">{event.description}</Text>
-            </View>
+            <Section title="About">
+              <Text style={{ color: '#9CA3AF', fontSize: 14, lineHeight: 22 }}>{event.description}</Text>
+            </Section>
           ) : null}
 
+          {/* Vibe tags */}
           {event.vibeTags?.length ? (
-            <View className="flex-row flex-wrap gap-2 mb-4">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
               {event.vibeTags.map((tag: string) => (
-                <View key={tag} className="bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
-                  <Text className="text-primary text-xs">{tag}</Text>
+                <View key={tag} style={{ backgroundColor: '#1e3a5f', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
+                  <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '500' }}>#{tag}</Text>
                 </View>
               ))}
             </View>
           ) : null}
 
+          {/* Rules */}
           {event.rules ? (
-            <View className="mb-4">
-              <Text className="text-white font-semibold mb-2">Rules</Text>
-              <Text className="text-muted text-sm leading-5">{event.rules}</Text>
-            </View>
+            <Section title="Rules">
+              <Text style={{ color: '#9CA3AF', fontSize: 14, lineHeight: 22 }}>{event.rules}</Text>
+            </Section>
           ) : null}
 
+          {/* Refund */}
           {event.refundPolicy ? (
-            <View className="mb-4">
-              <Text className="text-white font-semibold mb-2">Refund Policy</Text>
-              <Text className="text-muted text-sm leading-5">{event.refundPolicy}</Text>
-            </View>
+            <Section title="Refund Policy">
+              <Text style={{ color: '#9CA3AF', fontSize: 14, lineHeight: 22 }}>{event.refundPolicy}</Text>
+            </Section>
           ) : null}
         </View>
       </ScrollView>
 
+      {/* CTA */}
       {!isOwnEvent && (
-        <View className="absolute bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-dark border-t border-dark-border">
-          {event.privacy === 'private' && !event.userBookingStatus ? (
-            <TouchableOpacity onPress={handleRequest} className="bg-accent rounded-xl py-4 items-center">
-              <Text className="text-dark font-semibold text-base">Request Access</Text>
+        <View style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          backgroundColor: '#0A0A0F',
+          borderTopWidth: 1, borderTopColor: '#1F2937',
+          padding: 16, paddingBottom: 32,
+        }}>
+          {isBooked ? (
+            <View style={{ backgroundColor: '#111827', borderRadius: 14, paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+              <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
+              <Text style={{ color: '#22c55e', fontWeight: '700', fontSize: 15 }}>You're going!</Text>
+            </View>
+          ) : isPrivate && !event.userBookingStatus ? (
+            <TouchableOpacity
+              onPress={handleRequest}
+              style={{ backgroundColor: '#F59E0B', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: '#000', fontWeight: '700', fontSize: 15 }}>Request Access</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
               onPress={handleBook}
-              disabled={isFull || booking || event.userBookingStatus === 'confirmed'}
-              className={`rounded-xl py-4 items-center ${
-                isFull || event.userBookingStatus === 'confirmed' ? 'bg-dark-card' : booking ? 'bg-primary/60' : 'bg-primary'
-              }`}
+              disabled={isFull || booking}
+              style={{
+                backgroundColor: isFull ? '#1F2937' : booking ? '#1D4ED8' : '#2563EB',
+                borderRadius: 14, paddingVertical: 16, alignItems: 'center',
+              }}
+              activeOpacity={0.85}
             >
-              {event.userBookingStatus === 'confirmed' ? (
-                <View className="flex-row items-center gap-2">
-                  <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
-                  <Text className="text-white font-semibold text-base">Booked</Text>
-                </View>
-              ) : (
-                <Text className="text-white font-semibold text-base">
-                  {isFull ? 'Sold Out' : booking ? 'Booking...' : event.price > 0 ? `Book for ₹${event.price}` : 'Book Free Pass'}
-                </Text>
-              )}
+              {booking
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ color: isFull ? '#6B7280' : '#fff', fontWeight: '700', fontSize: 15 }}>
+                    {isFull ? 'Sold Out' : event.price > 0 ? `Book · ₹${event.price}` : 'Get Free Pass'}
+                  </Text>
+              }
             </TouchableOpacity>
           )}
         </View>
@@ -185,11 +272,20 @@ export default function EventDetailScreen() {
   );
 }
 
-function InfoRow({ icon, label, highlight }: { icon: keyof typeof Ionicons.glyphMap; label: string; highlight?: boolean }) {
+function InfoPill({ icon, label, accent }: { icon: keyof typeof Ionicons.glyphMap; label: string; accent?: string }) {
   return (
-    <View className="flex-row items-center">
-      <Ionicons name={icon} size={16} color="#6B7280" style={{ marginRight: 10, width: 18 }} />
-      <Text className={`text-sm flex-1 ${highlight ? 'text-red-400' : 'text-white'}`}>{label}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderWidth: 1, borderColor: '#1F2937' }}>
+      <Ionicons name={icon} size={13} color={accent ?? '#6B7280'} />
+      <Text style={{ color: accent ?? '#D1D5DB', fontSize: 13, fontWeight: '500' }} numberOfLines={1}>{label}</Text>
+    </View>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={{ marginBottom: 20 }}>
+      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 8 }}>{title}</Text>
+      {children}
     </View>
   );
 }

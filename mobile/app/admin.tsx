@@ -10,7 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useState, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -27,6 +27,7 @@ type StatCard = { label: string; value: number; icon: keyof typeof import('@expo
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -240,10 +241,13 @@ export default function AdminDashboard() {
           alignItems: 'center',
         }}
       >
+        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14, padding: 4 }}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
         <View
           style={{
-            width: 36,
-            height: 36,
+            width: 34,
+            height: 34,
             borderRadius: 10,
             backgroundColor: '#1e3a5f',
             alignItems: 'center',
@@ -251,9 +255,9 @@ export default function AdminDashboard() {
             marginRight: 12,
           }}
         >
-          <Ionicons name="shield-checkmark" size={20} color={PRIMARY} />
+          <Ionicons name="shield-checkmark" size={18} color={PRIMARY} />
         </View>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>Admin Panel</Text>
           <Text style={{ color: '#6B7280', fontSize: 12 }}>@{user?.username}</Text>
         </View>

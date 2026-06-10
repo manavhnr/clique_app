@@ -202,19 +202,8 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
   auto: boolean; setAuto: (a: boolean | ((prev: boolean) => boolean)) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [drag, setDrag] = useState(false);
   const { isMobile } = useBreakpoint();
-
-  // Play / pause the inline video in sync with the `auto` toggle
-  useEffect(() => {
-    if (!videoRef.current) return;
-    if (auto) {
-      videoRef.current.play().catch(() => {});
-    } else {
-      videoRef.current.pause();
-    }
-  }, [auto]);
 
   function pointerMove(e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) {
     if (!trackRef.current) return;
@@ -291,42 +280,22 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
         </button>
       </div>
 
-      {/* ── Video (shown when playing) ── */}
-      {auto && (
-        <video
-          ref={videoRef}
-          src="/videos/event-hero.mp4"
-          playsInline
-          controls
-          style={{
-            width: '100%',
-            height: 'auto',
-            display: 'block',
-            borderRadius: 14,
-            border: '1px solid var(--line-2)',
-            background: '#000',
-            animation: 'fadeIn .25s ease-out',
-          }}
-        />
-      )}
-
-      {/* ── Scrubber (shown when paused) ── */}
-      {!auto && (
-        <div
-          ref={trackRef}
-          onMouseDown={onDown}
-          onTouchStart={onDown}
-          style={{
-            position: 'relative',
-            height: isMobile ? 100 : 130,
-            border: '1px solid var(--line-2)', borderRadius: 14,
-            overflow: 'hidden',
-            cursor: drag ? 'grabbing' : 'ew-resize',
-            background: '#0F0C09', userSelect: 'none',
-            touchAction: 'none',
-            animation: 'fadeIn .25s ease-out',
-          }}
-        >
+      {/* ── Scrubber ── */}
+      <div
+        ref={trackRef}
+        onMouseDown={onDown}
+        onTouchStart={onDown}
+        style={{
+          position: 'relative',
+          height: isMobile ? 100 : 130,
+          border: '1px solid var(--line-2)', borderRadius: 14,
+          overflow: 'hidden',
+          cursor: drag ? 'grabbing' : 'ew-resize',
+          background: '#0F0C09', userSelect: 'none',
+          touchAction: 'none',
+          animation: 'fadeIn .25s ease-out',
+        }}
+      >
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #1a1428 0%, #0d0c1f 22%, #06070C 50%, #060a18 75%, #1d1408 100%)', opacity: 0.7 }} />
 
           {events.map((e, idx) => {
@@ -375,7 +344,6 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
             </div>
           </div>
         </div>
-      )}
     </div>
   );
 }
@@ -411,11 +379,7 @@ function FloatingTicket({ event, hour }: { event: DemoEvent; hour: number }) {
       </div>
       <div style={{ padding: 18, opacity: open ? 1 : 0, transition: 'opacity .25s ease' }}>
         <div style={{ position: 'relative', borderRadius: 12, height: 140, marginBottom: 16, overflow: 'hidden', display: 'flex', alignItems: 'flex-end', padding: 14 }}>
-          <video
-            src="/videos/event-hero.mp4"
-            autoPlay muted loop playsInline
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${event.color}33 0%, #0d0c1f 60%, #06070C 100%)` }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)' }} />
           <div style={{ position: 'absolute', top: 12, left: 12, width: 8, height: 8, borderRadius: '50%', background: event.color, boxShadow: `0 0 10px ${event.color}` }} />
           <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, color: '#fff', zIndex: 1, lineHeight: 0.95, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{event.title}</div>

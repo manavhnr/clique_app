@@ -55,9 +55,12 @@ export async function getHostRequests(
   hostId: string,
   eventId: string | undefined,
   page: number,
-  limit: number
+  limit: number,
+  status?: string
 ) {
-  const query: Record<string, unknown> = { hostId, status: 'requested' };
+  const query: Record<string, unknown> = { hostId };
+  if (status && status !== 'all') query.status = status;
+  else if (!status) query.status = 'requested';
   if (eventId) query.eventId = eventId;
 
   const requests = await JoinRequest.find(query)

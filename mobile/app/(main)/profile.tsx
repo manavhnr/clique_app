@@ -176,6 +176,30 @@ export default function ProfileScreen() {
         )}
       </View>
 
+      {/* Admin Panel — only visible for admin role */}
+      {u?.role === 'admin' && (
+        <TouchableOpacity
+          onPress={() => router.push('/admin')}
+          style={{
+            marginHorizontal: 24,
+            marginTop: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            backgroundColor: '#1e3a5f',
+            borderWidth: 1,
+            borderColor: '#2563EB',
+            borderRadius: 16,
+            paddingVertical: 14,
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="shield-checkmark" size={16} color="#60a5fa" />
+          <Text style={{ color: '#60a5fa', fontWeight: '600', fontSize: 14 }}>Admin Panel</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Tabs */}
       <View style={{ flexDirection: 'row', marginTop: 36, marginHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#1F2937' }}>
         {(['posts', 'events'] as const).map((tab) => (

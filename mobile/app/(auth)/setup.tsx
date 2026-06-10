@@ -33,14 +33,8 @@ const PREFERENCES: { id: string; label: string; icon: PrefIcon }[] = [
 export default function SetupScreen() {
   const [step, setStep] = useState<1 | 2>(1);
 
-  // Step 1
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  // Step 2
   const [preferences, setPreferences] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
@@ -49,8 +43,6 @@ export default function SetupScreen() {
   const { updateUser } = useAuth();
 
   const usernameRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
-  const confirmRef = useRef<TextInput>(null);
 
   const togglePref = (id: string) => {
     setPreferences((prev) =>
@@ -68,8 +60,6 @@ export default function SetupScreen() {
       setError('Username can only contain letters, numbers, and underscores');
       return;
     }
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
-    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
     setError('');
     setStep(2);
   };
@@ -85,7 +75,6 @@ export default function SetupScreen() {
       const { data } = await api.put('/users/profile', {
         name: name.trim(),
         username: username.trim().toLowerCase(),
-        password,
         vibeTags: preferences,
       });
       await updateUser(data.data.user);
@@ -96,7 +85,6 @@ export default function SetupScreen() {
     }
   };
 
-  // ─── Step 1 ────────────────────────────────────────────────────────────────
   if (step === 1) {
     return (
       <KeyboardAvoidingView
@@ -109,7 +97,6 @@ export default function SetupScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Progress */}
           <View className="flex-row gap-2 mb-10">
             <View className="flex-1 h-1 rounded-full bg-primary" />
             <View className="flex-1 h-1 rounded-full bg-dark-border" />
@@ -118,7 +105,6 @@ export default function SetupScreen() {
           <Text className="text-white text-2xl font-bold mb-1">Create your profile</Text>
           <Text className="text-muted text-sm mb-8">This is how you'll appear on Clique</Text>
 
-          {/* Full Name */}
           <Text className="text-white text-sm font-medium mb-2">Full Name</Text>
           <TextInput
             className="bg-dark-card border border-dark-border rounded-xl px-4 py-4 text-white text-base mb-5"
@@ -130,9 +116,8 @@ export default function SetupScreen() {
             onSubmitEditing={() => usernameRef.current?.focus()}
           />
 
-          {/* Username */}
           <Text className="text-white text-sm font-medium mb-2">Username</Text>
-          <View className="flex-row items-center bg-dark-card border border-dark-border rounded-xl px-4 mb-5">
+          <View className="flex-row items-center bg-dark-card border border-dark-border rounded-xl px-4 mb-8">
             <Text className="text-muted text-base">@</Text>
             <TextInput
               ref={usernameRef}
@@ -143,43 +128,10 @@ export default function SetupScreen() {
               autoCorrect={false}
               value={username}
               onChangeText={setUsername}
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
+              returnKeyType="done"
+              onSubmitEditing={handleStep1Continue}
             />
           </View>
-
-          {/* Password */}
-          <Text className="text-white text-sm font-medium mb-2">Password</Text>
-          <View className="flex-row items-center bg-dark-card border border-dark-border rounded-xl px-4 mb-5">
-            <TextInput
-              ref={passwordRef}
-              className="flex-1 text-white text-base py-4"
-              placeholder="Min. 8 characters"
-              placeholderTextColor="#6B7280"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              returnKeyType="next"
-              onSubmitEditing={() => confirmRef.current?.focus()}
-            />
-            <TouchableOpacity onPress={() => setShowPassword((p) => !p)} className="pl-3">
-              <Text className="text-muted text-sm">{showPassword ? 'Hide' : 'Show'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Confirm Password */}
-          <Text className="text-white text-sm font-medium mb-2">Confirm Password</Text>
-          <TextInput
-            ref={confirmRef}
-            className="bg-dark-card border border-dark-border rounded-xl px-4 py-4 text-white text-base mb-8"
-            placeholder="Re-enter password"
-            placeholderTextColor="#6B7280"
-            secureTextEntry={!showPassword}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            returnKeyType="done"
-            onSubmitEditing={handleStep1Continue}
-          />
 
           {error ? <Text className="text-red-400 text-sm mb-4">{error}</Text> : null}
 
@@ -195,7 +147,6 @@ export default function SetupScreen() {
     );
   }
 
-  // ─── Step 2 ────────────────────────────────────────────────────────────────
   return (
     <View className="flex-1 bg-dark">
       <ScrollView
@@ -203,7 +154,6 @@ export default function SetupScreen() {
         contentContainerStyle={{ paddingTop: 64, paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Progress */}
         <View className="flex-row gap-2 mb-10">
           <View className="flex-1 h-1 rounded-full bg-primary" />
           <View className="flex-1 h-1 rounded-full bg-primary" />
@@ -246,7 +196,7 @@ export default function SetupScreen() {
               : `${preferences.length} selected — ${3 - preferences.length} more to go`}
           </Text>
           {preferences.length >= 3 && (
-            <Ionicons name="checkmark-circle" size={16} color="#7C3AED" />
+            <Ionicons name="checkmark-circle" size={16} color="#2563EB" />
           )}
         </View>
 

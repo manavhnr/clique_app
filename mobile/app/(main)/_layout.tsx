@@ -82,8 +82,6 @@ function ProfileTabIcon({ focused }: { focused: boolean }) {
 }
 
 export default function MainLayout() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
 
   return (
     <Tabs
@@ -147,15 +145,6 @@ export default function MainLayout() {
         options={{
           tabBarIcon: ({ focused }) => (
             <TabIcon focused={focused} label="Passes" icon="ticket-outline" activeIcon="ticket" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="admin"
-        options={{
-          href: isAdmin ? undefined : null,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} label="Admin" icon="shield-outline" activeIcon="shield-checkmark" />
           ),
         }}
       />
