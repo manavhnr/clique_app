@@ -207,12 +207,21 @@ export async function getHostEvents(hostId: string, page: number, limit: number)
   return { events, total, page, limit };
 }
 
-export async function getPublicEvents(limit = 20) {
-  return Event.find({ status: 'published', date: { $gte: new Date() } })
-    .sort({ isFeatured: -1, date: 1 })
+export async function getPublicEvents(startDate?: Date, endDate?: Date, limit = 20) {
+  const from = startDate ?? new Date();
+  const to   = endDate   ?? (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d; })();
+
+  const events = await Event.find({ status: 'published', date: { $gte: from, $lte: to } })
+    .sort({ date: 1, isFeatured: -1 })
     .limit(limit)
     .select('title category vibeTags date startTime endTime capacity bookedCount images price locationName privacy')
     .lean();
+
+  // Attach Mon-based dayOfWeek (0=Mon … 6=Sun) so the frontend can position events on the week axis
+  return events.map((e) => ({
+    ...e,
+    dayOfWeek: (new Date(e.date).getDay() + 6) % 7,
+  }));
 }
 
 export async function getEventsFeed(page: number, limit: number, requesterId: string) {

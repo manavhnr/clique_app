@@ -95,7 +95,9 @@ export async function myEvents(req: AuthRequest, res: Response, next: NextFuncti
 
 export async function publicEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const events = await getPublicEvents(20);
+    const startDate = req.query.start_date ? new Date(req.query.start_date as string) : undefined;
+    const endDate   = req.query.end_date   ? new Date(req.query.end_date   as string) : undefined;
+    const events    = await getPublicEvents(startDate, endDate, 20);
     sendSuccess(res, { events });
   } catch (err) { next(err); }
 }

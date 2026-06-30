@@ -7,17 +7,18 @@ import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
 
 // ─────── Data ───────
-const HOUR_MIN = 18;
-const HOUR_MAX = 30;
+const DAY_COUNT = 7;
+const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
+// start/end are day-index floats: 0.0 = start of MON, 7.0 = end of SUN
 const DEMO_EVENTS = [
-  { id: 'e1', title: 'Sunset on the Roof',   cat: 'house party', start: 19, end: 23, color: '#E8C46E', rsvp: 31,  spots: 42  },
-  { id: 'e2', title: 'BASEMENT / Vol. 12',   cat: 'warehouse',   start: 22, end: 28, color: '#FF3D6E', rsvp: 174, spots: 200 },
-  { id: 'e3', title: 'Dim Sum & Disco',       cat: 'supper club', start: 21, end: 26, color: '#C9F36E', rsvp: 64,  spots: 80  },
-  { id: 'e4', title: 'Quiet Riot Listening',  cat: 'listening',   start: 20, end: 24, color: '#7DB4FF', rsvp: 28,  spots: 35  },
-  { id: 'e5', title: 'Last Call Karaoke',     cat: 'karaoke',     start: 23, end: 28, color: '#E8C46E', rsvp: 47,  spots: 60  },
-  { id: 'e6', title: 'Afterhours @ The Pool', cat: 'afterhours',  start: 26, end: 30, color: '#FF3D6E', rsvp: 89,  spots: 120 },
-  { id: 'e7', title: 'Slow Sunday Garden',    cat: 'garden',      start: 18, end: 22, color: '#C9F36E', rsvp: 22,  spots: 50  },
+  { id: 'e1', title: 'Sunset on the Roof',    cat: 'house party', start: 0.1, end: 0.9, color: '#E8C46E', rsvp: 31,  spots: 42  },
+  { id: 'e2', title: 'BASEMENT / Vol. 12',    cat: 'warehouse',   start: 1.1, end: 1.9, color: '#FF3D6E', rsvp: 174, spots: 200 },
+  { id: 'e3', title: 'Dim Sum & Disco',        cat: 'supper club', start: 2.1, end: 2.9, color: '#C9F36E', rsvp: 64,  spots: 80  },
+  { id: 'e4', title: 'Quiet Riot Listening',   cat: 'listening',   start: 3.1, end: 3.9, color: '#7DB4FF', rsvp: 28,  spots: 35  },
+  { id: 'e5', title: 'Last Call Karaoke',      cat: 'karaoke',     start: 4.1, end: 4.9, color: '#E8C46E', rsvp: 47,  spots: 60  },
+  { id: 'e6', title: 'Afterhours @ The Pool',  cat: 'afterhours',  start: 5.1, end: 5.9, color: '#FF3D6E', rsvp: 89,  spots: 120 },
+  { id: 'e7', title: 'Slow Sunday Garden',     cat: 'garden',      start: 6.1, end: 6.9, color: '#C9F36E', rsvp: 22,  spots: 50  },
 ];
 
 const CAT_COLORS: Record<string, string> = {
@@ -32,47 +33,29 @@ const COLOR_CYCLE = ['#E8C46E', '#FF3D6E', '#C9F36E', '#7DB4FF', '#E8A0FF'];
 
 type DemoEvent = typeof DEMO_EVENTS[0];
 
-function parseTimeStr(t: string): number {
-  const parts = t.split(':').map(Number);
-  return parts[0] + (parts[1] ?? 0) / 60;
-}
-
+// dayOfWeek: 0=Mon … 6=Sun (Mon-based, matching our axis)
 function apiEventToDemo(e: {
   _id: string; title: string; category: string;
   startTime: string; endTime: string; capacity: number; bookedCount: number;
+  dayOfWeek: number;
 }, idx: number): DemoEvent {
-  let start = parseTimeStr(e.startTime);
-  let end = parseTimeStr(e.endTime);
-  if (end <= start) end += 24;
-  start = Math.max(HOUR_MIN, Math.min(HOUR_MAX - 0.01, start));
-  end   = Math.max(start + 0.5, Math.min(HOUR_MAX, end));
+  const d = Math.max(0, Math.min(6, e.dayOfWeek));
   return {
     id:    e._id,
     title: e.title,
     cat:   e.category.replace(/_/g, ' '),
-    start, end,
+    start: d + 0.05,
+    end:   d + 0.95,
     color: CAT_COLORS[e.category] ?? COLOR_CYCLE[idx % COLOR_CYCLE.length],
     rsvp:  e.bookedCount,
     spots: e.capacity,
   };
 }
 
-function fmtClock(h: number) {
-  const hh = Math.floor(h) % 24;
-  const ampm = hh < 12 ? 'AM' : 'PM';
-  const display = hh % 12 === 0 ? 12 : hh % 12;
-  const mm = String(Math.floor((h - Math.floor(h)) * 60)).padStart(2, '0');
-  return `${display}:${mm} ${ampm}`;
-}
-function fmtHour(h: number) {
-  const hh = h % 24;
-  const ampm = hh < 12 || hh === 24 ? 'AM' : 'PM';
-  const display = hh % 12 === 0 ? 12 : hh % 12;
-  return `${display}:00 ${ampm}`;
-}
-function isLive(e: DemoEvent, hour: number) { return hour >= e.start && hour < e.end; }
-function hourToPct(h: number) { return (h - HOUR_MIN) / (HOUR_MAX - HOUR_MIN); }
-function pctToHour(p: number) { return HOUR_MIN + (HOUR_MAX - HOUR_MIN) * p; }
+function dayToPct(d: number)  { return d / DAY_COUNT; }
+function pctToDay(p: number)  { return DAY_COUNT * p; }
+function isActive(e: DemoEvent, day: number) { return day >= e.start && day < e.end; }
+function fmtDay(d: number)    { return DAYS[Math.min(6, Math.max(0, Math.floor(d)))]; }
 
 // ─────── Responsive hook ───────
 function useBreakpoint() {
@@ -84,22 +67,21 @@ function useBreakpoint() {
     return () => window.removeEventListener('resize', update);
   }, []);
   return {
-    isMobile: width < 640,
-    isTablet: width >= 640 && width < 1024,
+    isMobile:  width < 640,
+    isTablet:  width >= 640 && width < 1024,
     isDesktop: width >= 1024,
     width,
   };
 }
 
-
 // ─────── Nav ───────
 interface NavProps {
-  timeStr: string;
-  dayLabel: string;
+  weekLabel: string;
+  dayLabel:  string;
   totalLive: number;
-  totalOut: number;
+  totalOut:  number;
 }
-function Nav({ timeStr, dayLabel, totalLive, totalOut }: NavProps) {
+function Nav({ weekLabel, dayLabel, totalLive, totalOut }: NavProps) {
   const [scrolled, setScrolled] = useState(false);
   const { isMobile } = useBreakpoint();
 
@@ -119,7 +101,7 @@ function Nav({ timeStr, dayLabel, totalLive, totalOut }: NavProps) {
       backdropFilter: 'blur(12px) saturate(140%)',
       background: scrolled ? 'rgba(11,9,7,0.96)' : 'linear-gradient(180deg, rgba(11,9,7,0.78) 0%, rgba(11,9,7,0.0) 100%)',
       borderBottom: scrolled ? '1px solid var(--line)' : '1px solid transparent',
-      transition: 'background .3s, border-color .3s, height .3s',
+      transition: 'background .3s, border-color .3s',
     }}>
       <Link href="/" style={{
         display: 'flex', alignItems: 'baseline', gap: 8,
@@ -148,7 +130,7 @@ function Nav({ timeStr, dayLabel, totalLive, totalOut }: NavProps) {
         }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--hot)', boxShadow: '0 0 0 3px rgba(255,61,110,0.18)', animation: 'pulse 1.6s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
           <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--cream)', whiteSpace: 'nowrap' }}>
-            LIVE — {dayLabel} · {timeStr}
+            LIVE — {weekLabel} · {dayLabel}
           </span>
           <span style={{ height: 1, background: 'var(--line)', flex: 1, minWidth: 16 }} />
           <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
@@ -185,10 +167,10 @@ function Nav({ timeStr, dayLabel, totalLive, totalOut }: NavProps) {
   );
 }
 
-// ─────── Timeline / video section ───────
-function Timeline({ events, hour, setHour, auto, setAuto }: {
+// ─────── Timeline ───────
+function Timeline({ events, day, setDay, auto, setAuto }: {
   events: DemoEvent[];
-  hour: number; setHour: (h: number) => void;
+  day: number; setDay: (d: number) => void;
   auto: boolean; setAuto: (a: boolean | ((prev: boolean) => boolean)) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -200,7 +182,7 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
     const rect = trackRef.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
     const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    setHour(pctToHour(pct));
+    setDay(pctToDay(pct));
   }
 
   function onDown(e: React.MouseEvent | React.TouchEvent) {
@@ -221,9 +203,7 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
     window.addEventListener('touchend', up);
   }
 
-  const handlePct = hourToPct(hour);
-  const ticks: number[] = [];
-  for (let h = HOUR_MIN; h <= HOUR_MAX; h += isMobile ? 2 : 1) ticks.push(h);
+  const handlePct = dayToPct(day);
 
   return (
     <div style={{ marginTop: isMobile ? 48 : 80 }}>
@@ -238,7 +218,7 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
       }}>
         <div>
           <div className="clique-label" style={{ marginBottom: 6 }}>
-            {auto ? 'NOW PLAYING' : 'SCRUB THE NIGHT'}
+            {auto ? 'NOW PLAYING' : 'SCRUB THE WEEK'}
           </div>
           <div style={{
             fontFamily: 'var(--display)',
@@ -246,7 +226,7 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
             fontWeight: 600, color: 'var(--paper)',
           }}>
             {auto
-              ? <>The night is playing.{' '}<span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--dim)' }}>— click pause to scrub.</span></>
+              ? <>The week is playing.{' '}<span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--dim)' }}>— click pause to scrub.</span></>
               : <>Drag the cursor.{!isMobile && ' The city responds.'}{' '}<span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--dim)' }}>— or hit play.</span></>
             }
           </div>
@@ -266,7 +246,7 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
             alignSelf: isMobile ? 'flex-start' : 'auto',
           }}
         >
-          {auto ? '■ PAUSE' : '▶ PLAY THE NIGHT'}
+          {auto ? '■ PAUSE' : '▶ PLAY THE WEEK'}
         </button>
       </div>
 
@@ -286,69 +266,80 @@ function Timeline({ events, hour, setHour, auto, setAuto }: {
           animation: 'fadeIn .25s ease-out',
         }}
       >
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #1a1428 0%, #0d0c1f 22%, #06070C 50%, #060a18 75%, #1d1408 100%)', opacity: 0.7 }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #1a1428 0%, #0d0c1f 22%, #06070C 50%, #060a18 75%, #1d1408 100%)', opacity: 0.7 }} />
 
-          {events.map((e, idx) => {
-            const left = hourToPct(e.start) * 100;
-            const w = (hourToPct(e.end) - hourToPct(e.start)) * 100;
-            const active = isLive(e, hour);
-            return (
-              <div key={e.id} title={e.title} style={{
-                position: 'absolute', height: isMobile ? 8 : 10, borderRadius: 4,
-                padding: '0 4px', display: 'flex', alignItems: 'center',
-                fontFamily: 'var(--mono)', fontSize: 8, letterSpacing: '.04em', color: 'var(--ink)',
-                whiteSpace: 'nowrap', overflow: 'hidden',
-                left: `${left}%`, width: `${w}%`,
-                top: (isMobile ? 12 : 16) + (idx % 3) * (isMobile ? 11 : 14),
-                background: active ? e.color : 'rgba(232,225,210,0.15)',
-                border: `1px solid ${active ? e.color : 'transparent'}`,
-                transform: active ? 'scaleY(1.2)' : 'none',
-                transition: 'background .25s ease, transform .25s ease',
-              }}>
-                <span style={{ opacity: active && !isMobile ? 1 : 0 }}>{e.title}</span>
-              </div>
-            );
-          })}
+        {/* Day column dividers */}
+        {DAYS.map((_, i) => i > 0 && (
+          <div key={i} style={{
+            position: 'absolute', top: 0, bottom: 0,
+            left: `${(i / DAY_COUNT) * 100}%`,
+            width: 1, background: 'rgba(255,255,255,0.05)',
+            pointerEvents: 'none',
+          }} />
+        ))}
 
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 8, height: 22 }}>
-            {ticks.map((h) => (
-              <div key={h} style={{ position: 'absolute', left: `${hourToPct(h) * 100}%`, transform: 'translateX(-50%)' }}>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: isMobile ? 8 : 10, color: 'var(--dim)', letterSpacing: '.08em' }}>
-                  {h % 24 === 0 ? '00' : String(h % 24).padStart(2, '0')}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${handlePct * 100}%`, transform: 'translateX(-50%)', pointerEvents: 'none' }}>
-            <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 2, marginLeft: -1, background: 'var(--lime)', boxShadow: '0 0 12px rgba(201,243,110,0.6)' }} />
-            <div style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', width: isMobile ? 18 : 16, height: isMobile ? 18 : 16, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 0 4px rgba(201,243,110,0.18), 0 0 18px rgba(201,243,110,0.5)' }} />
-            <div style={{
-              position: 'absolute', top: isMobile ? -34 : -38, left: '50%', transform: 'translateX(-50%)',
-              fontFamily: 'var(--mono)', fontSize: isMobile ? 10 : 12,
-              color: 'var(--ink)', background: 'var(--lime)',
-              padding: isMobile ? '3px 6px' : '4px 8px',
-              borderRadius: 4, whiteSpace: 'nowrap', letterSpacing: '.04em',
+        {/* Event pills */}
+        {events.map((e, idx) => {
+          const left   = dayToPct(e.start) * 100;
+          const w      = (dayToPct(e.end) - dayToPct(e.start)) * 100;
+          const active = isActive(e, day);
+          return (
+            <div key={e.id} title={e.title} style={{
+              position: 'absolute', height: isMobile ? 8 : 10, borderRadius: 4,
+              padding: '0 4px', display: 'flex', alignItems: 'center',
+              fontFamily: 'var(--mono)', fontSize: 8, letterSpacing: '.04em', color: 'var(--ink)',
+              whiteSpace: 'nowrap', overflow: 'hidden',
+              left: `${left}%`, width: `${w}%`,
+              top: (isMobile ? 12 : 16) + (idx % 3) * (isMobile ? 11 : 14),
+              background: active ? e.color : 'rgba(232,225,210,0.15)',
+              border: `1px solid ${active ? e.color : 'transparent'}`,
+              transform: active ? 'scaleY(1.2)' : 'none',
+              transition: 'background .25s ease, transform .25s ease',
             }}>
-              {fmtClock(hour)}
+              <span style={{ opacity: active && !isMobile ? 1 : 0 }}>{e.title}</span>
             </div>
+          );
+        })}
+
+        {/* Day axis — centered labels per column */}
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 8, height: 22 }}>
+          {DAYS.map((label, i) => (
+            <div key={label} style={{ position: 'absolute', left: `${((i + 0.5) / DAY_COUNT) * 100}%`, transform: 'translateX(-50%)' }}>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: isMobile ? 8 : 10, color: 'var(--dim)', letterSpacing: '.08em' }}>
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Scrubber handle */}
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${handlePct * 100}%`, transform: 'translateX(-50%)', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 2, marginLeft: -1, background: 'var(--lime)', boxShadow: '0 0 12px rgba(201,243,110,0.6)' }} />
+          <div style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', width: isMobile ? 18 : 16, height: isMobile ? 18 : 16, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 0 4px rgba(201,243,110,0.18), 0 0 18px rgba(201,243,110,0.5)' }} />
+          <div style={{
+            position: 'absolute', top: isMobile ? -34 : -38, left: '50%', transform: 'translateX(-50%)',
+            fontFamily: 'var(--mono)', fontSize: isMobile ? 10 : 12,
+            color: 'var(--ink)', background: 'var(--lime)',
+            padding: isMobile ? '3px 6px' : '4px 8px',
+            borderRadius: 4, whiteSpace: 'nowrap', letterSpacing: '.04em',
+          }}>
+            {fmtDay(day)}
           </div>
         </div>
+      </div>
     </div>
   );
 }
 
 // ─────── Floating ticket widget ───────
-function FloatingTicket({ event, hour }: { event: DemoEvent; hour: number }) {
+function FloatingTicket({ event, day }: { event: DemoEvent; day: number }) {
   const { isMobile, isTablet } = useBreakpoint();
-  // Start collapsed on mobile/tablet to avoid blocking content
   const [open, setOpen] = useState(!isMobile && !isTablet);
-  const live = isLive(event, hour);
-  const minsUntil = Math.max(0, Math.round((event.start - hour) * 60));
-  const status = live ? 'HAPPENING NOW' : event.start > hour ? `STARTS IN ${minsUntil}m` : 'JUST WRAPPED';
-  const filled = Math.min(100, (event.rsvp / event.spots) * 100);
+  const active    = isActive(event, day);
+  const daysUntil = Math.max(0, Math.ceil(event.start - day));
+  const status    = active ? 'HAPPENING THIS WEEK' : event.start > day ? `UP IN ${daysUntil}d` : 'JUST WRAPPED';
+  const filled    = Math.min(100, (event.rsvp / event.spots) * 100);
 
-  // Hide entirely on very small screens in portrait
   if (isMobile) return null;
 
   return (
@@ -360,7 +351,7 @@ function FloatingTicket({ event, hour }: { event: DemoEvent; hour: number }) {
       maxHeight: open ? 520 : 56, transition: 'max-height .35s ease',
     }}>
       <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 14px 16px 18px', cursor: 'pointer', borderBottom: open ? '1px solid var(--line)' : '1px solid transparent', userSelect: 'none' }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: live ? event.color : 'var(--dim)', boxShadow: live ? `0 0 8px ${event.color}` : 'none', flexShrink: 0 }} />
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: active ? event.color : 'var(--dim)', boxShadow: active ? `0 0 8px ${event.color}` : 'none', flexShrink: 0 }} />
         <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', color: 'var(--lime)', textTransform: 'uppercase', flexShrink: 0 }}>{status}</span>
         <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--display)', fontWeight: 600, fontSize: 14, color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</span>
         <button style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line-2)', background: 'transparent', color: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 14, lineHeight: 1, flexShrink: 0, cursor: 'pointer' }}>
@@ -375,8 +366,8 @@ function FloatingTicket({ event, hour }: { event: DemoEvent; hour: number }) {
           <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, color: '#fff', zIndex: 1, lineHeight: 0.95, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{event.title}</div>
         </div>
         {[
-          ['WHEN',  `${fmtHour(event.start)} → ${fmtHour(event.end)}`],
-          ['PRICE', event.rsvp < event.spots ? 'SPOTS AVAILABLE' : 'SOLD OUT'],
+          ['WHEN',  fmtDay(event.start)],
+          ['SPOTS', event.rsvp < event.spots ? 'AVAILABLE' : 'SOLD OUT'],
         ].map(([label, val]) => (
           <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '8px 0', borderBottom: '1px dashed var(--line)', gap: 16 }}>
             <span className="clique-label">{label}</span>
@@ -402,25 +393,24 @@ function FloatingTicket({ event, hour }: { event: DemoEvent; hour: number }) {
 
 // ─────── Hero ───────
 interface HeroProps {
-  events: DemoEvent[];
-  hour: number;
-  setHour: (h: number) => void;
-  auto: boolean;
-  setAuto: (a: boolean | ((p: boolean) => boolean)) => void;
-  timeStr: string;
-  dayLabel: string;
+  events:    DemoEvent[];
+  day:       number;
+  setDay:    (d: number) => void;
+  auto:      boolean;
+  setAuto:   (a: boolean | ((p: boolean) => boolean)) => void;
+  weekLabel: string;
+  dayLabel:  string;
   totalLive: number;
-  totalOut: number;
-  featured: DemoEvent;
+  totalOut:  number;
+  featured:  DemoEvent;
 }
-function Hero({ events, hour, setHour, auto, setAuto, timeStr, dayLabel, totalLive, totalOut, featured }: HeroProps) {
+function Hero({ events, day, setDay, auto, setAuto, featured }: HeroProps) {
   const { isMobile, isTablet } = useBreakpoint();
-  const hPad = isMobile ? '16px' : isTablet ? '28px' : '40px';
+  const hPad    = isMobile ? '16px' : isTablet ? '28px' : '40px';
   const vPadTop = isMobile ? '88px' : isTablet ? '110px' : '140px';
 
   return (
     <section style={{ padding: `${vPadTop} ${hPad} ${isMobile ? '40px' : '60px'}`, position: 'relative' }}>
-      {/* Headline */}
       <div>
         <h1 className="display-xxl">
           There&apos;s<br />
@@ -440,14 +430,14 @@ function Hero({ events, hour, setHour, auto, setAuto, timeStr, dayLabel, totalLi
         </p>
       </div>
 
-      <Timeline events={events} hour={hour} setHour={setHour} auto={auto} setAuto={setAuto} />
-      <FloatingTicket event={featured} hour={hour} />
+      <Timeline events={events} day={day} setDay={setDay} auto={auto} setAuto={setAuto} />
+      <FloatingTicket event={featured} day={day} />
     </section>
   );
 }
 
-// ─────── Live events grid ───────
-function TonightGrid({ events, hour }: { events: DemoEvent[]; hour: number }) {
+// ─────── This-week events grid ───────
+function TonightGrid({ events, day }: { events: DemoEvent[]; day: number }) {
   const { isMobile, isTablet } = useBreakpoint();
   const hPad = isMobile ? '16px' : isTablet ? '28px' : '40px';
 
@@ -457,7 +447,7 @@ function TonightGrid({ events, hour }: { events: DemoEvent[]; hour: number }) {
       padding: `${isMobile ? '48px' : '72px'} ${hPad}`,
       maxWidth: 1480, margin: '0 auto',
     }}>
-      <div className="clique-label" style={{ marginBottom: 12, textAlign: 'center' }}>TONIGHT</div>
+      <div className="clique-label" style={{ marginBottom: 12, textAlign: 'center' }}>THIS WEEK</div>
       <h2 className="display-xl" style={{
         fontSize: isMobile ? 'clamp(36px, 10vw, 56px)' : 'clamp(40px, 5vw, 80px)',
         marginBottom: isMobile ? 24 : 36,
@@ -476,13 +466,13 @@ function TonightGrid({ events, hour }: { events: DemoEvent[]; hour: number }) {
         gap: isMobile ? 12 : 18,
       }}>
         {events.map((e) => {
-          const live = isLive(e, hour);
+          const active = isActive(e, day);
           const filled = Math.min(100, (e.rsvp / e.spots) * 100);
           return (
             <Link href="/signup" key={e.id} style={{
               display: 'flex', flexDirection: isMobile ? 'row' : 'column',
               background: '#14110E',
-              border: `1px solid ${live ? e.color : 'var(--line-2)'}`,
+              border: `1px solid ${active ? e.color : 'var(--line-2)'}`,
               borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
               transition: 'transform .25s ease, border-color .25s ease',
               textDecoration: 'none',
@@ -507,11 +497,11 @@ function TonightGrid({ events, hour }: { events: DemoEvent[]; hour: number }) {
                 </svg>
                 {!isMobile && (
                   <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', color: 'rgba(11,9,7,0.85)', background: 'rgba(11,9,7,0.15)', padding: '4px 8px', borderRadius: 4, backdropFilter: 'blur(4px)', position: 'relative' }}>
-                    {fmtHour(e.start)} → {fmtHour(e.end)}
+                    {fmtDay(e.start)}
                   </span>
                 )}
-                {live && (
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--ink)', background: 'var(--paper)', padding: '4px 8px', borderRadius: 4, position: 'relative' }}>LIVE</span>
+                {active && (
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--ink)', background: 'var(--paper)', padding: '4px 8px', borderRadius: 4, position: 'relative' }}>THIS WEEK</span>
                 )}
               </div>
               {/* Content */}
@@ -520,7 +510,7 @@ function TonightGrid({ events, hour }: { events: DemoEvent[]; hour: number }) {
                 <div className="display-m" style={{ fontSize: isMobile ? 18 : 22 }}>{e.title}</div>
                 {isMobile && (
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)' }}>
-                    {fmtHour(e.start)} → {fmtHour(e.end)}
+                    {fmtDay(e.start)}
                   </div>
                 )}
                 <div style={{ height: 3, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
@@ -617,9 +607,7 @@ function MiniFooter() {
       <div style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', color: 'var(--dim)' }}>
         © {new Date().getFullYear()} CLIQUE CO.
       </div>
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: isMobile ? 14 : 18,
-      }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 14 : 18 }}>
         {[
           { label: 'Code of conduct', href: '#' },
           { label: 'Privacy',         href: '/privacy' },
@@ -640,29 +628,29 @@ export default function LandingPage() {
 
   if (user) { router.replace('/events'); return null; }
 
-  const realNow = new Date();
-  const realFloat = realNow.getHours() + realNow.getMinutes() / 60;
-  const initHour = (realFloat >= HOUR_MIN || realFloat < HOUR_MAX - 24)
-    ? Math.max(realFloat < HOUR_MIN ? realFloat + 24 : realFloat, HOUR_MIN)
-    : 21.5;
-  const safeHour = isNaN(initHour) || initHour < HOUR_MIN || initHour > HOUR_MAX ? 21.5 : initHour;
-
-  return <LandingInner initHour={safeHour} />;
+  // JS getDay(): 0=Sun → convert to Mon-based: 0=Mon … 6=Sun
+  const initDay = (new Date().getDay() + 6) % 7;
+  return <LandingInner initDay={initDay} />;
 }
 
-function LandingInner({ initHour }: { initHour: number }) {
-  const [hour, setHour] = useState(initHour);
-  const [auto, setAuto] = useState(false);
-  const [events, setEvents] = useState<DemoEvent[]>([]);
+function LandingInner({ initDay }: { initDay: number }) {
+  const [day, setDay]               = useState(initDay + 0.5);
+  const [auto, setAuto]             = useState(false);
+  const [events, setEvents]         = useState<DemoEvent[]>([]);
   const [eventsReady, setEventsReady] = useState(false);
 
   useEffect(() => {
-    const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5001/api/v1';
-    axios.get(`${BASE_URL}/events/public`)
+    const BASE_URL  = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5001/api/v1';
+    const startDate = new Date();
+    const endDate   = new Date(); endDate.setDate(endDate.getDate() + 7);
+    axios.get(`${BASE_URL}/events/public`, {
+      params: { start_date: startDate.toISOString(), end_date: endDate.toISOString() },
+    })
       .then((res) => {
         const raw: Array<{
           _id: string; title: string; category: string;
           startTime: string; endTime: string; capacity: number; bookedCount: number;
+          dayOfWeek: number;
         }> = res.data?.data?.events ?? [];
         setEvents(raw.length > 0 ? raw.map((e, i) => apiEventToDemo(e, i)) : DEMO_EVENTS);
       })
@@ -673,7 +661,7 @@ function LandingInner({ initHour }: { initHour: number }) {
   useEffect(() => {
     if (!auto) return;
     const id = setInterval(() => {
-      setHour((h) => { const next = h + 0.05; return next >= HOUR_MAX ? HOUR_MIN : next; });
+      setDay((d) => { const next = d + 0.02; return next >= DAY_COUNT ? 0 : next; });
     }, 80);
     return () => clearInterval(id);
   }, [auto]);
@@ -686,26 +674,26 @@ function LandingInner({ initHour }: { initHour: number }) {
     );
   }
 
-  const liveEvents = events.filter((e) => isLive(e, hour));
-  const totalLive  = liveEvents.length;
-  const totalOut   = liveEvents.reduce((s, e) => s + e.rsvp, 0);
-  const timeStr    = fmtClock(hour);
-  const dayLabel   = Math.floor(hour) >= 24 ? 'WED · LATE' : 'TUE · TONIGHT';
-  const featured   = liveEvents.length
-    ? [...liveEvents].sort((a, b) => b.rsvp - a.rsvp)[0]
-    : events.slice().sort((a, b) => a.start - b.start).find((e) => e.start >= hour) ?? events[0];
+  const activeEvents = events.filter((e) => isActive(e, day));
+  const totalLive    = activeEvents.length;
+  const totalOut     = activeEvents.reduce((s, e) => s + e.rsvp, 0);
+  const weekLabel    = 'THIS WEEK';
+  const dayLabel     = fmtDay(day);
+  const featured     = activeEvents.length
+    ? [...activeEvents].sort((a, b) => b.rsvp - a.rsvp)[0]
+    : events.slice().sort((a, b) => a.start - b.start).find((e) => e.start >= day) ?? events[0];
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink)', color: 'var(--paper)' }}>
-      <Nav timeStr={timeStr} dayLabel={dayLabel} totalLive={totalLive} totalOut={totalOut} />
+      <Nav weekLabel={weekLabel} dayLabel={dayLabel} totalLive={totalLive} totalOut={totalOut} />
       <Hero
         events={events}
-        hour={hour} setHour={setHour} auto={auto} setAuto={setAuto}
-        timeStr={timeStr} dayLabel={dayLabel}
+        day={day} setDay={setDay} auto={auto} setAuto={setAuto}
+        weekLabel={weekLabel} dayLabel={dayLabel}
         totalLive={totalLive} totalOut={totalOut}
         featured={featured}
       />
-      <TonightGrid events={events} hour={hour} />
+      <TonightGrid events={events} day={day} />
       <SignupBand />
       <MiniFooter />
     </div>
