@@ -549,11 +549,11 @@ function SignupBand() {
       padding: `${isMobile ? '56px' : '90px'} ${hPad}`,
       maxWidth: 1480, margin: '0 auto',
     }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
         <div className="clique-label">JOIN</div>
         <h2 className="display-xl" style={{
           marginTop: 12,
-          textAlign: 'left',
+          textAlign: 'center',
           fontSize: isMobile ? 'clamp(36px, 10vw, 56px)' : undefined,
         }}>
           Doors open<br />
@@ -561,8 +561,7 @@ function SignupBand() {
           <span className="text-italic-serif" style={{ color: 'var(--lime)' }}>your city.</span>
         </h2>
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 14,
-          alignItems: 'flex-start',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 14,
           marginTop: isMobile ? 28 : 38,
           width: isMobile ? '100%' : 'auto',
         }}>
@@ -587,6 +586,15 @@ function SignupBand() {
             I already have one
           </Link>
         </div>
+        <p style={{
+          fontFamily: 'var(--display)',
+          fontSize: isMobile ? 15 : 18,
+          lineHeight: 1.4, color: 'var(--cream)',
+          marginTop: 18,
+          textAlign: 'center',
+        }}>
+          Find the secret. Everyone&apos;s invited.
+        </p>
       </div>
     </section>
   );
