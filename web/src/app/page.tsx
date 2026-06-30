@@ -331,33 +331,112 @@ function Timeline({ events, day, setDay, auto, setAuto }: {
   );
 }
 
-// ─────── Floating ticket widget ───────
+// ─────── Floating ticket widget (draggable) ───────
 function FloatingTicket({ event, day }: { event: DemoEvent; day: number }) {
   const { isMobile, isTablet } = useBreakpoint();
-  const [open, setOpen] = useState(!isMobile && !isTablet);
+  const [open, setOpen]   = useState(!isMobile && !isTablet);
+  // null = use CSS right/bottom anchor; once dragged, switches to absolute x/y
+  const [pos, setPos]     = useState<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const widgetRef   = useRef<HTMLDivElement>(null);
+  const dragOrigin  = useRef<{ mx: number; my: number; ox: number; oy: number } | null>(null);
+  const movedRef    = useRef(false);
+
   const active    = isActive(event, day);
   const daysUntil = Math.max(0, Math.ceil(event.start - day));
   const status    = active ? 'HAPPENING THIS WEEK' : event.start > day ? `UP IN ${daysUntil}d` : 'JUST WRAPPED';
   const filled    = Math.min(100, (event.rsvp / event.spots) * 100);
+  const w         = isTablet ? 300 : 360;
+
+  function startDrag(e: React.MouseEvent | React.TouchEvent) {
+    // Don't block clicks on the +/— button
+    if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+    e.preventDefault();
+    movedRef.current = false;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    // Capture current widget rect so we can offset correctly
+    const rect = widgetRef.current?.getBoundingClientRect() ?? {
+      left: pos?.x ?? window.innerWidth - w - 24,
+      top:  pos?.y ?? window.innerHeight - 520 - 24,
+    };
+    dragOrigin.current = { mx: clientX, my: clientY, ox: rect.left, oy: rect.top };
+    if (pos === null) setPos({ x: rect.left, y: rect.top });
+    setDragging(true);
+
+    const onMove = (ev: MouseEvent | TouchEvent) => {
+      if (!dragOrigin.current) return;
+      const cx = 'touches' in ev ? (ev as TouchEvent).touches[0].clientX : (ev as MouseEvent).clientX;
+      const cy = 'touches' in ev ? (ev as TouchEvent).touches[0].clientY : (ev as MouseEvent).clientY;
+      const dx = cx - dragOrigin.current.mx;
+      const dy = cy - dragOrigin.current.my;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) movedRef.current = true;
+      setPos({
+        x: Math.max(0, Math.min(window.innerWidth  - w,  dragOrigin.current.ox + dx)),
+        y: Math.max(0, Math.min(window.innerHeight - 56, dragOrigin.current.oy + dy)),
+      });
+    };
+    const onUp = () => {
+      setDragging(false);
+      dragOrigin.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup',   onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend',  onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup',   onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend',  onUp);
+  }
+
+  function handleHeaderClick() {
+    // Suppress toggle if the user actually dragged
+    if (movedRef.current) return;
+    setOpen((o) => !o);
+  }
 
   if (isMobile) return null;
 
+  const anchorStyle: React.CSSProperties = pos
+    ? { left: pos.x, top: pos.y }
+    : { right: isTablet ? 16 : 24, bottom: isTablet ? 16 : 24 };
+
   return (
-    <div style={{
-      position: 'fixed', right: isTablet ? 16 : 24, bottom: isTablet ? 16 : 24, zIndex: 60,
-      width: isTablet ? 300 : 360, maxWidth: 'calc(100vw - 32px)',
+    <div ref={widgetRef} style={{
+      position: 'fixed', ...anchorStyle, zIndex: 60,
+      width: w, maxWidth: 'calc(100vw - 32px)',
       background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 16,
       boxShadow: '0 30px 60px -20px rgba(0,0,0,0.7)', overflow: 'hidden',
-      maxHeight: open ? 520 : 56, transition: 'max-height .35s ease',
+      maxHeight: open ? 520 : 56,
+      transition: dragging ? 'none' : 'max-height .35s ease',
+      userSelect: 'none',
     }}>
-      <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 14px 16px 18px', cursor: 'pointer', borderBottom: open ? '1px solid var(--line)' : '1px solid transparent', userSelect: 'none' }}>
+      {/* Drag handle + toggle header */}
+      <div
+        onMouseDown={startDrag}
+        onTouchStart={startDrag}
+        onClick={handleHeaderClick}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '16px 14px 16px 18px',
+          cursor: dragging ? 'grabbing' : 'grab',
+          borderBottom: open ? '1px solid var(--line)' : '1px solid transparent',
+        }}
+      >
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: active ? event.color : 'var(--dim)', boxShadow: active ? `0 0 8px ${event.color}` : 'none', flexShrink: 0 }} />
         <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', color: 'var(--lime)', textTransform: 'uppercase', flexShrink: 0 }}>{status}</span>
         <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--display)', fontWeight: 600, fontSize: 14, color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</span>
-        <button style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line-2)', background: 'transparent', color: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 14, lineHeight: 1, flexShrink: 0, cursor: 'pointer' }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+          style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line-2)', background: 'transparent', color: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 14, lineHeight: 1, flexShrink: 0, cursor: 'pointer' }}
+        >
           {open ? '—' : '+'}
         </button>
       </div>
+
       <div style={{ padding: 18, opacity: open ? 1 : 0, transition: 'opacity .25s ease' }}>
         <div style={{ position: 'relative', borderRadius: 12, height: 140, marginBottom: 16, overflow: 'hidden', display: 'flex', alignItems: 'flex-end', padding: 14 }}>
           <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${event.color}33 0%, #0d0c1f 60%, #06070C 100%)` }} />
@@ -609,7 +688,7 @@ function MiniFooter() {
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 14 : 18 }}>
         {[
-          { label: 'Code of conduct', href: '#' },
+          { label: 'Code of conduct', href: '/conduct' },
           { label: 'Privacy',         href: '/privacy' },
           { label: 'Terms',           href: '/terms' },
           { label: '@clique',         href: '#' },
