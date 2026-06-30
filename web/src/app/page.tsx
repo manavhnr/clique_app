@@ -101,27 +101,21 @@ interface NavProps {
 }
 function Nav({ timeStr, dayLabel, totalLive, totalOut }: NavProps) {
   const [scrolled, setScrolled] = useState(false);
-  const [liveBarGone, setLiveBarGone] = useState(false);
   const { isMobile } = useBreakpoint();
 
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 24);
-      setLiveBarGone(window.scrollY > 210);
-    };
+    const onScroll = () => { setScrolled(window.scrollY > 24); };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-
-  const showLive = scrolled && liveBarGone && !isMobile;
 
   return (
     <nav style={{
       position: 'fixed', inset: '0 0 auto 0', zIndex: 50,
       display: 'flex', alignItems: 'center',
       padding: isMobile ? '0 16px' : '0 40px',
-      height: showLive ? 52 : (isMobile ? 56 : 64),
+      height: isMobile ? 56 : 64,
       backdropFilter: 'blur(12px) saturate(140%)',
       background: scrolled ? 'rgba(11,9,7,0.96)' : 'linear-gradient(180deg, rgba(11,9,7,0.78) 0%, rgba(11,9,7,0.0) 100%)',
       borderBottom: scrolled ? '1px solid var(--line)' : '1px solid transparent',
@@ -145,15 +139,11 @@ function Nav({ timeStr, dayLabel, totalLive, totalOut }: NavProps) {
         )}
       </Link>
 
-      {/* Live bar — only desktop, slides in on scroll */}
+      {/* Live bar — desktop only, always visible */}
       {!isMobile && (
         <div style={{
           flex: 1, display: 'flex', alignItems: 'center', gap: 12,
           padding: '0 28px',
-          opacity: showLive ? 1 : 0,
-          transform: showLive ? 'translateY(0)' : 'translateY(6px)',
-          transition: 'opacity .25s ease, transform .25s ease',
-          pointerEvents: 'none',
           overflow: 'hidden',
         }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--hot)', boxShadow: '0 0 0 3px rgba(255,61,110,0.18)', animation: 'pulse 1.6s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
@@ -430,23 +420,6 @@ function Hero({ events, hour, setHour, auto, setAuto, timeStr, dayLabel, totalLi
 
   return (
     <section style={{ padding: `${vPadTop} ${hPad} ${isMobile ? '40px' : '60px'}`, position: 'relative' }}>
-      {/* Live strip */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14,
-        paddingBottom: isMobile ? 16 : 22,
-        borderBottom: '1px solid var(--line)', marginBottom: isMobile ? 36 : 56,
-        flexWrap: 'wrap',
-      }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--hot)', boxShadow: '0 0 0 4px rgba(255,61,110,0.18)', animation: 'pulse 1.6s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
-        <span style={{ fontFamily: 'var(--mono)', fontSize: isMobile ? 10 : 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--cream)', whiteSpace: 'nowrap' }}>
-          LIVE — {dayLabel} · {timeStr}
-        </span>
-        <span style={{ flex: 1, height: 1, background: 'var(--line)', minWidth: 20 }} />
-        <span style={{ fontFamily: 'var(--mono)', fontSize: isMobile ? 10 : 12, color: 'var(--dim)', letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-          {totalLive} open · {totalOut} out
-        </span>
-      </div>
-
       {/* Headline */}
       <div>
         <h1 className="display-xxl">
@@ -607,35 +580,22 @@ function SignupBand() {
       padding: `${isMobile ? '56px' : '90px'} ${hPad}`,
       maxWidth: 1480, margin: '0 auto',
     }}>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile || isTablet ? '1fr' : '1.2fr 1fr',
-        gap: isMobile ? 36 : 48,
-        alignItems: 'end',
-      }}>
-        <div>
-          <div className="clique-label" style={{ textAlign: isMobile ? 'left' : 'center' }}>JOIN</div>
-          <h2 className="display-xl" style={{
-            marginTop: 12,
-            textAlign: isMobile ? 'left' : 'center',
-            fontSize: isMobile ? 'clamp(36px, 10vw, 56px)' : undefined,
-          }}>
-            Doors open in<br />
-            <span className="text-italic-serif" style={{ color: 'var(--lime)' }}>your city.</span>
-          </h2>
-          <p style={{
-            fontFamily: 'var(--display)',
-            fontSize: isMobile ? 15 : 18,
-            lineHeight: 1.4, color: 'var(--cream)',
-            marginTop: 18,
-            textAlign: isMobile ? 'left' : 'justify',
-          }}>
-            30 seconds to make an account. Free, no card, no spam. We text you when something good happens.
-          </p>
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+        <div className="clique-label">JOIN</div>
+        <h2 className="display-xl" style={{
+          marginTop: 12,
+          textAlign: 'left',
+          fontSize: isMobile ? 'clamp(36px, 10vw, 56px)' : undefined,
+        }}>
+          Doors open<br />
+          in<br />
+          <span className="text-italic-serif" style={{ color: 'var(--lime)' }}>your city.</span>
+        </h2>
         <div style={{
           display: 'flex', flexDirection: 'column', gap: 14,
-          alignItems: isMobile ? 'stretch' : 'center',
+          alignItems: 'flex-start',
+          marginTop: isMobile ? 28 : 38,
+          width: isMobile ? '100%' : 'auto',
         }}>
           <Link href="/signup" style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -643,6 +603,7 @@ function SignupBand() {
             fontFamily: 'var(--mono)', fontSize: isMobile ? 12 : 13,
             fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
             background: 'var(--lime)', color: 'var(--ink)',
+            width: isMobile ? '100%' : 'auto',
           }}>
             Create account →
           </Link>
@@ -652,10 +613,20 @@ function SignupBand() {
             fontFamily: 'var(--mono)', fontSize: isMobile ? 12 : 13,
             fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
             background: 'transparent', color: 'var(--paper)', border: '1px solid var(--line-2)',
+            width: isMobile ? '100%' : 'auto',
           }}>
             I already have one
           </Link>
         </div>
+        <p style={{
+          fontFamily: 'var(--display)',
+          fontSize: isMobile ? 15 : 18,
+          lineHeight: 1.4, color: 'var(--cream)',
+          marginTop: 18,
+          textAlign: 'left',
+        }}>
+          Find the secret. Everyone&apos;s invited.
+        </p>
       </div>
     </section>
   );
