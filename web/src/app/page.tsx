@@ -436,39 +436,8 @@ function Hero({ events, hour, setHour, auto, setAuto, timeStr, dayLabel, totalLi
           maxWidth: 580,
           color: 'var(--cream)',
         }}>
-          Clique is the guest list for your city — house parties, warehouse nights, supper clubs, listening rooms.
-          <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--paper)' }}> One tap to RSVP. A QR pass at the door.</span>{' '}
-          No middle-man, no scalper.
+          Find the secret. Everyone&apos;s invited.
         </p>
-        <div style={{
-          display: 'flex', gap: 12, marginTop: isMobile ? 28 : 38,
-          flexWrap: 'wrap',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: 'flex-start',
-        }}>
-          <Link href="/signup" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            padding: isMobile ? '14px 20px' : '16px 22px',
-            borderRadius: 999, fontFamily: 'var(--mono)',
-            fontSize: isMobile ? 12 : 13,
-            fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
-            background: 'var(--lime)', color: 'var(--ink)',
-            width: isMobile ? '100%' : 'auto',
-          }}>
-            Get on the list →
-          </Link>
-          <a href="#tonight" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            padding: isMobile ? '14px 20px' : '16px 22px',
-            borderRadius: 999, fontFamily: 'var(--mono)',
-            fontSize: isMobile ? 12 : 13,
-            fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
-            background: 'transparent', color: 'var(--paper)', border: '1px solid var(--line-2)',
-            width: isMobile ? '100%' : 'auto',
-          }}>
-            See tonight
-          </a>
-        </div>
       </div>
 
       <Timeline events={events} hour={hour} setHour={setHour} auto={auto} setAuto={setAuto} />
@@ -618,15 +587,6 @@ function SignupBand() {
             I already have one
           </Link>
         </div>
-        <p style={{
-          fontFamily: 'var(--display)',
-          fontSize: isMobile ? 15 : 18,
-          lineHeight: 1.4, color: 'var(--cream)',
-          marginTop: 18,
-          textAlign: 'left',
-        }}>
-          Find the secret. Everyone&apos;s invited.
-        </p>
       </div>
     </section>
   );
