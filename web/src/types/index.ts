@@ -31,6 +31,8 @@ export interface User {
   gender?: string;
   isPrivate?: boolean;
   pushNotificationsEnabled?: boolean;
+  payoutStatus?: 'not_started' | 'pending' | 'active' | 'rejected';
+  payuMerchantId?: string;
 }
 
 export interface EventMember {

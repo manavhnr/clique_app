@@ -318,6 +318,8 @@ export default function HostDashboardPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutToast, setPayoutToast] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -337,6 +339,20 @@ export default function HostDashboardPage() {
       })
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSetupPayouts() {
+    setPayoutLoading(true);
+    setPayoutToast('');
+    try {
+      const { data } = await api.post('/payu/generate-onboarding-link');
+      const redirectUrl: string = data?.data?.redirect_url;
+      if (!redirectUrl) throw new Error('No redirect URL');
+      window.location.href = redirectUrl;
+    } catch {
+      setPayoutToast('Payment setup is currently unavailable. Please try again later.');
+      setPayoutLoading(false);
+    }
+  }
 
   const activeEvents    = events.filter((e) => e.status === 'published' || e.status === 'draft');
   const inactiveEvents  = events.filter((e) => e.status === 'cancelled' || e.status === 'completed');
@@ -433,6 +449,15 @@ export default function HostDashboardPage() {
         </div>
       </div>
 
+      {/* Payouts */}
+      <PayoutsSection
+        payoutStatus={user?.payoutStatus ?? 'not_started'}
+        loading={payoutLoading}
+        toast={payoutToast}
+        onSetup={handleSetupPayouts}
+        onDismissToast={() => setPayoutToast('')}
+      />
+
       {/* Requests */}
       <div style={{ marginBottom: 40 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 16 }}>REQUESTS</div>
@@ -445,6 +470,120 @@ export default function HostDashboardPage() {
     </div>
   );
 }
+
+// ─── Payouts Section ─────────────────────────────────────────────────────────
+
+interface PayoutsSectionProps {
+  payoutStatus: 'not_started' | 'pending' | 'active' | 'rejected';
+  loading: boolean;
+  toast: string;
+  onSetup: () => void;
+  onDismissToast: () => void;
+}
+
+function PayoutsSection({ payoutStatus, loading, toast, onSetup, onDismissToast }: PayoutsSectionProps) {
+  const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
+    not_started: { label: 'NOT SET UP',  color: 'var(--dim)',  bg: 'var(--line)' },
+    pending:     { label: 'KYC PENDING', color: '#E8C46E',     bg: 'rgba(232,196,110,0.12)' },
+    active:      { label: 'ACTIVE',      color: 'var(--lime)', bg: 'rgba(201,243,110,0.12)' },
+    rejected:    { label: 'REJECTED',    color: 'var(--hot)',  bg: 'rgba(255,61,110,0.12)' },
+  };
+
+  const badge = STATUS_LABEL[payoutStatus] ?? STATUS_LABEL.not_started;
+  const isActive   = payoutStatus === 'active';
+  const isPending  = payoutStatus === 'pending';
+  const isRejected = payoutStatus === 'rejected';
+
+  return (
+    <div style={{ marginBottom: 40 }}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 16 }}>
+        PAYOUTS
+      </div>
+      <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+        {/* Status row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
+                {isActive ? 'Payouts ready' : isPending ? 'KYC in progress' : isRejected ? 'Verification failed' : 'Set up payouts'}
+              </div>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: badge.color, background: badge.bg, padding: '3px 8px', borderRadius: 999 }}>
+                {badge.label}
+              </span>
+            </div>
+            <p style={{ fontFamily: 'var(--display)', fontSize: 14, color: 'var(--cream)', marginTop: 8, lineHeight: 1.4 }}>
+              {isActive
+                ? 'Your PayU merchant account is verified. Payouts from paid events will settle to your bank.'
+                : isPending
+                ? 'Your KYC submission is under review by PayU. This usually takes 1–2 business days.'
+                : isRejected
+                ? 'Your KYC was not approved. Re-submit to try again — check the rejection reason in your email.'
+                : 'Complete KYC with PayU to receive payouts from paid events. Takes about 5 minutes.'}
+            </p>
+          </div>
+
+          {!isActive && (
+            <button
+              onClick={onSetup}
+              disabled={loading || isPending}
+              style={{
+                background: isPending ? 'var(--line)' : 'var(--lime)',
+                color: isPending ? 'var(--dim)' : 'var(--ink)',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: 999,
+                fontFamily: 'var(--mono)',
+                fontSize: 12,
+                letterSpacing: '.08em',
+                textTransform: 'uppercase',
+                cursor: loading || isPending ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                opacity: isPending ? 0.6 : 1,
+                transition: 'all .15s ease',
+              }}
+            >
+              {loading && (
+                <span style={{ width: 12, height: 12, border: '2px solid rgba(0,0,0,0.3)', borderTopColor: 'var(--ink)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+              )}
+              {isRejected ? '↗ Retry KYC' : isPending ? 'Pending review…' : '↗ Set up payouts'}
+            </button>
+          )}
+        </div>
+
+        {/* Error toast */}
+        {toast && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, padding: '12px 14px', background: 'rgba(255,61,110,0.08)', border: '1px solid rgba(255,61,110,0.2)', borderRadius: 10 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.06em', lineHeight: 1.5 }}>{toast}</span>
+            <button onClick={onDismissToast} style={{ background: 'none', border: 'none', color: 'var(--hot)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
+          </div>
+        )}
+
+        {/* Info row for active state */}
+        {isActive && (
+          <div style={{ display: 'flex', gap: 24, paddingTop: 4, borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
+            {[
+              { label: 'PAYOUT SPLIT', value: '80 / 20' },
+              { label: 'SETTLEMENT',   value: 'T+2 days' },
+              { label: 'GATEWAY',      value: 'PayU India' },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>{label}</div>
+                <div style={{ fontFamily: 'var(--display)', fontWeight: 600, fontSize: 15, marginTop: 4 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function PastEventsSection({ events }: { events: Event[] }) {
   const [open, setOpen] = useState(false);

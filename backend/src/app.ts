@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/error.middleware';
 
 import paymentRouter from './routes/payment.routes';
+import payuRouter from './routes/payu.routes';
 import authRouter from './routes/auth.routes';
 import userRouter from './routes/user.routes';
 import relationshipRouter from './routes/relationship.routes';
@@ -29,8 +30,9 @@ const app = express();
 
 app.use(cors());
 
-// Raw body for Razorpay webhook — must be before express.json()
+// Raw body for payment/PayU webhooks — must be before express.json()
 app.use('/api/v1/payments', paymentRouter);
+app.use('/api/v1/payu', payuRouter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

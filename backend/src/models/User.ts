@@ -35,6 +35,8 @@ export interface IUser extends Document {
   isPrivate: boolean;
   pushNotificationsEnabled: boolean;
   hasCompletedSetup: boolean;
+  payuMerchantId?: string;
+  payoutStatus: 'not_started' | 'pending' | 'active' | 'rejected';
   isBanned: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -85,6 +87,12 @@ const userSchema = new Schema<IUser>(
     isPrivate: { type: Boolean, default: false },
     pushNotificationsEnabled: { type: Boolean, default: true },
     hasCompletedSetup: { type: Boolean, default: false },
+    payuMerchantId: { type: String },
+    payoutStatus: {
+      type: String,
+      enum: ['not_started', 'pending', 'active', 'rejected'],
+      default: 'not_started',
+    },
     isBanned: { type: Boolean, default: false },
   },
   { timestamps: true }
