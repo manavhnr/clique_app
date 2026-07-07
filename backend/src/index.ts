@@ -1,3 +1,4 @@
+import 'dotenv/config'; // load .env before any config validation runs
 import { connectDB } from './config/db';
 import { validateEnv } from './config/env';
 import { startSchedulers } from './jobs/scheduler';
