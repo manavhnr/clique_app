@@ -84,8 +84,8 @@ function OtpForm() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/verify-otp', { phone, otp: code });
-      const { token, user, needsSetup } = data.data;
-      login(token, user);
+      const { token, user, needsSetup, refreshToken } = data.data;
+      login(token, user, refreshToken);
       if (needsSetup) router.push('/setup');
       else router.push('/events');
     } catch (err: unknown) {

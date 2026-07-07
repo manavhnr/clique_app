@@ -10,10 +10,29 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const statusCode = err.statusCode ?? 500;
-  const message = statusCode === 500 ? 'Internal server error' : err.message;
+  let statusCode = err.statusCode ?? 500;
+  let message = err.message;
 
-  if (statusCode === 500) console.error(err);
+  // Map common Mongoose errors to sane client-facing statuses
+  const name = (err as { name?: string }).name;
+  if (name === 'CastError') {
+    statusCode = 400;
+    message = 'Invalid identifier';
+  } else if (name === 'ValidationError') {
+    statusCode = 400;
+    message = 'Validation failed';
+  } else if ((err as { code?: number }).code === 11000) {
+    statusCode = 409;
+    message = 'Duplicate value — this record already exists';
+  } else if (name === 'JsonWebTokenError' || name === 'TokenExpiredError') {
+    statusCode = 401;
+    message = 'Invalid or expired token';
+  }
+
+  if (statusCode === 500) {
+    console.error(err);
+    message = 'Internal server error';
+  }
 
   res.status(statusCode).json({ success: false, message });
 }

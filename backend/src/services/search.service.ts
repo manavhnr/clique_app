@@ -1,6 +1,7 @@
 import { Event } from '../models/Event';
 import { User } from '../models/User';
 import { SavedEvent } from '../models/SavedEvent';
+import { escapeRegex } from '../utils/regex';
 
 const RESULT_LIMIT = 20;
 
@@ -109,12 +110,21 @@ export async function searchEvents(filters: EventSearchFilters, requesterId: str
   }
 
   if (latitude !== undefined && longitude !== undefined) {
-    query.location = {
-      $near: {
-        $geometry: { type: 'Point', coordinates: [longitude, latitude] },
-        $maxDistance: radius,
-      },
-    };
+    // $text and $near cannot coexist in one query. When a text search is present,
+    // use $geoWithin/$centerSphere (compatible with $text); otherwise use $near for
+    // distance-sorted results. radius is in metres; earth radius ≈ 6,378,100 m.
+    if (q) {
+      query.location = {
+        $geoWithin: { $centerSphere: [[longitude, latitude], radius / 6378100] },
+      };
+    } else {
+      query.location = {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [longitude, latitude] },
+          $maxDistance: radius,
+        },
+      };
+    }
   }
 
   if (date) {
@@ -133,7 +143,7 @@ export async function searchEvents(filters: EventSearchFilters, requesterId: str
     };
   }
 
-  const events = await Event.find(query)
+  const events = await Event.find(query, q ? { score: { $meta: 'textScore' } } : {})
     .sort(q ? { score: { $meta: 'textScore' } } : { date: 1 })
     .skip((page - 1) * limit)
     .limit(Math.min(limit, 50))
@@ -158,7 +168,7 @@ export async function searchEvents(filters: EventSearchFilters, requesterId: str
 export async function globalSearch(q: string, requesterId: string) {
   if (!q || q.trim().length < 2) return { users: [], hosts: [], events: [] };
 
-  const regex = new RegExp(q.trim(), 'i');
+  const regex = new RegExp(escapeRegex(q.trim()), 'i');
 
   const [users, hosts, events] = await Promise.all([
     // Users

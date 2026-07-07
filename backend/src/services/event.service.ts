@@ -70,26 +70,26 @@ export async function getEventById(eventId: string, requesterId: string) {
 
   if (!event || event.status === 'blocked') throw createError('Event not found', 404);
 
-  // Hide exact address for private events if user hasn't booked
-  let address = event.address;
-  if (event.exactAddressHiddenBeforeBooking) {
-    const booking = await Booking.findOne({
+  // Fetch the requester's relationship to this event in parallel
+  const [saved, userRequest, userBooking] = await Promise.all([
+    SavedEvent.findOne({ userId: requesterId, eventId }),
+    JoinRequest.findOne({ userId: requesterId, eventId }).select('status rejectionReason createdAt'),
+    Booking.findOne({
       userId: requesterId,
       eventId,
-      status: { $in: ['confirmed', 'checked_in'] },
-    });
-    if (!booking) address = 'Address revealed after booking';
+      status: { $nin: ['cancelled', 'refunded', 'rejected'] },
+    }),
+  ]);
+
+  // Hide exact address for private events until the user has a confirmed booking
+  let address = event.address;
+  if (event.exactAddressHiddenBeforeBooking) {
+    const hasConfirmed = userBooking && ['confirmed', 'checked_in'].includes(userBooking.status);
+    if (!hasConfirmed) address = 'Address revealed after booking';
   }
 
-  const saved = await SavedEvent.findOne({ userId: requesterId, eventId });
-  const userRequest = await JoinRequest.findOne({ userId: requesterId, eventId }).select('status rejectionReason createdAt');
-  const userBooking = await Booking.findOne({
-    userId: requesterId,
-    eventId,
-    status: { $nin: ['cancelled', 'refunded', 'rejected'] },
-  });
-
-  await Event.findByIdAndUpdate(eventId, { $inc: { viewCount: 1 } });
+  // Fire-and-forget view increment — never block or fail the read on it
+  void Event.findByIdAndUpdate(eventId, { $inc: { viewCount: 1 } }).catch(() => {});
 
   return {
     event: {

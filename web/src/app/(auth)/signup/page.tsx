@@ -82,8 +82,8 @@ export default function SignupPage() {
         phone: phone.trim(),
         password,
       });
-      const { token, user, needsSetup } = data.data;
-      login(token, user);
+      const { token, user, needsSetup, refreshToken } = data.data;
+      login(token, user, refreshToken);
       router.push(needsSetup ? '/setup' : '/events');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };

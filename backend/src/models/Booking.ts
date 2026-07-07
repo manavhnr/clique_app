@@ -29,8 +29,19 @@ const bookingSchema = new Schema<IBooking>(
   { timestamps: true }
 );
 
-bookingSchema.index({ userId: 1, eventId: 1 }, { unique: true });
+// Unique only across ACTIVE statuses — a cancelled/refunded/rejected booking must not
+// block the user from booking the same event again.
+bookingSchema.index(
+  { userId: 1, eventId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ['pending', 'payment_pending', 'confirmed', 'checked_in'] },
+    },
+  }
+);
 bookingSchema.index({ userId: 1, status: 1 });
 bookingSchema.index({ eventId: 1, status: 1 });
+bookingSchema.index({ status: 1, createdAt: 1 }); // reaper scans payment_pending by age
 
 export const Booking = mongoose.model<IBooking>('Booking', bookingSchema);

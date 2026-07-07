@@ -1,12 +1,16 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
+import { User, IUser } from '../models/User';
+import { OTP } from '../models/OTP';
+import { RefreshToken } from '../models/RefreshToken';
+import { createError } from '../middleware/error.middleware';
+import { normalizePhone } from '../utils/phone';
+import { generateOTP, hashOTP, sendOTP } from './otp.service';
 
-function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
-  return digits;
-}
+const REFRESH_TTL_DAYS = 30;
+const OTP_TTL_MINUTES = 5;
+const OTP_MAX_ATTEMPTS = 5;
 
 async function generateUniqueUsername(): Promise<string> {
   for (let i = 0; i < 5; i++) {
@@ -17,11 +21,6 @@ async function generateUniqueUsername(): Promise<string> {
   }
   throw new Error('Could not generate unique username');
 }
-import { User, IUser } from '../models/User';
-import { RefreshToken } from '../models/RefreshToken';
-import { createError } from '../middleware/error.middleware';
-
-const REFRESH_TTL_DAYS = 30;
 
 export function signAccessToken(userId: string, role: string): string {
   return jwt.sign(
@@ -42,18 +41,65 @@ async function issueRefreshToken(userId: string): Promise<string> {
   return raw;
 }
 
-// OTP sending is disabled — send-otp endpoint is a no-op
-export async function initiateOTP(_phone: string): Promise<void> {
-  // OTP authentication is bypassed; nothing to send
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await RefreshToken.deleteMany({ userId });
 }
 
-// OTP verification is disabled — login directly with phone number
+// ─── OTP ──────────────────────────────────────────────────────────────────────
+
+export async function initiateOTP(phone: string): Promise<void> {
+  const normalizedPhone = normalizePhone(phone);
+  const otp = generateOTP();
+  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+
+  // One live OTP per phone — a resend replaces the previous code
+  await OTP.findOneAndUpdate(
+    { phone: normalizedPhone },
+    { phone: normalizedPhone, otpHash: hashOTP(otp), attempts: 0, expiresAt },
+    { upsert: true }
+  );
+
+  await sendOTP(normalizedPhone, otp);
+}
+
+/**
+ * Validate and consume an OTP for a phone number.
+ * Throws on missing/expired/mismatched codes; deletes the record on success.
+ */
+export async function consumeOTP(phone: string, otp: string): Promise<void> {
+  const normalizedPhone = normalizePhone(phone);
+  const record = await OTP.findOne({ phone: normalizedPhone });
+
+  if (!record) throw createError('OTP not found or expired. Request a new one.', 400);
+  if (record.expiresAt < new Date()) {
+    await OTP.deleteOne({ _id: record._id });
+    throw createError('OTP expired. Request a new one.', 400);
+  }
+  if (record.attempts >= OTP_MAX_ATTEMPTS) {
+    await OTP.deleteOne({ _id: record._id });
+    throw createError('Too many incorrect attempts. Request a new OTP.', 429);
+  }
+
+  const expected = Buffer.from(record.otpHash, 'utf-8');
+  const provided = Buffer.from(hashOTP(otp), 'utf-8');
+  const valid = expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
+
+  if (!valid) {
+    await OTP.updateOne({ _id: record._id }, { $inc: { attempts: 1 } });
+    throw createError('Invalid OTP', 400);
+  }
+
+  await OTP.deleteOne({ _id: record._id });
+}
+
 export async function verifyOTPAndLogin(
   phone: string,
-  _otp: string
+  otp: string
 ): Promise<{ token: string; refreshToken: string; user: IUser; isNewUser: boolean; needsSetup: boolean }> {
-  let isNewUser = false;
   const normalizedPhone = normalizePhone(phone);
+  await consumeOTP(normalizedPhone, otp);
+
+  let isNewUser = false;
   let user = await User.findOne({ phone: normalizedPhone });
 
   if (!user) {
@@ -71,6 +117,8 @@ export async function verifyOTPAndLogin(
 
   return { token, refreshToken, user, isNewUser, needsSetup };
 }
+
+// ─── Password auth ────────────────────────────────────────────────────────────
 
 export async function loginWithPassword(
   identifier: string,

@@ -46,7 +46,7 @@ export async function deletePost(postId: string, requesterId: string, role: stri
   const isAdmin = role === 'admin';
   if (!isOwner && !isAdmin) throw createError('Forbidden', 403);
 
-  await Post.findByIdAndUpdate(postId, { status: isAdmin && !isOwner ? 'removed' : 'removed' });
+  await Post.findByIdAndUpdate(postId, { status: 'removed' });
   if (isOwner) await User.findByIdAndUpdate(requesterId, { $inc: { postCount: -1 } });
 }
 

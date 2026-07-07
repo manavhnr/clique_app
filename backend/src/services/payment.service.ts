@@ -16,11 +16,19 @@ function getRazorpay(): Razorpay {
   return new Razorpay({ key_id: keyId, key_secret: keySecret });
 }
 
+function safeEqualHex(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected, 'utf-8');
+  const b = Buffer.from(provided ?? '', 'utf-8');
+  // timingSafeEqual throws on unequal lengths — guard first
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 function verifySignature(orderId: string, paymentId: string, signature: string): boolean {
   const secret = process.env.RAZORPAY_KEY_SECRET as string;
   const body = `${orderId}|${paymentId}`;
   const expected = crypto.createHmac('sha256', secret).update(body).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  return safeEqualHex(expected, signature);
 }
 
 // ─── Create Razorpay Order ────────────────────────────────────────────────────
@@ -153,7 +161,7 @@ export async function handleWebhook(rawBody: Buffer, signature: string) {
   if (!secret) throw createError('Webhook secret not configured', 500);
 
   const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-  const isValid = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  const isValid = safeEqualHex(expected, signature);
 
   if (!isValid) {
     await writeAuditLog({ action: 'WEBHOOK_SIGNATURE_INVALID' });
@@ -192,4 +200,34 @@ export async function handleWebhook(rawBody: Buffer, signature: string) {
     const { order_id } = event.payload.payment.entity;
     await Payment.findOneAndUpdate({ razorpayOrderId: order_id }, { status: 'failed' });
   }
+}
+
+// ─── Refund (called when a paid booking is cancelled) ─────────────────────────
+
+/**
+ * Refund the captured payment for a booking, if any. Idempotent: a payment that
+ * isn't in `paid` state (already refunded/failed/unpaid) is a no-op.
+ * Returns true if a refund was issued.
+ */
+export async function refundBookingPayment(bookingId: string, actorId: string): Promise<boolean> {
+  const payment = await Payment.findOne({ bookingId, status: 'paid' });
+  if (!payment || !payment.razorpayPaymentId) return false;
+
+  const razorpay = getRazorpay();
+  await razorpay.payments.refund(payment.razorpayPaymentId, {
+    amount: payment.amount, // full refund, in paise
+    speed: 'normal',
+    notes: { bookingId, reason: 'booking_cancelled' },
+  });
+
+  await Payment.findByIdAndUpdate(payment._id, { status: 'refunded' });
+  await writeAuditLog({
+    actorId,
+    action: 'PAYMENT_REFUNDED',
+    targetType: 'Payment',
+    targetId: payment._id.toString(),
+    metadata: { bookingId, amount: payment.amount },
+  });
+
+  return true;
 }

@@ -1,10 +1,9 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getProfile, getUserById, updateProfile, updateProfileImage, deleteAccount } from '../services/user.service';
-import { initiateOTP } from '../services/auth.service';
-import { OTP } from '../models/OTP';
+import { initiateOTP, consumeOTP } from '../services/auth.service';
 import { User } from '../models/User';
-import { hashOTP } from '../services/otp.service';
+import { normalizePhone } from '../utils/phone';
 import { createError } from '../middleware/error.middleware';
 import { sendSuccess } from '../utils/response';
 import { uploadFile } from '../utils/cloudinary';
@@ -76,9 +75,7 @@ export async function updateSettings(req: AuthRequest, res: Response, next: Next
 export async function requestPhoneChange(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { newPhone } = req.body;
-
-    const digits = newPhone.replace(/\D/g, '');
-    const normalized = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+    const normalized = normalizePhone(newPhone);
 
     const existing = await User.findOne({ phone: normalized, _id: { $ne: req.user!.userId } });
     if (existing) throw createError('Phone number already in use by another account', 409);
@@ -93,19 +90,12 @@ export async function requestPhoneChange(req: AuthRequest, res: Response, next: 
 export async function verifyPhoneChange(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { newPhone, otp } = req.body;
-
-    const digits = newPhone.replace(/\D/g, '');
-    const normalized = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
-
-    const record = await OTP.findOne({ phone: normalized });
-    if (!record) throw createError('OTP not found or expired', 400);
-    if (record.otpHash !== hashOTP(otp)) throw createError('Invalid OTP', 400);
-    if (record.expiresAt < new Date()) throw createError('OTP expired', 400);
+    const normalized = normalizePhone(newPhone);
 
     const existing = await User.findOne({ phone: normalized, _id: { $ne: req.user!.userId } });
     if (existing) throw createError('Phone number already in use by another account', 409);
 
-    await OTP.deleteOne({ _id: record._id });
+    await consumeOTP(normalized, otp);
 
     const user = await User.findByIdAndUpdate(
       req.user!.userId,

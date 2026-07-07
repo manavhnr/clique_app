@@ -30,7 +30,8 @@ export async function getMyPasses(userId: string) {
       select: 'title images date startTime endTime locationName status hostId',
       populate: { path: 'hostId', select: 'name username profileImage' },
     })
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .limit(200); // bound in-memory categorisation for very large passbooks
 
   const upcoming = passes.filter((p) => {
     const event = p.eventId as { date?: Date };

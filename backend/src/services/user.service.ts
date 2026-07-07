@@ -1,5 +1,7 @@
 import bcrypt from 'bcrypt';
 import { User, IUser } from '../models/User';
+import { RefreshToken } from '../models/RefreshToken';
+import { FCMToken } from '../models/FCMToken';
 import { createError } from '../middleware/error.middleware';
 import { z } from 'zod';
 import { updateProfileSchema } from '../validators/user.validator';
@@ -82,8 +84,15 @@ export async function deleteAccount(userId: string): Promise<void> {
       name: 'Deleted User',
       username: `deleted_${userId}`,
       phone: `deleted_${userId}`,
+      email: undefined,
       profileImage: undefined,
       bio: undefined,
+      connectedSocials: {},
     },
   });
+  // Revoke all sessions and push tokens so access ends immediately
+  await Promise.all([
+    RefreshToken.deleteMany({ userId }),
+    FCMToken.deleteMany({ userId }),
+  ]);
 }

@@ -35,7 +35,8 @@ const postSchema = new Schema<IPost>(
   { timestamps: true }
 );
 
-postSchema.index({ userId: 1, createdAt: -1 });
-postSchema.index({ status: 1 });
+postSchema.index({ userId: 1, status: 1, createdAt: -1 });     // followed-users feed
+postSchema.index({ status: 1, visibility: 1, createdAt: -1 }); // trending / public discovery
+postSchema.index({ linkedEventId: 1 });
 
 export const Post = mongoose.model<IPost>('Post', postSchema);

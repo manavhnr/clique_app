@@ -1,10 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
-import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/error.middleware';
+import { sanitizeInput, securityHeaders } from './middleware/sanitize.middleware';
 
 import paymentRouter from './routes/payment.routes';
 import payuRouter from './routes/payu.routes';
@@ -28,7 +27,29 @@ import squadRouter from './routes/squad.routes';
 
 const app = express();
 
-app.use(cors());
+// Behind Render/other proxies — required for correct client IPs in rate limiting
+app.set('trust proxy', 1);
+
+app.use(securityHeaders);
+
+// CORS allowlist — comma-separated origins in CORS_ORIGINS, falls back to localhost in dev
+const allowedOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Allow same-origin / server-to-server (no Origin header) and whitelisted origins
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      cb(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  })
+);
+
+// Rate limiter applied first so payment/webhook routes are also covered
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
 
 // Raw body for payment/PayU webhooks — must be before express.json()
 app.use('/api/v1/payments', paymentRouter);
@@ -36,12 +57,7 @@ app.use('/api/v1/payu', payuRouter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
-
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-app.use('/uploads', express.static(uploadsDir));
+app.use(sanitizeInput);
 
 app.get('/health', (_req, res) => res.json({ success: true, message: 'Clique backend running' }));
 

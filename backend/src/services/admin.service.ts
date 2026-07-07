@@ -6,12 +6,15 @@ import { Booking } from '../models/Booking';
 import { HostVerification } from '../models/HostVerification';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
+import { escapeRegex } from '../utils/regex';
+import { revokeAllSessions } from './auth.service';
 import { applyReportPenalty, incrementEventCreationScore } from './cliquescore.service';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export async function listUsers(page: number, limit: number, q?: string) {
-  const query = q ? { $or: [{ name: new RegExp(q, 'i') }, { username: new RegExp(q, 'i') }, { phone: new RegExp(q, 'i') }] } : {};
+  const rx = q ? new RegExp(escapeRegex(q), 'i') : null;
+  const query = rx ? { $or: [{ name: rx }, { username: rx }, { phone: rx }] } : {};
   const users = await User.find(query)
     .select('name username phone role isVerifiedHost isBanned cliquescore createdAt')
     .sort({ createdAt: -1 })
@@ -26,6 +29,7 @@ export async function banUser(targetId: string, adminId: string) {
   if (!user) throw createError('User not found', 404);
   if (user.role === 'admin') throw createError('Cannot ban an admin', 400);
   await User.findByIdAndUpdate(targetId, { isBanned: true });
+  await revokeAllSessions(targetId); // kill refresh tokens so the ban takes effect immediately
   await applyReportPenalty(targetId);
   await writeAuditLog({ actorId: adminId, action: 'USER_BANNED', targetType: 'User', targetId });
 }
@@ -79,6 +83,13 @@ export async function resolveReport(reportId: string, adminId: string, resolutio
   const report = await Report.findById(reportId);
   if (!report) throw createError('Report not found', 404);
   await Report.findByIdAndUpdate(reportId, { status: resolution });
+
+  // Penalise the reported user only when an admin upholds the report (not on creation,
+  // to prevent score-tanking via mass false reports).
+  if (resolution === 'resolved' && (report.targetType === 'user' || report.targetType === 'host')) {
+    await applyReportPenalty(report.targetId.toString());
+  }
+
   await writeAuditLog({ actorId: adminId, action: `REPORT_${resolution.toUpperCase()}`, targetType: 'Report', targetId: reportId });
 }
 

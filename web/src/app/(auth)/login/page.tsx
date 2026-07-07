@@ -54,7 +54,7 @@ export default function LoginPage() {
         identifier: identifier.trim(),
         password,
       });
-      login(data.data.token, data.data.user);
+      login(data.data.token, data.data.user, data.data.refreshToken);
       router.push('/events');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };

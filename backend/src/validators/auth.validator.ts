@@ -14,7 +14,7 @@ export const verifyOTPSchema = z.object({
     .min(10)
     .max(15)
     .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number'),
-  otp: z.string().optional(), // OTP auth bypassed — field accepted but ignored
+  otp: z.string().length(6, 'OTP must be 6 digits').regex(/^\d{6}$/, 'OTP must be numeric'),
 });
 
 export const loginSchema = z.object({

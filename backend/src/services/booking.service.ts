@@ -137,7 +137,21 @@ export async function cancelBooking(bookingId: string, userId: string) {
     throw createError(`Cannot cancel a booking with status: ${booking.status}`, 400);
   }
 
-  await Booking.findByIdAndUpdate(bookingId, { status: 'cancelled' });
+  // Refund any captured payment before finalising the status. Lazy import breaks the
+  // booking.service <-> payment.service require cycle.
+  let refunded = false;
+  try {
+    const { refundBookingPayment } = await import('./payment.service');
+    refunded = await refundBookingPayment(bookingId, userId);
+  } catch (err) {
+    // Surface refund failures instead of silently cancelling a paid booking with no refund
+    throw createError(
+      'Could not process refund for this booking. Please try again or contact support.',
+      502
+    );
+  }
+
+  await Booking.findByIdAndUpdate(bookingId, { status: refunded ? 'refunded' : 'cancelled' });
 
   // Invalidate pass if exists
   if (booking.passId) {
@@ -149,7 +163,7 @@ export async function cancelBooking(bookingId: string, userId: string) {
 
   await writeAuditLog({
     actorId: userId,
-    action: 'BOOKING_CANCELLED',
+    action: refunded ? 'BOOKING_REFUNDED' : 'BOOKING_CANCELLED',
     targetType: 'Booking',
     targetId: bookingId,
   });

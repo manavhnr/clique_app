@@ -8,20 +8,23 @@ async function tryConnect(uri: string): Promise<void> {
   });
 }
 
+const MAX_ATTEMPTS = 10;
+
 export async function connectDB(): Promise<void> {
   const uri = process.env.MONGO_URI;
   if (!uri) throw new Error('MONGO_URI is not defined in environment');
 
-  let attempt = 0;
-  while (true) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       await tryConnect(uri);
       console.log('MongoDB connected');
       return;
     } catch (err: unknown) {
-      attempt++;
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`MongoDB attempt ${attempt} failed: ${msg}`);
+      console.error(`MongoDB attempt ${attempt}/${MAX_ATTEMPTS} failed: ${msg}`);
+      if (attempt === MAX_ATTEMPTS) {
+        throw new Error(`MongoDB connection failed after ${MAX_ATTEMPTS} attempts: ${msg}`);
+      }
       await new Promise((r) => setTimeout(r, 5000));
     }
   }
