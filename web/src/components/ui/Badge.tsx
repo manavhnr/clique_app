@@ -2,22 +2,28 @@ import { cn } from '@/lib/utils';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'default' | 'purple' | 'green' | 'yellow' | 'red' | 'blue';
+  variant?: 'neutral' | 'lime' | 'gold' | 'hot' | 'sky';
   className?: string;
 }
 
-export default function Badge({ children, variant = 'default', className }: BadgeProps) {
+/** Mono microlabel chip. Variant names are the palette, not borrowed hues. */
+export default function Badge({ children, variant = 'neutral', className }: BadgeProps) {
   const variants = {
-    default: 'bg-dark-card border border-dark-border text-muted',
-    purple: 'bg-primary/20 border border-primary/30 text-primary-light',
-    green: 'bg-green-500/20 border border-green-500/30 text-green-400',
-    yellow: 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400',
-    red: 'bg-red-500/20 border border-red-500/30 text-red-400',
-    blue: 'bg-blue-500/20 border border-blue-500/30 text-blue-400',
+    neutral: 'bg-line border-line-2 text-cream',
+    lime: 'bg-lime/10 border-lime/30 text-lime',
+    gold: 'bg-gold/10 border-gold/30 text-gold',
+    hot: 'bg-hot/10 border-hot/30 text-hot',
+    sky: 'bg-sky/10 border-sky/30 text-sky',
   };
 
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium', variants[variant], className)}>
+    <span
+      className={cn(
+        'inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[.12em]',
+        variants[variant],
+        className
+      )}
+    >
       {children}
     </span>
   );

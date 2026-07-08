@@ -14,22 +14,12 @@ const config: Config = {
         cream:  '#E8E1D2',
         lime:   '#C9F36E',
         hot:    '#FF3D6E',
-        dim:    '#5B544A',
+        gold:   '#E8C46E',
+        sky:    '#7DB4FF',
+        dim:    '#8A8173',
         line:   { DEFAULT: '#1C1814', 2: '#2A2520' },
         card:   '#14110E',
-        // legacy aliases for any components that still reference them
-        primary: {
-          DEFAULT: '#C9F36E',
-          hover:   '#F2EDE2',
-          light:   '#C9F36E',
-        },
-        dark: {
-          DEFAULT: '#0B0907',
-          card:    '#14110E',
-          border:  '#2A2520',
-          hover:   '#1C1814',
-        },
-        muted: '#5B544A',
+        well:   '#0B0907',
       },
       fontFamily: {
         display: ['"Funnel Display"', '"Arial Narrow"', 'sans-serif'],
