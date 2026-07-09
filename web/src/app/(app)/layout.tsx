@@ -135,9 +135,9 @@ function SidebarNav({
         )}
       </Link>
 
-      {/* Nav links */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, overflow: 'hidden' }}>
-        {NAV_ITEMS.map((item) => {
+      {/* Nav links — numbered like a ledger index */}
+      <nav className="ledger" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        {NAV_ITEMS.map((item, i) => {
           const active = item.match.some((m) => pathname === m || pathname.startsWith(m + '/'));
           const Icon = item.icon;
           return (
@@ -146,35 +146,36 @@ function SidebarNav({
               href={item.to}
               onClick={onLinkClick}
               title={collapsed ? item.label : undefined}
+              className="ledger-row"
               style={{
                 display: 'flex', alignItems: 'center',
                 gap: collapsed ? 0 : 12,
                 justifyContent: collapsed ? 'center' : 'flex-start',
-                padding: collapsed ? '10px 0' : '10px 12px',
-                borderRadius: 10,
+                padding: collapsed ? '14px 0' : '14px 6px',
                 fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase',
-                color: active ? 'var(--paper)' : 'var(--cream)',
-                background: active ? 'var(--line)' : 'transparent',
-                transition: 'all .15s ease',
+                color: active ? 'var(--paper)' : 'var(--dim)',
+                transition: 'color .15s ease, background .15s ease',
                 overflow: 'hidden',
                 position: 'relative',
               }}
             >
-              {/* Active indicator dot (collapsed) or icon */}
-              <span style={{
-                flexShrink: 0,
-                color: active ? 'var(--lime)' : 'var(--dim)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'color .15s ease',
-              }}>
-                <Icon size={16} />
-              </span>
-              {!collapsed && (
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>
-              )}
-              {/* Active lime dot on the left edge when collapsed */}
-              {collapsed && active && (
-                <span style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, background: 'var(--lime)', borderRadius: '0 2px 2px 0', boxShadow: '0 0 6px var(--lime)' }} />
+              {collapsed ? (
+                <span style={{
+                  flexShrink: 0,
+                  color: active ? 'var(--lime)' : 'var(--dim)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'color .15s ease',
+                }}>
+                  <Icon size={16} />
+                </span>
+              ) : (
+                <>
+                  <span style={{ fontSize: 10, letterSpacing: '.08em', color: active ? 'var(--lime)' : 'var(--dim)', width: 20, flexShrink: 0, transition: 'color .15s ease' }}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', flex: 1 }}>{item.label}</span>
+                  {active && <span aria-hidden style={{ color: 'var(--lime)', fontSize: 11, flexShrink: 0 }}>●</span>}
+                </>
               )}
             </Link>
           );
@@ -188,7 +189,7 @@ function SidebarNav({
             <Link
               href="/profile"
               onClick={onLinkClick}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 10, border: '1px solid var(--line-2)', overflow: 'hidden' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 6px 0', borderTop: '1px dashed var(--line-2)', overflow: 'hidden' }}
             >
               <AvatarInitial name={user.name || 'C'} size={34} />
               <div style={{ minWidth: 0, overflow: 'hidden' }}>
@@ -207,7 +208,7 @@ function SidebarNav({
             style={{
               background: 'transparent', border: 'none',
               fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.12em', color: 'var(--dim)',
-              textTransform: 'uppercase', padding: collapsed ? '4px 0' : '4px 8px',
+              textTransform: 'uppercase', padding: collapsed ? '4px 0' : '4px 6px',
               cursor: 'pointer', textAlign: collapsed ? 'center' : 'left',
               whiteSpace: 'nowrap', overflow: 'hidden',
             }}
@@ -268,7 +269,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           padding: '28px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 32,
+          gap: 28,
           background: '#0E0C09',
           overflow: 'hidden',
           position: 'relative',
@@ -291,8 +292,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               right: collapsed ? '50%' : 16,
               transform: collapsed ? 'translateX(50%)' : 'none',
               width: 28, height: 28,
-              background: 'var(--line-2)', border: '1px solid var(--line)',
-              borderRadius: 8,
+              background: 'transparent', border: '1px solid var(--line-2)',
+              borderRadius: 3,
               color: 'var(--dim)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer',
@@ -327,7 +328,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             background: '#0E0C09',
             borderRight: '1px solid var(--line)',
             padding: '28px 16px',
-            display: 'flex', flexDirection: 'column', gap: 32,
+            display: 'flex', flexDirection: 'column', gap: 28,
             animation: 'slideInLeft .22s cubic-bezier(.4,0,.2,1)',
             overflow: 'hidden',
           }}>
@@ -365,6 +366,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }}>
             <button
               onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
               style={{ background: 'transparent', border: 'none', color: 'var(--cream)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
             >
               <IconMenu size={20} />
@@ -419,10 +421,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   textDecoration: 'none',
                 }}
               >
-                {/* Active line at top */}
-                {active && (
-                  <span style={{ position: 'absolute', top: 0, left: '20%', right: '20%', height: 2, background: 'var(--lime)', borderRadius: '0 0 2px 2px', boxShadow: '0 0 8px var(--lime)' }} />
-                )}
                 <Icon size={18} />
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase' }}>
                   {item.label === 'My passes' ? 'Passes' : item.label}

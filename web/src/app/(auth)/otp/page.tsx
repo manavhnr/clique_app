@@ -9,31 +9,32 @@ import api from '@/lib/api';
 function AuthShell({ children, step }: { children: React.ReactNode; step?: number }) {
   const steps = ['PHONE', 'VERIFY', 'PROFILE'];
   return (
-    <div style={{ minHeight: '100vh', padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', background: 'var(--ink)' }}>
+    <div style={{ minHeight: '100vh', padding: '40px 24px 64px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', background: 'var(--ink)' }}>
       <Link href="/" style={{ position: 'absolute', top: 24, left: 24, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>
         ← Back to clique
       </Link>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 36 }}>
-        <span style={{ width: 9, height: 9, background: 'var(--lime)', borderRadius: '50%', marginRight: 10, boxShadow: '0 0 18px var(--lime)', display: 'inline-block' }} />
+      <div style={{ display: 'flex', alignItems: 'center', margin: '48px 0 36px' }}>
+        <span style={{ width: 9, height: 9, background: 'var(--lime)', borderRadius: '50%', marginRight: 10, boxShadow: '0 0 18px var(--lime)', display: 'inline-block', animation: 'pulse 2s ease-in-out infinite' }} />
         <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.04em' }}>CLIQUE</span>
       </div>
-      {step && (
-        <div style={{ display: 'flex', gap: 18, marginBottom: 28 }}>
-          {steps.map((s, i) => {
-            const active = i + 1 === step;
-            const done   = i + 1 < step;
-            return (
-              <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: active ? 'var(--paper)' : 'var(--dim)' }}>
-                <span style={{ padding: '3px 6px', border: `1px solid ${active ? 'var(--lime)' : done ? 'var(--line)' : 'var(--line-2)'}`, borderRadius: 4, background: active ? 'var(--lime)' : done ? 'var(--line)' : 'transparent', color: active ? 'var(--ink)' : done ? 'var(--cream)' : 'var(--dim)' }}>
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                {s}
-              </span>
-            );
-          })}
+      <div style={{ width: '100%', maxWidth: 440, animation: 'riseIn .35s ease-out both' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 26 }}>
+          <span className="clique-label" style={{ whiteSpace: 'nowrap' }}>FORM № 01</span>
+          <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line-2)' }} />
+          {step && (
+            <span style={{ display: 'inline-flex', gap: 14 }}>
+              {steps.map((s, i) => {
+                const active = i + 1 === step;
+                const done   = i + 1 < step;
+                return (
+                  <span key={s} style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: active ? 'var(--lime)' : done ? 'var(--cream)' : 'var(--dim)' }}>
+                    {String(i + 1).padStart(2, '0')} {s}
+                  </span>
+                );
+              })}
+            </span>
+          )}
         </div>
-      )}
-      <div style={{ width: '100%', maxWidth: 460, background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 18, padding: 36, boxShadow: '0 30px 60px -20px rgba(0,0,0,0.6)', animation: 'riseIn .35s ease-out both' }}>
         {children}
       </div>
     </div>
@@ -114,22 +115,24 @@ function OtpForm() {
   const digitStyle: React.CSSProperties = {
     flex: 1, minWidth: 0, height: 60,
     background: '#0B0907', border: '1px solid var(--line-2)',
+    borderBottom: '2px solid var(--line-2)',
     color: 'var(--paper)', textAlign: 'center',
     fontFamily: 'var(--display)', fontSize: 28, fontWeight: 700,
-    borderRadius: 12, outline: 'none',
+    borderRadius: 3, outline: 'none',
     transition: 'border-color .15s ease, transform .15s ease',
   };
 
   return (
     <AuthShell step={2}>
-      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 38, lineHeight: 0.95, letterSpacing: '-0.03em', marginBottom: 10 }}>
+      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 42, lineHeight: 0.95, letterSpacing: '-0.03em', marginBottom: 12 }}>
         Check your texts.
       </div>
-      <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--cream)', lineHeight: 1.4, marginBottom: 28 }}>
+      <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--cream)', lineHeight: 1.4, marginBottom: 32 }}>
         We sent a 6-digit code to{' '}
         <b style={{ color: 'var(--paper)' }}>{phone}</b>.
       </div>
 
+      <div className="clique-label" style={{ marginBottom: 10 }}>01 — THE CODE</div>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between' }}>
         {digits.map((d, i) => (
           <input
@@ -142,6 +145,7 @@ function OtpForm() {
             onChange={(e) => setDigit(i, e.target.value)}
             onKeyDown={(e) => onKey(i, e)}
             style={digitStyle}
+            aria-label={`Digit ${i + 1}`}
             onFocus={(e) => { e.target.style.borderColor = 'var(--lime)'; e.target.style.transform = 'translateY(-1px)'; }}
             onBlur={(e) => { e.target.style.borderColor = 'var(--line-2)'; e.target.style.transform = 'none'; }}
           />
@@ -156,7 +160,7 @@ function OtpForm() {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 28, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', color: 'var(--dim)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, paddingTop: 18, borderTop: '1px dashed var(--line-2)', fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', color: 'var(--dim)' }}>
         <Link href="/signup" style={{ color: 'var(--cream)' }}>← Change number</Link>
         {countdown > 0
           ? <span>Resend in {countdown}s</span>

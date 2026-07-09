@@ -118,7 +118,7 @@ export default function BecomeHostPage() {
       </ol>
 
       {/* Application */}
-      <div className="rounded-card border border-line-2 bg-card p-6">
+      <div className="rounded-md border border-dashed border-line-2 p-6">
         <div className="clique-label mb-5">YOUR APPLICATION</div>
         <div className="flex flex-col gap-5">
           <Textarea
@@ -150,7 +150,7 @@ export default function BecomeHostPage() {
 
       <Modal open={successOpen} onClose={() => { setSuccessOpen(false); router.push('/profile'); }} title="Application in.">
         <div className="flex flex-col gap-5 py-2 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-lime font-display text-3xl text-ink">✓</div>
+          <span className="stamp mx-auto !text-[14px] text-lime" style={{ padding: '10px 16px 9px' }}>✓ RECEIVED</span>
           <div>
             <p className="m-0 font-display text-lg font-bold text-paper">You&apos;re in the queue.</p>
             <p className="m-0 mt-2 font-display text-sm leading-relaxed text-cream">

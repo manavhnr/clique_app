@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { Pass, Event, Booking } from '@/types';
 import { useAuth } from '@/context/AuthContext';
@@ -64,57 +63,69 @@ function Spinner() {
 
 function PassQRModal({ pass, event, onClose }: { pass: Pass; event: Event | null; onClose: () => void }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,9,7,0.92)', backdropFilter: 'blur(8px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
-      <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 20, padding: 32, maxWidth: 360, width: '100%', animation: 'riseIn .3s ease-out' }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,9,7,0.94)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
+      <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 6, padding: 0, maxWidth: 360, width: '100%', animation: 'riseIn .3s ease-out', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         {event && (
-          <div style={{ textAlign: 'center', marginBottom: 24, paddingBottom: 24, borderBottom: '1px dashed var(--line)' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>YOUR PASS</div>
-            <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginTop: 8 }}>{event.title}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.06em', marginTop: 6 }}>
+          <div style={{ textAlign: 'center', padding: '26px 28px 22px' }}>
+            <div className="clique-label">YOUR PASS</div>
+            <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em', marginTop: 8, lineHeight: 1 }}>{event.title}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.06em', marginTop: 8 }}>
               {event.startTime && event.endTime ? `${fmtHour(event.startTime)} → ${fmtHour(event.endTime)}` : formatDate(event.date)}
             </div>
             <div style={{ fontFamily: 'var(--display)', fontSize: 13, color: 'var(--cream)', marginTop: 4 }}>{event.locationName}</div>
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-          {pass.status === 'used' ? (
-            <div style={{ width: 200, height: 200, background: 'var(--paper)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-              <div style={{ color: 'var(--lime)', fontSize: 64, lineHeight: 1 }}>✓</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink)', letterSpacing: '.1em' }}>CHECKED IN</div>
-            </div>
-          ) : (pass.status === 'cancelled' || pass.status === 'expired') ? (
-            <div style={{ width: 200, height: 200, background: 'var(--line)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 28, color: 'var(--dim)' }}>○</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em' }}>{pass.status.toUpperCase()}</div>
-            </div>
-          ) : (
-            /* Real scannable QR — prefer the JWT token (from getPassById), fall back to Cloudinary image */
-            <div style={{ background: 'var(--paper)', borderRadius: 12, padding: 14 }}>
-              {(pass as Pass & { qrToken?: string }).qrToken ? (
-                <QRCodeSVG
-                  value={(pass as Pass & { qrToken?: string }).qrToken!}
-                  size={176}
-                  bgColor="#FFFFFF"
-                  fgColor="#0B0907"
-                  level="M"
-                />
-              ) : pass.qrCodeUrl ? (
-                <img src={pass.qrCodeUrl} alt="QR Code" style={{ width: 176, height: 176, objectFit: 'contain', display: 'block' }} />
-              ) : (
-                /* Last-resort: generate QR from pass ID — scanner will reject it, but at least it's a real QR */
-                <QRCodeSVG value={pass._id} size={176} bgColor="#FFFFFF" fgColor="#0B0907" level="M" />
-              )}
-            </div>
-          )}
+
+        {/* Perforation */}
+        <div style={{ position: 'relative' }}>
+          <div className="perf" />
+          <span aria-hidden style={{ position: 'absolute', left: -8, top: -7, width: 14, height: 14, background: 'var(--ink)', borderRadius: '50%', border: '1px solid var(--line-2)' }} />
+          <span aria-hidden style={{ position: 'absolute', right: -8, top: -7, width: 14, height: 14, background: 'var(--ink)', borderRadius: '50%', border: '1px solid var(--line-2)' }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.12em', color: pass.status === 'active' ? 'var(--lime)' : 'var(--dim)' }}>
-            {pass.status === 'active' ? '● ACTIVE · SHOW AT THE DOOR' : pass.status === 'used' ? '✓ CHECKED IN' : '○ ' + pass.status.toUpperCase()}
+
+        <div style={{ padding: '24px 28px 26px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+            {pass.status === 'used' ? (
+              <div style={{ width: 200, height: 200, background: 'var(--paper)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+                <span className="stamp" style={{ color: '#3a7a1e', fontSize: 15, padding: '10px 16px 9px' }}>✓ CHECKED IN</span>
+              </div>
+            ) : (pass.status === 'cancelled' || pass.status === 'expired') ? (
+              <div style={{ width: 200, height: 200, background: 'var(--line)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="stamp" style={{ color: 'var(--dim)', fontSize: 13, padding: '8px 14px 7px' }}>{pass.status.toUpperCase()}</span>
+              </div>
+            ) : (
+              /* Real scannable QR — prefer the JWT token (from getPassById), fall back to Cloudinary image */
+              <div style={{ background: 'var(--paper)', borderRadius: 4, padding: 14 }}>
+                {(pass as Pass & { qrToken?: string }).qrToken ? (
+                  <QRCodeSVG
+                    value={(pass as Pass & { qrToken?: string }).qrToken!}
+                    size={176}
+                    bgColor="#FFFFFF"
+                    fgColor="#0B0907"
+                    level="M"
+                  />
+                ) : pass.qrCodeUrl ? (
+                  <img src={pass.qrCodeUrl} alt="QR Code" style={{ width: 176, height: 176, objectFit: 'contain', display: 'block' }} />
+                ) : (
+                  /* Last-resort: generate QR from pass ID — scanner will reject it, but at least it's a real QR */
+                  <QRCodeSVG value={pass._id} size={176} bgColor="#FFFFFF" fgColor="#0B0907" level="M" />
+                )}
+              </div>
+            )}
           </div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: pass.status === 'active' ? 'var(--lime)' : 'var(--dim)' }}>
+              {pass.status === 'active' ? '● ACTIVE · SHOW AT THE DOOR' : pass.status === 'used' ? '✓ CHECKED IN' : '○ ' + pass.status.toUpperCase()}
+            </div>
+          </div>
+          <div className="barcode" aria-hidden style={{ height: 22, color: 'var(--line-2)', marginBottom: 6 }} />
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.3em', color: 'var(--dim)', textAlign: 'center', marginBottom: 18 }}>
+            № {pass._id.slice(-8).toUpperCase()}
+          </div>
+          <button onClick={onClose} style={{ width: '100%', background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--cream)', padding: '12px 0', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            Close
+          </button>
         </div>
-        <button onClick={onClose} style={{ width: '100%', background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--cream)', padding: '12px 0', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
-          Close
-        </button>
       </div>
     </div>
   );
@@ -193,42 +204,50 @@ export default function PassesPage() {
 
   return (
     <div>
-      {/* Page head */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: isMobile ? 20 : 32, paddingBottom: isMobile ? 16 : 24, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 8 }}>YOUR PASSES</div>
+      {/* Masthead */}
+      <div style={{ marginBottom: isMobile ? 18 : 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span aria-hidden style={{ height: 1, width: 20, background: 'var(--line-2)' }} />
+          <div className="clique-label" style={{ whiteSpace: 'nowrap' }}>YOUR PASSES</div>
+          <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line-2)' }} />
+          <div className="clique-label" style={{ whiteSpace: 'nowrap' }}>{String(activeCount).padStart(2, '0')} ACTIVE</div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginTop: 16, paddingBottom: isMobile ? 16 : 22, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
           <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 'clamp(32px, 9vw, 48px)' : 'clamp(40px, 5vw, 64px)', lineHeight: 0.95, letterSpacing: '-0.03em', margin: 0 }}>
-            The list.<br />
+            The stubs.<br />
             <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>Show at the door.</span>
           </h1>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>ACTIVE</div>
-          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 36 : 56, lineHeight: 1, letterSpacing: '-0.03em' }}>
-            {String(activeCount).padStart(2, '0')}
-          </div>
+          {!isMobile && (
+            <div style={{ textAlign: 'right', paddingBottom: 4 }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 56, lineHeight: 1, letterSpacing: '-0.03em' }}>
+                {String(activeCount).padStart(2, '0')}
+              </div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)', marginTop: 4 }}>ACTIVE</div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Pending payments */}
       {pendingBookings.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--hot)', marginBottom: 14 }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--hot)', marginBottom: 10 }}>
             AWAITING PAYMENT · {pendingBookings.length}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="ledger">
             {pendingBookings.map((booking) => {
               const evt = typeof booking.eventId === 'object' ? booking.eventId as Event : null;
               return (
-                <div key={booking._id} style={{ background: '#14110E', border: '1px solid rgba(255,61,110,0.3)', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div key={booking._id} className="ledger-row" style={{ padding: '14px 4px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <span className="stamp stamp-alt" style={{ color: 'var(--hot)', flexShrink: 0 }}>Unpaid</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 600, color: 'var(--paper)' }}>{evt?.title ?? 'Event'}</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginTop: 4 }}>
-                      {formatPrice(booking.amount)} · PENDING
+                    <div style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 600, color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{evt?.title ?? 'Event'}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginTop: 3 }}>
+                      {formatPrice(booking.amount)} DUE
                     </div>
                   </div>
                   <button onClick={() => handleCompletePayment(booking)} disabled={paying}
-                    style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '10px 16px', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', cursor: paying ? 'not-allowed' : 'pointer', opacity: paying ? 0.6 : 1 }}>
+                    style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '11px 16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', cursor: paying ? 'not-allowed' : 'pointer', opacity: paying ? 0.6 : 1, flexShrink: 0 }}>
                     Pay now →
                   </button>
                 </div>
@@ -239,12 +258,12 @@ export default function PassesPage() {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 32, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap' }}>
         {TABS.map(({ key, label }) => {
           const on = activeTab === key;
           const count = passes[key].length;
           return (
-            <button key={key} onClick={() => setActiveTab(key)} style={{ background: on ? 'var(--lime)' : 'transparent', color: on ? 'var(--ink)' : 'var(--cream)', border: `1px solid ${on ? 'var(--lime)' : 'var(--line-2)'}`, padding: '8px 14px', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all .15s ease', whiteSpace: 'nowrap' }}>
+            <button key={key} onClick={() => setActiveTab(key)} aria-pressed={on} style={{ background: on ? 'var(--lime)' : 'transparent', color: on ? 'var(--ink)' : 'var(--cream)', border: `1px solid ${on ? 'var(--lime)' : 'var(--line-2)'}`, padding: '8px 14px', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all .15s ease', whiteSpace: 'nowrap' }}>
               {label} <span style={{ opacity: 0.6 }}>{count}</span>
             </button>
           );
@@ -253,24 +272,24 @@ export default function PassesPage() {
 
       {/* Content */}
       {displayPasses.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', border: '1px solid var(--line-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--display)', fontSize: 32, color: 'var(--dim)', margin: '0 auto 14px' }}>
-            {activeTab === 'upcoming' ? '○' : '✓'}
-          </div>
-          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 28, letterSpacing: '-0.02em', marginBottom: 8 }}>
+        <div className="ledger" style={{ padding: '56px 8px 64px' }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.16em', color: 'var(--dim)', marginBottom: 14 }}>№ 000 — NO STUBS</div>
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 28 : 36, letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 10 }}>
             {activeTab === 'upcoming' ? 'No active passes.' : 'Nothing here yet.'}
           </div>
           {activeTab === 'upcoming' && (
             <>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--dim)', letterSpacing: '.08em', marginBottom: 22 }}>BOOK SOMETHING TONIGHT TO GET YOUR FIRST PASS</div>
-              <button onClick={() => router.push('/events')} style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '12px 20px', borderRadius: 999, fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 15, color: 'var(--cream)', marginBottom: 24, maxWidth: '46ch', lineHeight: 1.45 }}>
+                Get on a list tonight and your first pass shows up here, QR and all.
+              </div>
+              <button onClick={() => router.push('/events')} style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '13px 20px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
                 Browse tonight →
               </button>
             </>
           )}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: isMobile ? 12 : 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(340px, 1fr))', gap: isMobile ? 14 : 20 }}>
           {displayPasses.map((pass) => (
             <PassCard key={pass._id} pass={pass} onOpen={() => handleOpenPass(pass)} />
           ))}
@@ -297,56 +316,63 @@ export default function PassesPage() {
 function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
   const evt = typeof pass.eventId === 'object' ? pass.eventId as Event : null;
   const status = pass.status;
-  const statusColor = status === 'active' ? 'var(--lime)' : status === 'used' ? 'var(--dim)' : 'var(--hot)';
-  const statusLabel = status === 'active' ? '● ACTIVE' : status === 'used' ? '✓ USED' : '○ ' + status.toUpperCase();
   const isActive = status === 'active';
+  const stampColor = status === 'active' ? 'var(--lime)' : status === 'used' ? 'var(--dim)' : 'var(--hot)';
+  const stampLabel = status === 'active' ? 'Admit one' : status === 'used' ? 'Checked in' : status;
 
   return (
-    <div onClick={onOpen}
-      style={{ position: 'relative', background: '#14110E', border: `1px solid ${isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'transform .25s ease, border-color .25s ease, box-shadow .25s ease', padding: 22, opacity: isActive ? 1 : 0.65 }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'var(--lime)' : 'var(--cream)'; if (isActive) (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 1px var(--lime)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
+    <button onClick={onOpen}
+      style={{
+        position: 'relative', textAlign: 'left', width: '100%',
+        background: isActive ? '#100D0A' : '#0E0C09',
+        border: `1px solid ${isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`,
+        borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
+        transition: 'transform .2s ease, border-color .2s ease',
+        padding: 0, opacity: isActive ? 1 : 0.6,
+        fontFamily: 'inherit', color: 'inherit',
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'var(--lime)' : 'var(--cream)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'; }}
     >
-      {/* Perforation */}
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 88, height: 1, backgroundImage: 'linear-gradient(to right, var(--line-2) 50%, transparent 0%)', backgroundSize: '7px 1px' }} />
-      <div style={{ position: 'absolute', left: -7, top: 81, width: 14, height: 14, background: 'var(--ink)', borderRadius: '50%' }} />
-      <div style={{ position: 'absolute', right: -7, top: 81, width: 14, height: 14, background: 'var(--ink)', borderRadius: '50%' }} />
-
       {/* Head */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, minHeight: 64, alignItems: 'flex-start', paddingBottom: 26 }}>
-        <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', padding: '20px 22px 18px' }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>
             {evt?.category ? evt.category.replace('_', ' ').toUpperCase() : 'EVENT'}
           </div>
-          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--paper)', marginTop: 6 }}>
+          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 23, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--paper)', marginTop: 6, overflowWrap: 'break-word' }}>
             {evt?.title ?? 'Event'}
           </div>
         </div>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', textAlign: 'right', flexShrink: 0 }}>
-          <span style={{ color: statusColor, letterSpacing: '.12em', display: 'block', marginBottom: 4 }}>{statusLabel}</span>
-          № {pass._id.slice(-6).toUpperCase()}
-        </div>
+        <span className="stamp" style={{ color: stampColor, flexShrink: 0, marginTop: 2 }}>{stampLabel}</span>
       </div>
 
-      {/* Mini body */}
-      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 16, paddingTop: 18 }}>
-        <div style={{ width: 80, height: 80, borderRadius: 8, background: isActive ? 'var(--paper)' : '#26221C', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6 }}>
+      {/* Perforation */}
+      <div style={{ position: 'relative' }}>
+        <div className="perf" />
+        <span aria-hidden style={{ position: 'absolute', left: -8, top: -7, width: 14, height: 14, background: 'var(--ink)', borderRadius: '50%', border: '1px solid var(--line-2)' }} />
+        <span aria-hidden style={{ position: 'absolute', right: -8, top: -7, width: 14, height: 14, background: 'var(--ink)', borderRadius: '50%', border: '1px solid var(--line-2)' }} />
+      </div>
+
+      {/* Body */}
+      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 18, padding: '18px 22px 16px' }}>
+        <div style={{ width: 80, height: 80, borderRadius: 3, background: isActive ? 'var(--paper)' : '#26221C', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6 }}>
           {isActive && <PseudoQR seed={pass._id} size={68} />}
-          {status === 'used' && <div style={{ color: 'var(--lime)', fontSize: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>✓</div>}
-          {(status === 'expired' || status === 'cancelled') && <div style={{ color: 'var(--dim)', fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.1em', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>{status.toUpperCase()}</div>}
+          {status === 'used' && <span style={{ color: 'var(--lime)', fontSize: 32 }}>✓</span>}
+          {(status === 'expired' || status === 'cancelled') && <span style={{ color: 'var(--dim)', fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.1em', textAlign: 'center' }}>{status.toUpperCase()}</span>}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           {evt && (
             <>
               <div>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--dim)' }}>WHEN</div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 13, marginTop: 4 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 13, marginTop: 4, color: 'var(--paper)' }}>
                   {evt.startTime ? `${fmtHour(evt.startTime)} → ${fmtHour(evt.endTime)}` : formatDate(evt.date)}
                 </div>
               </div>
               <div>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--dim)' }}>WHERE</div>
-                <div style={{ fontFamily: 'var(--display)', fontSize: 14, marginTop: 4, lineHeight: 1.2 }}>{evt.locationName}</div>
+                <div style={{ fontFamily: 'var(--display)', fontSize: 14, marginTop: 4, lineHeight: 1.2, color: 'var(--paper)' }}>{evt.locationName}</div>
               </div>
             </>
           )}
@@ -361,10 +387,14 @@ function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
         </div>
       </div>
 
-      {/* Footer */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 14, borderTop: '1px dashed var(--line)', fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', color: 'var(--dim)', textTransform: 'uppercase' }}>
-        TAP TO SHOW QR <span>→</span>
+      {/* Barcode footer */}
+      <div style={{ padding: '0 22px 18px' }}>
+        <div className="barcode" aria-hidden style={{ height: 20, color: isActive ? '#3A3428' : 'var(--line-2)' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>
+          <span>№ {pass._id.slice(-6).toUpperCase()}</span>
+          <span>TAP FOR QR →</span>
+        </div>
       </div>
-    </div>
+    </button>
   );
 }

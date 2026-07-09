@@ -75,7 +75,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'relative w-full max-h-[90vh] overflow-y-auto rounded-modal border border-line-2 bg-card shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] animate-rise focus:outline-none',
+          'relative w-full max-h-[90vh] overflow-y-auto rounded-[6px] border border-line-2 bg-card shadow-[0_40px_80px_-20px_rgba(0,0,0,0.7)] animate-rise focus:outline-none',
           sizes[size]
         )}
       >

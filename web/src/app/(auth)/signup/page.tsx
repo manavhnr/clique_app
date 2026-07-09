@@ -9,31 +9,32 @@ import api from '@/lib/api';
 function AuthShell({ children, step }: { children: React.ReactNode; step?: number }) {
   const steps = ['ACCOUNT', 'PROFILE'];
   return (
-    <div style={{ minHeight: '100vh', padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', background: 'var(--ink)' }}>
+    <div style={{ minHeight: '100vh', padding: '40px 24px 64px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', background: 'var(--ink)' }}>
       <Link href="/" style={{ position: 'absolute', top: 24, left: 24, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>
         ← Back to clique
       </Link>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 36 }}>
-        <span style={{ width: 9, height: 9, background: 'var(--lime)', borderRadius: '50%', marginRight: 10, boxShadow: '0 0 18px var(--lime)', display: 'inline-block' }} />
+      <div style={{ display: 'flex', alignItems: 'center', margin: '48px 0 36px' }}>
+        <span style={{ width: 9, height: 9, background: 'var(--lime)', borderRadius: '50%', marginRight: 10, boxShadow: '0 0 18px var(--lime)', display: 'inline-block', animation: 'pulse 2s ease-in-out infinite' }} />
         <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.04em' }}>CLIQUE</span>
       </div>
-      {step && (
-        <div style={{ display: 'flex', gap: 18, marginBottom: 28 }}>
-          {steps.map((s, i) => {
-            const active = i + 1 === step;
-            const done   = i + 1 < step;
-            return (
-              <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: active ? 'var(--paper)' : 'var(--dim)' }}>
-                <span style={{ padding: '3px 6px', border: `1px solid ${active ? 'var(--lime)' : done ? 'var(--line)' : 'var(--line-2)'}`, borderRadius: 4, background: active ? 'var(--lime)' : done ? 'var(--line)' : 'transparent', color: active ? 'var(--ink)' : done ? 'var(--cream)' : 'var(--dim)' }}>
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                {s}
-              </span>
-            );
-          })}
+      <div style={{ width: '100%', maxWidth: 440, animation: 'riseIn .35s ease-out both' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 26 }}>
+          <span className="clique-label" style={{ whiteSpace: 'nowrap' }}>FORM № 01</span>
+          <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line-2)' }} />
+          {step && (
+            <span style={{ display: 'inline-flex', gap: 14 }}>
+              {steps.map((s, i) => {
+                const active = i + 1 === step;
+                const done   = i + 1 < step;
+                return (
+                  <span key={s} style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: active ? 'var(--lime)' : done ? 'var(--cream)' : 'var(--dim)' }}>
+                    {String(i + 1).padStart(2, '0')} {s}
+                  </span>
+                );
+              })}
+            </span>
+          )}
         </div>
-      )}
-      <div style={{ width: '100%', maxWidth: 460, background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 18, padding: 36, boxShadow: '0 30px 60px -20px rgba(0,0,0,0.6)', animation: 'riseIn .35s ease-out both' }}>
         {children}
       </div>
     </div>
@@ -43,12 +44,6 @@ function AuthShell({ children, step }: { children: React.ReactNode; step?: numbe
 function Spinner() {
   return <div style={{ width: 14, height: 14, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />;
 }
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', background: '#14110E', border: '1px solid var(--line-2)', color: 'var(--paper)',
-  padding: '14px 16px', borderRadius: 12, fontFamily: 'var(--display)', fontSize: 16,
-  outline: 'none', transition: 'border-color .15s ease',
-};
 
 export default function SignupPage() {
   const router = useRouter();
@@ -95,61 +90,53 @@ export default function SignupPage() {
 
   return (
     <AuthShell step={1}>
-      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 38, lineHeight: 0.95, letterSpacing: '-0.03em', marginBottom: 10 }}>
-        Create your account.
+      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 42, lineHeight: 0.95, letterSpacing: '-0.03em', marginBottom: 12 }}>
+        Get on<br />
+        <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--lime)' }}>the list.</span>
       </div>
-      <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--cream)', lineHeight: 1.4, marginBottom: 28 }}>
+      <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--cream)', lineHeight: 1.4, marginBottom: 32 }}>
         Takes 30 seconds. No card required.
       </div>
 
-      <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* Phone */}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>MOBILE</span>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>01 — MOBILE</span>
           <input
             type="tel"
-            style={inputStyle}
+            className="clique-input"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+91 98765 43210"
             autoComplete="tel"
             autoFocus
-            onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-            onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
           />
         </label>
 
         {/* Password */}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>PASSWORD</span>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>02 — PASSWORD</span>
           <input
             type="password"
-            style={inputStyle}
+            className="clique-input"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Min. 6 characters"
             autoComplete="new-password"
-            onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-            onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
           />
         </label>
 
         {/* Confirm password */}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>CONFIRM PASSWORD</span>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>03 — CONFIRM PASSWORD</span>
           <input
             type="password"
-            style={{
-              ...inputStyle,
-              borderColor: confirmPassword && !passwordsMatch ? 'var(--hot)' : 'var(--line-2)',
-            }}
+            className={`clique-input${confirmPassword && !passwordsMatch ? ' input-error' : ''}`}
             value={confirmPassword}
             onChange={(e) => setConfirm(e.target.value)}
             placeholder="Re-enter password"
             autoComplete="new-password"
-            onFocus={(e) => (e.target.style.borderColor = confirmPassword && !passwordsMatch ? 'var(--hot)' : 'var(--lime)')}
-            onBlur={(e) => (e.target.style.borderColor = confirmPassword && !passwordsMatch ? 'var(--hot)' : 'var(--line-2)')}
           />
           {confirmPassword && !passwordsMatch && (
             <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.04em' }}>
@@ -171,7 +158,7 @@ export default function SignupPage() {
               flexShrink: 0, marginTop: 2,
               width: 18, height: 18,
               border: `1.5px solid ${termsAccepted ? 'var(--lime)' : 'var(--line-2)'}`,
-              borderRadius: 5,
+              borderRadius: 3,
               background: termsAccepted ? 'var(--lime)' : 'transparent',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'background .15s, border-color .15s',
@@ -206,11 +193,12 @@ export default function SignupPage() {
             background: canSubmit ? 'var(--lime)' : 'var(--line-2)',
             color: canSubmit ? 'var(--ink)' : 'var(--dim)',
             border: `1px solid ${canSubmit ? 'var(--lime)' : 'var(--line-2)'}`,
-            padding: '16px 22px', borderRadius: 999,
+            padding: '16px 22px', borderRadius: 3,
             fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 13,
-            letterSpacing: '.08em', textTransform: 'uppercase',
+            letterSpacing: '.1em', textTransform: 'uppercase',
             cursor: canSubmit ? 'pointer' : 'not-allowed',
             transition: 'background .2s, color .2s, border-color .2s',
+            marginTop: 4,
           }}
         >
           {loading && <Spinner />}
@@ -218,8 +206,12 @@ export default function SignupPage() {
         </button>
       </form>
 
-      <div style={{ textAlign: 'center', fontFamily: 'var(--display)', fontSize: 14, color: 'var(--cream)', marginTop: 22 }}>
-        Already in?{' '}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '28px 0 18px' }}>
+        <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line)' }} />
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.16em', color: 'var(--dim)' }}>ALREADY IN?</span>
+        <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line)' }} />
+      </div>
+      <div style={{ textAlign: 'center', fontFamily: 'var(--display)', fontSize: 14, color: 'var(--cream)' }}>
         <Link href="/login" style={{ color: 'var(--lime)' }}>Log in →</Link>
       </div>
     </AuthShell>

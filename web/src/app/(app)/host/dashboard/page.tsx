@@ -76,34 +76,36 @@ export default function HostDashboardPage() {
         aside={<Button onClick={() => router.push('/host/events/new')}>+ Throw something →</Button>}
       />
 
-      {/* Stats */}
-      <div className="mb-9 grid grid-cols-1 gap-3.5 border-b border-line pb-8 sm:grid-cols-3">
+      {/* The night's figures — one ruled line, not stat tiles */}
+      <div className="mb-9 flex flex-wrap items-baseline gap-x-10 gap-y-4 border-b border-line pb-7">
         {[
-          { label: 'LIVE EVENTS', value: String(liveEvents), accent: liveEvents > 0 },
+          { label: 'LIVE EVENTS', value: String(liveEvents).padStart(2, '0'), accent: liveEvents > 0 },
           { label: 'TOTAL RSVPS', value: String(totalRSVPs), accent: false },
           { label: 'REVENUE', value: `₹${revenue.toLocaleString('en-IN')}`, accent: revenue > 0 },
         ].map(({ label, value, accent }) => (
-          <div key={label} className="rounded-xl border border-line-2 bg-card p-4.5 px-5 py-4">
-            <div className="clique-label">{label}</div>
-            <div className={`mt-1.5 font-display text-4xl font-bold leading-none tracking-[-0.03em] md:text-[44px] ${accent ? 'text-lime' : 'text-paper'}`}>
+          <div key={label} className="flex items-baseline gap-3">
+            <span className={`font-display text-4xl font-bold leading-none tracking-[-0.03em] md:text-[44px] ${accent ? 'text-lime' : 'text-paper'}`}>
               {value}
-            </div>
+            </span>
+            <span className="clique-label !text-[10px]">{label}</span>
           </div>
         ))}
       </div>
 
       {/* Your events */}
       <div className="mb-10">
-        <div className="clique-label mb-4">YOUR EVENTS</div>
+        <div className="clique-label mb-2">YOUR EVENTS</div>
         {activeEvents.length === 0 ? (
-          <div className="rounded-card border border-line-2 bg-card px-5 py-14 text-center">
-            <div className="mx-auto mb-3.5 flex h-14 w-14 items-center justify-center rounded-full border border-line-2 font-display text-2xl text-dim">○</div>
-            <div className="mb-2 font-display text-2xl font-bold tracking-[-0.02em]">Nothing on the books.</div>
-            <div className="mb-6 font-mono text-xs uppercase tracking-[.08em] text-dim">Throw something. The city is listening.</div>
+          <div className="ledger px-1 py-14">
+            <div className="clique-label mb-3.5 !text-[10px] !tracking-[.16em]">№ 000 — BLANK PAGE</div>
+            <div className="mb-2 font-display text-3xl font-bold tracking-[-0.02em]">Nothing on the books.</div>
+            <div className="mb-6 max-w-[42ch] font-display text-[15px] leading-relaxed text-cream">
+              Throw something. The city is listening.
+            </div>
             <Button onClick={() => router.push('/host/events/new')}>+ New event</Button>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <div className="ledger">
             {activeEvents.map((e) => <HostEventRow key={e._id} event={e} />)}
           </div>
         )}
@@ -118,7 +120,7 @@ export default function HostDashboardPage() {
           <div className="clique-label">DOOR SCANNER</div>
           <div className="mt-1.5 font-mono text-xs tracking-[.04em] text-cream">hand your phone to the bouncer — they scan passes here</div>
         </div>
-        <div className="rounded-card border border-line-2 bg-card p-6">
+        <div className="rounded-md border border-dashed border-line-2 p-6">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div className="min-w-[200px] flex-1">
               <div className="font-display text-[22px] font-bold tracking-[-0.02em]">Open the scanner</div>
@@ -169,7 +171,7 @@ function PayoutsSection({ payoutStatus, loading, toast, onSetup, onDismissToast 
   return (
     <div className="mb-10">
       <div className="clique-label mb-4">PAYOUTS</div>
-      <div className="flex flex-col gap-4 rounded-card border border-line-2 bg-card p-6">
+      <div className="flex flex-col gap-4 rounded-md border border-dashed border-line-2 p-6">
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -239,7 +241,7 @@ function PastEventsSection({ events }: { events: Event[] }) {
         <span className="rounded-full bg-line px-2 py-0.5 font-mono text-[10px] text-dim">{events.length}</span>
       </button>
       {open && (
-        <div className="flex flex-col gap-2.5">
+        <div className="ledger">
           {events.map((e) => <HostEventRow key={e._id} event={e} dimmed />)}
         </div>
       )}
@@ -252,52 +254,50 @@ function PastEventsSection({ events }: { events: Event[] }) {
 function HostEventRow({ event, dimmed = false }: { event: Event; dimmed?: boolean }) {
   const color = catColor(event.category);
   const filled = Math.min(100, (event.bookedCount / event.capacity) * 100);
-  const isCancelled = event.status === 'cancelled';
 
   return (
     <Link
       href={`/host/events/${event._id}`}
-      className={`grid grid-cols-[64px_1fr] items-center gap-x-4 gap-y-3 rounded-xl border bg-card p-3.5 transition-colors sm:grid-cols-[64px_1fr_auto_auto] sm:gap-4 ${
-        isCancelled ? 'border-hot/15 hover:border-hot/30' : 'border-line-2 hover:border-cream'
-      } ${dimmed ? 'opacity-55' : ''}`}
+      className={`ledger-row group grid grid-cols-[72px_1fr] items-center gap-x-4 gap-y-2 px-2 py-4 sm:grid-cols-[88px_1fr_auto] sm:gap-x-6 ${dimmed ? 'opacity-55' : ''}`}
     >
-      <div className="flex h-16 w-16 shrink-0 flex-col justify-between rounded-lg p-2" style={{ background: color }}>
-        <div className="font-mono text-[9px] tracking-[.1em] text-ink/70">
-          {(event.category ?? 'other').replace('_', ' ').toUpperCase()}
+      {/* Door time + category tick */}
+      <div className="self-start sm:self-center">
+        <div className="font-display text-[22px] font-bold leading-none tracking-[-0.02em] text-paper sm:text-[24px]">
+          {event.startTime ? formatTime(event.startTime).replace(':00', '').replace(' ', '') : '—'}
         </div>
-        <div className="font-display text-base font-bold leading-none text-ink">
-          {event.startTime ? formatTime(event.startTime).replace(':00', '') : '—'}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2 w-2 rounded-[1px]" style={{ background: color }} />
+          <span className="font-mono text-[9px] uppercase tracking-[.12em] text-dim">
+            {(event.category ?? 'other').replace('_', ' ')}
+          </span>
         </div>
       </div>
 
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="font-display text-xl font-bold leading-none tracking-[-0.02em] text-paper">{event.title}</div>
-          {event.status === 'cancelled' && <Badge variant="hot">Cancelled</Badge>}
-          {event.status === 'draft' && <Badge variant="gold">Draft</Badge>}
-          {event.status === 'completed' && <Badge variant="sky">Completed</Badge>}
+          <div className="truncate font-display text-xl font-bold leading-tight tracking-[-0.02em] text-paper">{event.title}</div>
+          {event.status === 'cancelled' && <span className="stamp text-hot">Cancelled</span>}
+          {event.status === 'draft' && <span className="stamp stamp-flat text-gold">Draft</span>}
+          {event.status === 'completed' && <span className="stamp stamp-flat text-sky">Completed</span>}
         </div>
         <div className="mt-1 truncate font-mono text-[11px] tracking-[.06em] text-cream">
           {event.locationName}
-          {event.startTime ? ` · ${formatTime(event.startTime)}` : ''}
-          {event.endTime ? ` → ${formatTime(event.endTime)}` : ''}
+          {event.endTime ? ` · till ${formatTime(event.endTime)}` : ''}
         </div>
       </div>
 
-      <div className="col-start-2 flex min-w-[90px] flex-col sm:col-start-auto">
-        <div className="clique-label !text-[10px]">RSVPS</div>
-        <div className="mt-0.5 flex items-baseline gap-1">
-          <span className="font-display text-2xl font-bold tracking-[-0.02em]">{event.bookedCount}</span>
+      <div className="col-start-2 flex items-center gap-4 sm:col-start-auto sm:block sm:text-right">
+        <div className="flex items-baseline gap-1 sm:justify-end">
+          <span className="font-display text-xl font-bold tracking-[-0.02em]">{event.bookedCount}</span>
           <span className="font-mono text-[11px] text-dim">/ {event.capacity}</span>
         </div>
-        <div className="mt-1.5 h-[3px] w-20 overflow-hidden rounded-sm bg-line">
-          <div className="h-full" style={{ width: `${filled}%`, background: filled > 85 ? 'var(--hot)' : 'var(--lime)' }} />
+        <div className="flex items-center gap-2 sm:mt-1.5 sm:justify-end">
+          <span className="inline-block h-[3px] w-14 overflow-hidden rounded-sm bg-line" aria-hidden>
+            <span className="block h-full" style={{ width: `${filled}%`, background: filled > 85 ? 'var(--hot)' : 'var(--lime)' }} />
+          </span>
+          <span aria-hidden className="font-mono text-xs text-dim opacity-0 transition-opacity group-hover:opacity-100">→</span>
         </div>
       </div>
-
-      <span className="hidden font-mono text-xs uppercase tracking-[.08em] text-dim sm:block">
-        Manage →
-      </span>
     </Link>
   );
 }

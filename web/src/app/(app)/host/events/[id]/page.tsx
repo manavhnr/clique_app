@@ -91,19 +91,21 @@ export default function HostEventPage() {
 
       <EventHeader event={event} onRefresh={refreshEvent} />
 
-      {/* Tabs */}
-      <div className="mb-6 mt-6 flex flex-wrap gap-2">
-        {TABS.map(({ key, label }) => {
+      {/* Tabs — a ruled index, not pills */}
+      <div className="mb-6 mt-7 flex overflow-x-auto border-b border-line" role="tablist">
+        {TABS.map(({ key, label }, i) => {
           const on = activeTab === key;
           return (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              aria-pressed={on}
-              className={`rounded-full border px-4 py-2 font-mono text-[11px] uppercase tracking-[.08em] transition-colors ${
-                on ? 'border-lime bg-lime text-ink' : 'border-line-2 text-cream hover:border-cream'
+              role="tab"
+              aria-selected={on}
+              className={`-mb-px whitespace-nowrap border-b-2 px-4 py-3 font-mono text-[11px] uppercase tracking-[.1em] transition-colors ${
+                on ? 'border-lime text-paper' : 'border-transparent text-dim hover:text-cream'
               }`}
             >
+              <span className={`mr-2 text-[9px] ${on ? 'text-lime' : ''}`}>{String(i + 1).padStart(2, '0')}</span>
               {label}
             </button>
           );
@@ -147,47 +149,51 @@ function EventHeader({ event, onRefresh }: { event: Event; onRefresh: () => void
     }
   };
 
+  const stampClass: Record<string, string> = {
+    lime: 'text-lime', gold: 'text-gold', hot: 'text-hot', sky: 'text-sky', neutral: 'text-cream',
+  };
+
   return (
-    <div className="overflow-hidden rounded-card border border-line-2 bg-card">
-      {imageUrl && (
-        <div className="h-36 overflow-hidden">
-          <img src={imageUrl} alt={event.title} className="h-full w-full object-cover" />
-        </div>
-      )}
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="mb-1.5 flex flex-wrap items-center gap-2.5">
-              <h2 className="m-0 truncate font-display text-2xl font-bold tracking-[-0.02em] text-paper">{event.title}</h2>
-              <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+    <div className="border-b border-line pb-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 items-start gap-4">
+          {imageUrl && (
+            <img src={imageUrl} alt="" className="hidden h-20 w-20 shrink-0 rounded-[3px] border border-line-2 object-cover sm:block" />
+          )}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="m-0 font-display text-[clamp(26px,4.5vw,40px)] font-bold leading-[0.95] tracking-[-0.025em] text-paper [overflow-wrap:break-word]">
+                {event.title}
+              </h2>
+              <span className={`stamp ${stampClass[statusBadge.variant]}`}>{statusBadge.label}</span>
             </div>
-            <p className="m-0 font-mono text-[11px] tracking-[.06em] text-cream">
+            <p className="m-0 mt-2 font-mono text-[11px] tracking-[.06em] text-cream">
               {formatDate(event.date)} · {formatTime(event.startTime)} · {event.locationName}
             </p>
           </div>
-          <div className="flex shrink-0 gap-2">
-            {event.status === 'draft' && <Button size="sm" onClick={handlePublish}>Publish</Button>}
-            <Button variant="secondary" size="sm" onClick={() => router.push(`/host/events/new?edit=${event._id}`)}>
-              Edit
-            </Button>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          {event.status === 'draft' && <Button size="sm" onClick={handlePublish}>Publish</Button>}
+          <Button variant="secondary" size="sm" onClick={() => router.push(`/host/events/new?edit=${event._id}`)}>
+            Edit
+          </Button>
+        </div>
+      </div>
+
+      {publishError && <p className="mt-3 font-mono text-xs text-hot">{publishError}</p>}
+
+      <div className="mt-5 flex flex-wrap items-baseline gap-x-8 gap-y-3 border-t border-dashed border-line pt-4">
+        {[
+          { label: 'ON THE LIST', value: `${event.bookedCount}/${event.capacity}` },
+          { label: 'CHECKED IN', value: event.checkedInCount ?? 0 },
+          { label: 'PRICE', value: formatPrice(event.price) },
+          { label: 'PRIVACY', value: event.privacy === 'private' ? 'Private' : 'Public' },
+        ].map(({ label, value }) => (
+          <div key={label} className="flex items-baseline gap-2.5">
+            <span className="font-display text-lg font-bold text-paper">{value}</span>
+            <span className="clique-label !text-[9px]">{label}</span>
           </div>
-        </div>
-
-        {publishError && <p className="mt-3 font-mono text-xs text-hot">{publishError}</p>}
-
-        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-dashed border-line pt-4 sm:grid-cols-4">
-          {[
-            { label: 'ON THE LIST', value: `${event.bookedCount}/${event.capacity}` },
-            { label: 'CHECKED IN', value: event.checkedInCount ?? 0 },
-            { label: 'PRICE', value: formatPrice(event.price) },
-            { label: 'PRIVACY', value: event.privacy === 'private' ? 'Private' : 'Public' },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <div className="clique-label">{label}</div>
-              <div className="mt-1 font-display text-lg font-bold text-paper">{value}</div>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
   );
@@ -230,23 +236,23 @@ function OverviewTab({ event }: { event: Event }) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-card border border-line-2 bg-card p-5">
+    <div className="flex flex-col gap-7">
+      <div>
         <div className="clique-label mb-3">ABOUT</div>
-        <p className="m-0 whitespace-pre-line font-display text-[15px] leading-relaxed text-paper">{event.description}</p>
+        <p className="m-0 max-w-[62ch] whitespace-pre-line font-display text-[15px] leading-relaxed text-paper">{event.description}</p>
       </div>
 
       {event.rules && (
-        <div className="rounded-card border border-gold/25 bg-gold/[.06] p-5">
+        <div className="rounded-md border border-dashed border-gold/30 p-5">
           <div className="clique-label mb-3 !text-gold">HOUSE RULES</div>
           <p className="m-0 font-display text-sm leading-relaxed text-cream">{event.rules}</p>
         </div>
       )}
 
       {event.refundPolicy && (
-        <div className="rounded-card border border-line-2 bg-card p-5">
+        <div>
           <div className="clique-label mb-3">REFUND POLICY</div>
-          <p className="m-0 font-display text-sm leading-relaxed text-cream">{event.refundPolicy}</p>
+          <p className="m-0 max-w-[62ch] font-display text-sm leading-relaxed text-cream">{event.refundPolicy}</p>
         </div>
       )}
 
@@ -511,10 +517,12 @@ function GuestsTab({ eventTitle, bookings, requests, squads, onRefresh }: {
 
   if (isEmpty) {
     return (
-      <div className="rounded-card border border-line-2 bg-card px-5 py-12 text-center">
-        <div className="mx-auto mb-3.5 flex h-14 w-14 items-center justify-center rounded-full border border-line-2 font-display text-2xl text-dim">○</div>
-        <p className="m-0 font-display text-xl font-bold tracking-[-0.02em] text-paper">No registrations yet.</p>
-        <p className="m-0 mt-2 font-mono text-[11px] uppercase tracking-[.08em] text-dim">Pending and confirmed guests land here</p>
+      <div className="ledger px-1 py-12">
+        <div className="clique-label mb-3.5 !text-[10px] !tracking-[.16em]">№ 000 — EMPTY LIST</div>
+        <p className="m-0 font-display text-2xl font-bold tracking-[-0.02em] text-paper">No registrations yet.</p>
+        <p className="m-0 mt-2 max-w-[42ch] font-display text-sm leading-relaxed text-cream">
+          Share the event link — pending and confirmed guests land on this list.
+        </p>
       </div>
     );
   }

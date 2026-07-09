@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, forwardRef, useId } from 'react';
 
 const fieldClasses =
-  'w-full bg-well border border-line-2 rounded-xl px-4 py-3.5 font-display text-base text-paper placeholder:text-dim transition-colors ' +
+  'w-full bg-well border border-line-2 rounded-[3px] px-4 py-3.5 font-display text-base text-paper placeholder:text-dim transition-colors ' +
   'focus:outline-none focus:border-lime';
 
 function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {

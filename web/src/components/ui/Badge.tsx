@@ -6,20 +6,20 @@ interface BadgeProps {
   className?: string;
 }
 
-/** Mono microlabel chip. Variant names are the palette, not borrowed hues. */
+/** Flat stamp chip: squared mono label, like a mark pressed on the ledger. */
 export default function Badge({ children, variant = 'neutral', className }: BadgeProps) {
   const variants = {
-    neutral: 'bg-line border-line-2 text-cream',
-    lime: 'bg-lime/10 border-lime/30 text-lime',
-    gold: 'bg-gold/10 border-gold/30 text-gold',
-    hot: 'bg-hot/10 border-hot/30 text-hot',
-    sky: 'bg-sky/10 border-sky/30 text-sky',
+    neutral: 'border-line-2 text-cream',
+    lime: 'border-lime/40 text-lime',
+    gold: 'border-gold/40 text-gold',
+    hot: 'border-hot/40 text-hot',
+    sky: 'border-sky/40 text-sky',
   };
 
   return (
     <span
       className={cn(
-        'inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[.12em]',
+        'inline-flex items-center whitespace-nowrap rounded-[3px] border px-2 py-[3px] font-mono text-[10px] font-semibold uppercase leading-none tracking-[.14em]',
         variants[variant],
         className
       )}

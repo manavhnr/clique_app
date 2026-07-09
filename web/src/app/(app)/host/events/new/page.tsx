@@ -81,7 +81,7 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--line-2)',
   color: 'var(--paper)',
   padding: '14px 16px',
-  borderRadius: 12,
+  borderRadius: 3,
   fontFamily: 'var(--display)',
   fontSize: 16,
   outline: 'none',
@@ -214,8 +214,8 @@ export default function NewEventPage() {
 
   if (done) return (
     <div style={{ padding: '80px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ width: 88, height: 88, borderRadius: '50%', background: 'var(--lime)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, fontFamily: 'var(--display)', animation: 'stickIn .5s cubic-bezier(.5, 1.6, .4, 1) both' }}>✓</div>
-      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'clamp(40px,5vw,64px)', lineHeight: 0.95, letterSpacing: '-0.03em', marginTop: 24 }}>You&apos;re live.</div>
+      <span className="stamp" style={{ color: 'var(--lime)', fontSize: 18, padding: '14px 20px 12px', animation: 'stickIn .5s cubic-bezier(.5, 1.6, .4, 1) both' }}>✓ ON THE BOARD</span>
+      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'clamp(40px,5vw,64px)', lineHeight: 0.95, letterSpacing: '-0.03em', marginTop: 28 }}>You&apos;re live.</div>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream)', letterSpacing: '.08em', marginTop: 12 }}>YOUR EVENT IS UP. WE&apos;LL NOTIFY YOUR FOLLOWERS.</div>
     </div>
   );
@@ -368,7 +368,7 @@ export default function NewEventPage() {
                   style={{
                     background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)',
                     padding: isMobile ? '16px 28px' : '14px 22px',
-                    borderRadius: 999,
+                    borderRadius: 3,
                     fontFamily: 'var(--mono)', fontSize: isMobile ? 14 : 13, letterSpacing: '.08em', textTransform: 'uppercase',
                     cursor: (!form.title || !form.locationName) ? 'not-allowed' : 'pointer',
                     opacity: (!form.title || !form.locationName) ? 0.45 : 1,
@@ -552,7 +552,7 @@ export default function NewEventPage() {
                   style={{
                     background: 'transparent', color: 'var(--paper)', border: '1px solid var(--line-2)',
                     padding: isMobile ? '15px' : '14px 22px',
-                    borderRadius: 999, fontFamily: 'var(--mono)', fontSize: isMobile ? 14 : 13, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer',
+                    borderRadius: 3, fontFamily: 'var(--mono)', fontSize: isMobile ? 14 : 13, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer',
                     order: isMobile ? 3 : 0,
                     WebkitTapHighlightColor: 'transparent',
                   }}
@@ -567,7 +567,7 @@ export default function NewEventPage() {
                     style={{
                       background: 'transparent', color: 'var(--paper)', border: '1px solid var(--line-2)',
                       padding: isMobile ? '15px' : '14px 22px',
-                      borderRadius: 999, fontFamily: 'var(--mono)', fontSize: isMobile ? 14 : 13, letterSpacing: '.08em', textTransform: 'uppercase',
+                      borderRadius: 3, fontFamily: 'var(--mono)', fontSize: isMobile ? 14 : 13, letterSpacing: '.08em', textTransform: 'uppercase',
                       cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                       WebkitTapHighlightColor: 'transparent',
@@ -583,7 +583,7 @@ export default function NewEventPage() {
                     style={{
                       background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)',
                       padding: isMobile ? '16px' : '14px 22px',
-                      borderRadius: 999, fontFamily: 'var(--mono)', fontSize: isMobile ? 14 : 13, letterSpacing: '.08em', textTransform: 'uppercase',
+                      borderRadius: 3, fontFamily: 'var(--mono)', fontSize: isMobile ? 14 : 13, letterSpacing: '.08em', textTransform: 'uppercase',
                       cursor: (loading || !form.description) ? 'not-allowed' : 'pointer',
                       opacity: (loading || !form.description) ? 0.45 : 1,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -624,7 +624,7 @@ function LivePreview({ form, previewColor }: {
   previewColor: string;
 }) {
   return (
-    <div style={{ border: '1px solid var(--line-2)', borderRadius: 14, overflow: 'hidden', background: form.title ? '#14110E' : '#0E0C09', transition: 'background .3s' }}>
+    <div style={{ border: '1px solid var(--line-2)', borderRadius: 6, overflow: 'hidden', background: form.title ? '#14110E' : '#0E0C09', transition: 'background .3s' }}>
       <div style={{ background: previewColor, padding: 18, minHeight: 110, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'space-between' }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(11,9,7,0.7)', letterSpacing: '.14em' }}>
           {form.category.replace('_', ' ').toUpperCase()}
@@ -647,6 +647,7 @@ function LivePreview({ form, previewColor }: {
             ))}
           </div>
         )}
+        <div className="barcode" aria-hidden style={{ height: 16, color: 'var(--line-2)', marginTop: 14 }} />
       </div>
     </div>
   );

@@ -8,13 +8,14 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /**
- * Editorial button: mono uppercase label, pill radius.
+ * Print-block button: mono uppercase label, squared corners like a piece of
+ * set type. Filters/toggles stay pills (see Pill) so actions read differently.
  * Primary is always ink-on-lime — never put light text on the lime fill.
  */
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, disabled, children, ...props }, ref) => {
     const base =
-      'inline-flex items-center justify-center rounded-full font-mono uppercase tracking-[.08em] transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed';
+      'inline-flex items-center justify-center rounded-[3px] font-mono uppercase tracking-[.1em] transition-[background-color,border-color,color,transform] duration-150 active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:active:translate-y-0';
 
     const variants = {
       primary: 'bg-lime text-ink border border-lime hover:bg-paper hover:border-paper',

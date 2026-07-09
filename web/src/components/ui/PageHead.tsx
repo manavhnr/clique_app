@@ -10,12 +10,19 @@ interface PageHeadProps {
   aside?: ReactNode;
 }
 
-/** Standard page header: mono kicker, display headline, optional aside. */
+/**
+ * Masthead-style page header: kicker rules out to both edges like a
+ * newspaper section slug, headline below, aside bottom-aligned right.
+ */
 export default function PageHead({ kicker, title, accent, aside }: PageHeadProps) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5 md:mb-8 md:pb-6">
-      <div>
-        <div className="clique-label mb-2">{kicker}</div>
+    <div className="mb-6 md:mb-8">
+      <div className="flex items-center gap-3">
+        <span className="h-px w-5 bg-line-2" aria-hidden />
+        <div className="clique-label whitespace-nowrap">{kicker}</div>
+        <span className="h-px flex-1 bg-line-2" aria-hidden />
+      </div>
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5 md:pb-6">
         <h1 className="m-0 font-display text-[clamp(32px,9vw,48px)] font-bold leading-[0.95] tracking-[-0.03em] md:text-[clamp(40px,5vw,64px)]">
           {title}
           {accent && (
@@ -25,8 +32,8 @@ export default function PageHead({ kicker, title, accent, aside }: PageHeadProps
             </>
           )}
         </h1>
+        {aside && <div className="text-right">{aside}</div>}
       </div>
-      {aside && <div className="text-right">{aside}</div>}
     </div>
   );
 }

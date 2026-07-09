@@ -462,7 +462,7 @@ function FloatingTicket({ event, day }: { event: DemoEvent; day: number }) {
             <div style={{ height: '100%', width: `${filled}%`, background: filled > 85 ? 'var(--hot)' : 'var(--lime)', transition: 'width .4s ease' }} />
           </div>
         </div>
-        <Link href="/signup" style={{ display: 'block', marginTop: 14, background: 'var(--lime)', color: 'var(--ink)', padding: '12px', borderRadius: 10, fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase', textAlign: 'center' }}>
+        <Link href="/signup" style={{ display: 'block', marginTop: 14, background: 'var(--lime)', color: 'var(--ink)', padding: '12px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', textAlign: 'center' }}>
           Get on the list →
         </Link>
       </div>
@@ -515,7 +515,30 @@ function Hero({ events, day, setDay, auto, setAuto, featured }: HeroProps) {
   );
 }
 
-// ─────── This-week events grid ───────
+// ─────── Live ticker strip ───────
+function Ticker({ events, day }: { events: DemoEvent[]; day: number }) {
+  const entries = events.map((e) => {
+    const left = Math.max(0, e.spots - e.rsvp);
+    const state = isActive(e, day) ? 'LIVE' : fmtDay(e.start);
+    return `${e.title.toUpperCase()} — ${state} · ${left} LEFT`;
+  });
+  if (entries.length === 0) return null;
+  const line = entries.map((t) => `● ${t}`).join('   ');
+
+  return (
+    <div className="ticker" aria-hidden style={{ padding: '10px 0' }}>
+      <div className="ticker-track">
+        {[0, 1].map((i) => (
+          <span key={i} style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', paddingRight: 48, textTransform: 'uppercase', whiteSpace: 'pre' }}>
+            {line}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────── This-week lineup board ───────
 function TonightGrid({ events, day }: { events: DemoEvent[]; day: number }) {
   const { isMobile, isTablet } = useBreakpoint();
   const hPad = isMobile ? '16px' : isTablet ? '28px' : '40px';
@@ -526,79 +549,71 @@ function TonightGrid({ events, day }: { events: DemoEvent[]; day: number }) {
       padding: `${isMobile ? '48px' : '72px'} ${hPad}`,
       maxWidth: 1480, margin: '0 auto',
     }}>
-      <div className="clique-label" style={{ marginBottom: 12, textAlign: 'center' }}>THIS WEEK</div>
-      <h2 className="display-xl" style={{
-        fontSize: isMobile ? 'clamp(36px, 10vw, 56px)' : 'clamp(40px, 5vw, 80px)',
-        marginBottom: isMobile ? 24 : 36,
-        textAlign: 'center',
-      }}>
-        What&apos;s open<br />
-        <span className="text-italic-serif" style={{ color: 'var(--lime)' }}>right now.</span>
-      </h2>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile
-          ? '1fr'
-          : isTablet
-            ? 'repeat(2, 1fr)'
-            : 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: isMobile ? 12 : 18,
-      }}>
-        {events.map((e) => {
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: isMobile ? 20 : 28, flexWrap: 'wrap' }}>
+        <div>
+          <div className="clique-label" style={{ marginBottom: 12 }}>THIS WEEK — THE BOARD</div>
+          <h2 className="display-xl" style={{ fontSize: isMobile ? 'clamp(36px, 10vw, 56px)' : 'clamp(40px, 5vw, 80px)' }}>
+            What&apos;s open<br />
+            <span className="text-italic-serif" style={{ color: 'var(--lime)' }}>right now.</span>
+          </h2>
+        </div>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', color: 'var(--dim)', paddingBottom: 10, whiteSpace: 'nowrap' }}>
+          {String(events.length).padStart(2, '0')} DOORS THIS WEEK
+        </div>
+      </div>
+
+      <div className="ledger">
+        {events.map((e, idx) => {
           const active = isActive(e, day);
+          const left   = Math.max(0, e.spots - e.rsvp);
           const filled = Math.min(100, (e.rsvp / e.spots) * 100);
           return (
-            <Link href="/signup" key={e.id} style={{
-              display: 'flex', flexDirection: isMobile ? 'row' : 'column',
-              background: '#14110E',
-              border: `1px solid ${active ? e.color : 'var(--line-2)'}`,
-              borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
-              transition: 'transform .25s ease, border-color .25s ease',
+            <Link href="/signup" key={e.id} className="ledger-row" style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '52px 1fr' : '72px 90px 1fr auto',
+              alignItems: 'center',
+              gap: isMobile ? 14 : 24,
+              padding: isMobile ? '16px 4px' : '20px 8px',
               textDecoration: 'none',
             }}>
-              {/* Color header / left strip */}
-              <div style={{
-                position: 'relative',
-                height: isMobile ? 'auto' : 110,
-                width: isMobile ? 80 : 'auto',
-                minWidth: isMobile ? 80 : 'auto',
-                background: e.color,
-                padding: isMobile ? '12px 8px' : 14,
-                display: 'flex',
-                alignItems: isMobile ? 'center' : 'flex-start',
-                justifyContent: 'space-between',
-                flexShrink: 0,
-              }}>
-                <svg viewBox="0 0 100 60" preserveAspectRatio="none" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
-                  {Array.from({ length: 18 }).map((_, i) => (
-                    <line key={i} x1={i * 6 - 30} y1="0" x2={i * 6} y2="60" stroke="rgba(11,9,7,0.14)" strokeWidth="0.7" />
-                  ))}
-                </svg>
-                {!isMobile && (
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', color: 'rgba(11,9,7,0.85)', background: 'rgba(11,9,7,0.15)', padding: '4px 8px', borderRadius: 4, backdropFilter: 'blur(4px)', position: 'relative' }}>
-                    {fmtDay(e.start)}
+              {/* Index */}
+              <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 20 : 28, letterSpacing: '-0.02em', color: active ? 'var(--lime)' : 'var(--line-2)', lineHeight: 1 }}>
+                {String(idx + 1).padStart(2, '0')}
+              </span>
+
+              {/* Day */}
+              {!isMobile && (
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 12, letterSpacing: '.14em', color: active ? 'var(--paper)' : 'var(--dim)' }}>
+                  {active ? '● LIVE' : fmtDay(e.start)}
+                </span>
+              )}
+
+              {/* Bill */}
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span className="display-m" style={{ fontSize: isMobile ? 19 : 26, color: 'var(--paper)' }}>{e.title}</span>
+                  <span aria-hidden style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 1, background: e.color, flexShrink: 0 }} />
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.12em', color: 'var(--dim)', textTransform: 'uppercase' }}>{e.cat}</span>
+                </span>
+                {isMobile && (
+                  <span style={{ display: 'block', fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.1em', color: active ? 'var(--lime)' : 'var(--dim)', marginTop: 5 }}>
+                    {active ? '● LIVE' : fmtDay(e.start)} · {left} OF {e.spots} LEFT
                   </span>
                 )}
-                {active && (
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--ink)', background: 'var(--paper)', padding: '4px 8px', borderRadius: 4, position: 'relative' }}>THIS WEEK</span>
-                )}
-              </div>
-              {/* Content */}
-              <div style={{ padding: isMobile ? '14px 16px' : 18, display: 'flex', flexDirection: 'column', gap: isMobile ? 6 : 10, flex: 1 }}>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)' }}>{e.cat.toUpperCase()}</div>
-                <div className="display-m" style={{ fontSize: isMobile ? 18 : 22 }}>{e.title}</div>
-                {isMobile && (
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)' }}>
-                    {fmtDay(e.start)}
-                  </div>
-                )}
-                <div style={{ height: 3, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${filled}%`, background: filled > 85 ? 'var(--hot)' : 'var(--lime)' }} />
-                </div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: filled > 85 ? 'var(--hot)' : 'var(--dim)', letterSpacing: '.1em' }}>
-                  {e.spots - e.rsvp} OF {e.spots} LEFT
-                </div>
-              </div>
+              </span>
+
+              {/* Spots */}
+              {!isMobile && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 12, justifySelf: 'end' }}>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.1em', color: filled > 85 ? 'var(--hot)' : 'var(--dim)', whiteSpace: 'nowrap' }}>
+                    {left} OF {e.spots} LEFT
+                  </span>
+                  <span style={{ display: 'inline-block', height: 3, width: 64, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }} aria-hidden>
+                    <span style={{ display: 'block', height: '100%', width: `${filled}%`, background: filled > 85 ? 'var(--hot)' : 'var(--lime)' }} />
+                  </span>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--dim)' }}>→</span>
+                </span>
+              )}
             </Link>
           );
         })}
@@ -636,9 +651,9 @@ function SignupBand() {
         }}>
           <Link href="/signup" style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            padding: '16px 22px', borderRadius: 999,
+            padding: '16px 24px', borderRadius: 3,
             fontFamily: 'var(--mono)', fontSize: isMobile ? 12 : 13,
-            fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
+            fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase',
             background: 'var(--lime)', color: 'var(--ink)',
             width: isMobile ? '100%' : 'auto',
           }}>
@@ -646,9 +661,9 @@ function SignupBand() {
           </Link>
           <Link href="/login" style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            padding: '16px 22px', borderRadius: 999,
+            padding: '16px 24px', borderRadius: 3,
             fontFamily: 'var(--mono)', fontSize: isMobile ? 12 : 13,
-            fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
+            fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase',
             background: 'transparent', color: 'var(--paper)', border: '1px solid var(--line-2)',
             width: isMobile ? '100%' : 'auto',
           }}>
@@ -772,6 +787,7 @@ function LandingInner({ initDay }: { initDay: number }) {
         totalLive={totalLive} totalOut={totalOut}
         featured={featured}
       />
+      <Ticker events={events} day={day} />
       <TonightGrid events={events} day={day} />
       <SignupBand />
       <MiniFooter />
