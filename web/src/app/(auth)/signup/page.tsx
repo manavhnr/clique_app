@@ -81,8 +81,14 @@ export default function SignupPage() {
       login(token, user, refreshToken);
       router.push(needsSetup ? '/setup' : '/events');
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Could not create account. Try again.');
+      const e = err as { response?: { status?: number; data?: { message?: string } } };
+      if (!e.response) {
+        setError('Server unreachable — it may be waking up. Wait a moment and try again.');
+      } else if (e.response.status === 409) {
+        setError('This number is already registered. Try logging in instead.');
+      } else {
+        setError(e.response.data?.message ?? 'Could not create account. Try again.');
+      }
     } finally {
       setLoading(false);
     }
