@@ -1,1 +1,1 @@
-export const API_BASE_URL = 'http://192.168.68.105:5001/api/v1';
+export const API_BASE_URL = 'https://clique-backend-udzs.onrender.com/api/v1';
