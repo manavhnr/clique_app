@@ -3,11 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 
 function AuthShell({ children, step }: { children: React.ReactNode; step?: number }) {
-  const steps = ['ACCOUNT', 'PROFILE'];
+  const steps = ['ACCOUNT', 'VERIFY', 'PROFILE'];
   return (
     <div style={{ minHeight: '100vh', padding: '40px 24px 64px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', background: 'var(--ink)' }}>
       <Link href="/" style={{ position: 'absolute', top: 24, left: 24, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>
@@ -47,7 +46,6 @@ function Spinner() {
 
 export default function SignupPage() {
   const router = useRouter();
-  const { login } = useAuth();
 
   const [phone, setPhone]               = useState('');
   const [password, setPassword]         = useState('');
@@ -73,13 +71,12 @@ export default function SignupPage() {
     setError('');
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/register', {
+      await api.post('/auth/register', {
         phone: phone.trim(),
         password,
       });
-      const { token, user, needsSetup, refreshToken } = data.data;
-      login(token, user, refreshToken);
-      router.push(needsSetup ? '/setup' : '/events');
+      await api.post('/auth/send-otp', { phone: phone.trim() });
+      router.push(`/otp?phone=${encodeURIComponent(phone.trim())}`);
     } catch (err: unknown) {
       const e = err as { response?: { status?: number; data?: { message?: string } } };
       if (!e.response) {
