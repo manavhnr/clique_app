@@ -184,7 +184,7 @@ export default function LandingPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  if (user) { router.replace('/events'); return null; }
+  if (user) { router.replace('/confirmed'); return null; }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink)', color: 'var(--paper)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
