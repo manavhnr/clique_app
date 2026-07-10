@@ -4,6 +4,7 @@ import { validate } from '../middleware/validate.middleware';
 import { uploadImage } from '../middleware/upload.middleware';
 import { updateProfileSchema, updateSettingsSchema, requestPhoneChangeSchema, verifyPhoneChangeSchema } from '../validators/user.validator';
 import {
+  checkUsername,
   getMyProfile,
   getPublicProfile,
   updateMyProfile,
@@ -18,6 +19,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/check-username', checkUsername);
 router.get('/profile', getMyProfile);
 router.put('/profile', validate(updateProfileSchema), updateMyProfile);
 router.post('/profile-image', uploadImage.single('image'), uploadMyProfileImage);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -64,7 +64,10 @@ export default function SetupPage() {
   const router = useRouter();
   const { user, updateUser, token } = useAuth();
   const [name, setName]           = useState(user?.name ?? '');
-  const [username, setUsername]   = useState(user?.username ?? '');
+  const [username, setUsername]   = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const usernameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bio, setBio]             = useState('');
   const [city, setCity]           = useState('');
   const [dob, setDob]             = useState('');
@@ -79,8 +82,27 @@ export default function SetupPage() {
 
   useEffect(() => { if (!token) router.replace('/login'); }, [token, router]);
 
-  function toggle(tag: string, list: string[], setList: (l: string[]) => void) {
-    setList(list.includes(tag) ? list.filter((t) => t !== tag) : [...list, tag]);
+  function toggle(tag: string, list: string[], setList: (l: string[]) => void, max?: number) {
+    if (list.includes(tag)) { setList(list.filter((t) => t !== tag)); return; }
+    if (max && list.length >= max) return;
+    setList([...list, tag]);
+  }
+
+  function handleUsernameChange(val: string) {
+    const cleaned = val.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setUsername(cleaned);
+    setUsernameError('');
+    if (usernameTimer.current) clearTimeout(usernameTimer.current);
+    if (!cleaned) return;
+    usernameTimer.current = setTimeout(async () => {
+      setCheckingUsername(true);
+      try {
+        const { data } = await api.get(`/users/check-username?username=${encodeURIComponent(cleaned)}`);
+        if (!data.data.available) setUsernameError('Username already taken.');
+      } catch { /* silent */ } finally {
+        setCheckingUsername(false);
+      }
+    }, 500);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,6 +111,7 @@ export default function SetupPage() {
 
     if (!name.trim())          { setError('Please enter your name.'); return; }
     if (!username.trim())      { setError('Please enter a username.'); return; }
+    if (usernameError)         { setError(usernameError); return; }
     if (!dob)                  { setError('Please enter your date of birth.'); return; }
     if (!gender)               { setError('Please select your gender.'); return; }
     if (!city)                 { setError('Please select your city.'); return; }
@@ -143,8 +166,18 @@ export default function SetupPage() {
             <span style={labelStyle}>02 — USERNAME</span>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--mono)', color: 'var(--dim)' }}>@</span>
-              <input className="clique-input" style={{ paddingLeft: 32 }} value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} placeholder="username" required />
+              <input
+                className={`clique-input${usernameError ? ' input-error' : ''}`}
+                style={{ paddingLeft: 32, paddingRight: 40 }}
+                value={username}
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                placeholder="username"
+              />
+              {checkingUsername && (
+                <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+              )}
             </div>
+            {usernameError && <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.04em' }}>{usernameError}</span>}
           </label>
         </div>
 
@@ -180,9 +213,16 @@ export default function SetupPage() {
         </div>
 
         <div style={fieldStyle}>
-          <span style={labelStyle}>07 — WHAT&apos;S YOUR SCENE?</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <span style={labelStyle}>07 — WHAT&apos;S YOUR SCENE?</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.08em', color: scene.length >= 5 ? 'var(--lime)' : 'var(--dim)' }}>{scene.length}/5</span>
+          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {SCENE.map((v) => <Pill key={v} on={scene.includes(v)} onClick={() => toggle(v, scene, setScene)}>{v}</Pill>)}
+            {SCENE.map((v) => (
+              <Pill key={v} on={scene.includes(v)} onClick={() => toggle(v, scene, setScene, 5)}>
+                {v}
+              </Pill>
+            ))}
           </div>
         </div>
 

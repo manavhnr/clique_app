@@ -8,6 +8,15 @@ import { createError } from '../middleware/error.middleware';
 import { sendSuccess } from '../utils/response';
 import { uploadFile } from '../utils/cloudinary';
 
+export async function checkUsername(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const username = (req.query.username as string ?? '').toLowerCase().trim();
+    if (!username) { res.status(400).json({ success: false, message: 'username is required' }); return; }
+    const taken = await User.exists({ username, _id: { $ne: req.user?.userId } });
+    sendSuccess(res, { available: !taken });
+  } catch (err) { next(err); }
+}
+
 export async function getMyProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const user = await getProfile(req.user!.userId);
