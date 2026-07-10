@@ -2,15 +2,12 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { User, IUser } from '../models/User';
-import { OTP } from '../models/OTP';
 import { RefreshToken } from '../models/RefreshToken';
 import { createError } from '../middleware/error.middleware';
 import { normalizePhone } from '../utils/phone';
-import { generateOTP, hashOTP, sendOTP } from './otp.service';
+import { sendOTP, verifyOTP } from './otp.service';
 
 const REFRESH_TTL_DAYS = 30;
-const OTP_TTL_MINUTES = 5;
-const OTP_MAX_ATTEMPTS = 5;
 
 async function generateUniqueUsername(): Promise<string> {
   for (let i = 0; i < 5; i++) {
@@ -49,47 +46,13 @@ export async function revokeAllSessions(userId: string): Promise<void> {
 
 export async function initiateOTP(phone: string): Promise<void> {
   const normalizedPhone = normalizePhone(phone);
-  const otp = generateOTP();
-  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
-
-  // One live OTP per phone — a resend replaces the previous code
-  await OTP.findOneAndUpdate(
-    { phone: normalizedPhone },
-    { phone: normalizedPhone, otpHash: hashOTP(otp), attempts: 0, expiresAt },
-    { upsert: true }
-  );
-
-  await sendOTP(normalizedPhone, otp);
+  await sendOTP(normalizedPhone);
 }
 
-/**
- * Validate and consume an OTP for a phone number.
- * Throws on missing/expired/mismatched codes; deletes the record on success.
- */
 export async function consumeOTP(phone: string, otp: string): Promise<void> {
   const normalizedPhone = normalizePhone(phone);
-  const record = await OTP.findOne({ phone: normalizedPhone });
-
-  if (!record) throw createError('OTP not found or expired. Request a new one.', 400);
-  if (record.expiresAt < new Date()) {
-    await OTP.deleteOne({ _id: record._id });
-    throw createError('OTP expired. Request a new one.', 400);
-  }
-  if (record.attempts >= OTP_MAX_ATTEMPTS) {
-    await OTP.deleteOne({ _id: record._id });
-    throw createError('Too many incorrect attempts. Request a new OTP.', 429);
-  }
-
-  const expected = Buffer.from(record.otpHash, 'utf-8');
-  const provided = Buffer.from(hashOTP(otp), 'utf-8');
-  const valid = expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
-
-  if (!valid) {
-    await OTP.updateOne({ _id: record._id }, { $inc: { attempts: 1 } });
-    throw createError('Invalid OTP', 400);
-  }
-
-  await OTP.deleteOne({ _id: record._id });
+  const valid = await verifyOTP(normalizedPhone, otp);
+  if (!valid) throw createError('Invalid or expired OTP', 400);
 }
 
 export async function verifyOTPAndLogin(

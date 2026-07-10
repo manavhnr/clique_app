@@ -1,60 +1,60 @@
-import crypto from 'crypto';
+import twilio from 'twilio';
 
-export function generateOTP(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+/** Normalize to E.164 (+91XXXXXXXXXX for bare 10-digit Indian numbers) */
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  if (!phone.startsWith('+')) return `+${digits}`;
+  return phone;
 }
 
-export function hashOTP(otp: string): string {
-  return crypto.createHash('sha256').update(otp).digest('hex');
+function getTwilioClient() {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken  = process.env.TWILIO_AUTH_TOKEN;
+  if (!accountSid || !authToken) {
+    throw new Error('Twilio credentials not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)');
+  }
+  return twilio(accountSid, authToken);
 }
 
-export async function sendOTP(phone: string, otp: string): Promise<void> {
-  const isProduction = process.env.APP_ENV === 'production';
+function getServiceSid(): string {
+  const sid = process.env.TWILIO_VERIFY_SERVICE_SID;
+  if (!sid) throw new Error('TWILIO_VERIFY_SERVICE_SID not configured');
+  return sid;
+}
 
-  if (isProduction) {
-    await sendViaMSG91(phone, otp);
-  } else {
+const isProduction = () => process.env.APP_ENV === 'production';
+
+export async function sendOTP(phone: string): Promise<void> {
+  if (!isProduction()) {
     console.log(`\n[OTP] ─────────────────────────`);
     console.log(`[OTP] Phone : ${phone}`);
-    console.log(`[OTP] Code  : ${otp}`);
+    console.log(`[OTP] Code  : use any 6-digit code in dev (Twilio Verify bypassed)`);
     console.log(`[OTP] ─────────────────────────\n`);
+    return;
   }
+
+  const to = toE164(phone);
+  await getTwilioClient()
+    .verify.v2.services(getServiceSid())
+    .verifications.create({ to, channel: 'sms' });
 }
 
-/** Convert any phone format → MSG91 format (country code + digits, no +) */
-function toMSG91Mobile(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) return `91${digits}`;                     // bare 10-digit Indian
-  if (digits.length === 12 && digits.startsWith('91')) return digits; // already 91XXXXXXXXXX
-  if (digits.length === 13 && digits.startsWith('091')) return digits.slice(1); // 091…
-  return digits; // pass through for other country codes
-}
-
-async function sendViaMSG91(phone: string, otp: string): Promise<void> {
-  const authKey    = process.env.MSG91_AUTH_KEY;
-  const templateId = process.env.MSG91_TEMPLATE_ID;
-
-  if (!authKey || !templateId) {
-    throw new Error('MSG91 credentials not configured (MSG91_AUTH_KEY, MSG91_TEMPLATE_ID)');
+/**
+ * Returns true if valid, false if wrong code.
+ * Throws on Twilio errors (network, config, etc.).
+ */
+export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
+  if (!isProduction()) {
+    // In dev, accept any 6-digit code so you can test without burning Twilio quota
+    return /^\d{6}$/.test(otp);
   }
 
-  const mobile = toMSG91Mobile(phone);
+  const to = toE164(phone);
+  const result = await getTwilioClient()
+    .verify.v2.services(getServiceSid())
+    .verificationChecks.create({ to, code: otp });
 
-  const url = new URL('https://control.msg91.com/api/v5/otp');
-  url.searchParams.set('template_id', templateId);
-  url.searchParams.set('mobile', mobile);
-  url.searchParams.set('otp', otp);
-
-  const response = await fetch(url.toString(), {
-    method: 'POST',
-    headers: {
-      authkey: authKey,
-      'content-type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`MSG91 OTP send failed (${response.status}): ${body}`);
-  }
+  return result.status === 'approved';
 }

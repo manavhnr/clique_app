@@ -100,9 +100,7 @@ export default function SignupPage() {
         Get on<br />
         <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--lime)' }}>the list.</span>
       </div>
-      <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--cream)', lineHeight: 1.4, marginBottom: 32 }}>
-        Takes 30 seconds. No card required.
-      </div>
+
 
       <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
