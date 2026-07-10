@@ -74,9 +74,6 @@ export default function SetupPage() {
   const [gender, setGender]       = useState('');
   const [scene, setScene]         = useState<string[]>([]);
   const [instagram, setInstagram] = useState('');
-  const [password, setPassword]   = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
-  const [showPw, setShowPw]       = useState(false);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
 
@@ -116,9 +113,6 @@ export default function SetupPage() {
     if (!gender)               { setError('Please select your gender.'); return; }
     if (!city)                 { setError('Please select your city.'); return; }
     if (!instagram.trim())     { setError('Please connect your Instagram.'); return; }
-    if (!password)             { setError('Please set a password.'); return; }
-    if (password.length < 6)   { setError('Password must be at least 6 characters.'); return; }
-    if (password !== confirmPw){ setError('Passwords do not match.'); return; }
 
     setLoading(true);
     try {
@@ -130,7 +124,6 @@ export default function SetupPage() {
         vibeTags: selectedVibes,
         interests: selectedInterests,
         hasCompletedSetup: true,
-        password,
         connectedSocials: { instagram: instagram.trim().replace(/^@/, '') },
       });
       updateUser(data.data.user);
@@ -257,34 +250,7 @@ export default function SetupPage() {
           </div>
         </label>
 
-        <div style={fieldStyle}>
-          <span style={labelStyle}>09 — PASSWORD</span>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showPw ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min 6 characters"
-              className="clique-input"
-              style={{ paddingRight: 50 }}
-              autoComplete="new-password"
-            />
-            <button type="button" onClick={() => setShowPw((v) => !v)}
-              style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.08em' }}>
-              {showPw ? 'HIDE' : 'SHOW'}
-            </button>
-          </div>
-          <input
-            type={showPw ? 'text' : 'password'}
-            value={confirmPw}
-            onChange={(e) => setConfirmPw(e.target.value)}
-            placeholder="Confirm password"
-            className={`clique-input${confirmPw && confirmPw !== password ? ' input-error' : ''}`}
-            autoComplete="new-password"
-          />
-        </div>
-
-        {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--hot)' }}>{error}</div>}
+        {error &&<div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--hot)' }}>{error}</div>}
 
         <button type="submit" disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px 22px', borderRadius: 3, fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 13, letterSpacing: '.1em', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, marginTop: 8 }}>
           {loading && <Spinner />}
