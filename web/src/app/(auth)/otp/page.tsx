@@ -88,7 +88,7 @@ function OtpForm() {
       const { token, user, needsSetup, refreshToken } = data.data;
       login(token, user, refreshToken);
       if (needsSetup) router.push('/setup');
-      else router.push('/events');
+      else router.push('/confirmed');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message ?? 'Invalid OTP. Try again.');
