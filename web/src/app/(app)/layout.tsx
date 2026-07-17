@@ -234,7 +234,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
-    if (!isLoading && user)  router.replace('/confirmed');
   }, [isLoading, user, router]);
 
   useEffect(() => {
