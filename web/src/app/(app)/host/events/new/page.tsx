@@ -11,7 +11,8 @@ const CATEGORIES = [
   { value: 'house_party', label: 'House Party', color: '#C9F36E' },
   { value: 'club', label: 'Club Night', color: '#FF3D6E' },
   { value: 'college', label: 'College Party', color: '#E8C46E' },
-  { value: 'private', label: 'Private', color: '#E8C46E' },
+  { value: 'private', label: 'Invite Only', color: '#E8C46E' },
+  { value: 'secret', label: 'Secret', color: '#9D7FEA' },
   { value: 'concert', label: 'Concert', color: '#7DB4FF' },
   { value: 'other', label: 'Other', color: '#E8E1D2' },
 ];
@@ -25,6 +26,7 @@ const PREVIEW_COLORS: Record<string, string> = {
   club: '#FF3D6E',
   college: '#E8C46E',
   private: '#E8C46E',
+  secret: '#9D7FEA',
   concert: '#7DB4FF',
   other: '#E8E1D2',
 };
@@ -291,7 +293,7 @@ export default function NewEventPage() {
                   <input
                     value={form.locationName}
                     onChange={(e) => set('locationName', e.target.value)}
-                    placeholder="Building 88 · LES"
+                    placeholder="The Rooftop · Nungambakkam"
                     style={inputStyle}
                     onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
                     onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
@@ -301,7 +303,7 @@ export default function NewEventPage() {
                   <input
                     value={form.address}
                     onChange={(e) => set('address', e.target.value)}
-                    placeholder="88 Orchard St"
+                    placeholder="14 Khader Nawaz Khan Rd, Chennai"
                     style={inputStyle}
                     onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
                     onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
@@ -438,7 +440,8 @@ export default function NewEventPage() {
               <Field label="PRIVACY">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   <Pill on={form.privacy === 'public'} onClick={() => set('privacy', 'public')}>Public</Pill>
-                  <Pill on={form.privacy === 'private'} onClick={() => set('privacy', 'private')}>Private · approval needed</Pill>
+                  <Pill on={form.privacy === 'private'} onClick={() => set('privacy', 'private')}>Invite Only · approval needed</Pill>
+                  <Pill on={form.privacy === 'secret'} onClick={() => set('privacy', 'secret')}>Secret · hidden from search</Pill>
                 </div>
               </Field>
 
