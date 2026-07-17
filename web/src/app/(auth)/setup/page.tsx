@@ -127,7 +127,7 @@ export default function SetupPage() {
         connectedSocials: { instagram: instagram.trim().replace(/^@/, '') },
       });
       updateUser(data.data.user);
-      router.push('/confirmed');
+      router.push('/home');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message ?? 'Setup failed');
