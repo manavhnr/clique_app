@@ -22,6 +22,7 @@ export default function HostDashboardPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutToast, setPayoutToast] = useState('');
+  const [payoutSuccess, setPayoutSuccess] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -42,16 +43,17 @@ export default function HostDashboardPage() {
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleSetupPayouts() {
+  async function handleSaveUpi(upiId: string) {
     setPayoutLoading(true);
     setPayoutToast('');
+    setPayoutSuccess('');
     try {
-      const { data } = await api.post('/payu/generate-onboarding-link');
-      const redirectUrl: string = data?.data?.redirect_url;
-      if (!redirectUrl) throw new Error('No redirect URL');
-      window.location.href = redirectUrl;
+      const { data } = await api.patch('/users/upi', { upiId });
+      if (user) updateUser({ ...user, upiId: data.data.upiId, payoutStatus: data.data.payoutStatus });
+      setPayoutSuccess('UPI ID saved successfully.');
     } catch {
-      setPayoutToast('Payment setup is currently unavailable. Please try again later.');
+      setPayoutToast('Could not save UPI ID. Please try again.');
+    } finally {
       setPayoutLoading(false);
     }
   }
@@ -136,10 +138,13 @@ export default function HostDashboardPage() {
       {/* Payouts */}
       <PayoutsSection
         payoutStatus={user?.payoutStatus ?? 'not_started'}
+        upiId={user?.upiId}
         loading={payoutLoading}
         toast={payoutToast}
-        onSetup={handleSetupPayouts}
+        success={payoutSuccess}
+        onSave={handleSaveUpi}
         onDismissToast={() => setPayoutToast('')}
+        onDismissSuccess={() => setPayoutSuccess('')}
       />
     </div>
   );
@@ -148,57 +153,107 @@ export default function HostDashboardPage() {
 // ── Payouts ──────────────────────────────────────────────────────────────────
 
 interface PayoutsSectionProps {
-  payoutStatus: 'not_started' | 'pending' | 'active' | 'rejected';
+  payoutStatus: 'not_started' | 'active';
+  upiId?: string;
   loading: boolean;
   toast: string;
-  onSetup: () => void;
+  success: string;
+  onSave: (upiId: string) => void;
   onDismissToast: () => void;
+  onDismissSuccess: () => void;
 }
 
-function PayoutsSection({ payoutStatus, loading, toast, onSetup, onDismissToast }: PayoutsSectionProps) {
-  const STATUS_BADGE: Record<string, { label: string; variant: 'neutral' | 'gold' | 'lime' | 'hot' }> = {
-    not_started: { label: 'Not set up', variant: 'neutral' },
-    pending: { label: 'KYC pending', variant: 'gold' },
-    active: { label: 'Active', variant: 'lime' },
-    rejected: { label: 'Rejected', variant: 'hot' },
-  };
-
-  const badge = STATUS_BADGE[payoutStatus] ?? STATUS_BADGE.not_started;
+function PayoutsSection({ payoutStatus, upiId, loading, toast, success, onSave, onDismissToast, onDismissSuccess }: PayoutsSectionProps) {
   const isActive = payoutStatus === 'active';
-  const isPending = payoutStatus === 'pending';
-  const isRejected = payoutStatus === 'rejected';
+  const [editing, setEditing] = useState(!isActive);
+  const [inputVal, setInputVal] = useState(upiId ?? '');
+  const [inputErr, setInputErr] = useState('');
+
+  function validate(v: string) {
+    if (!v.trim()) return 'UPI ID is required';
+    if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(v.trim())) return 'Enter a valid UPI ID (e.g. yourname@upi)';
+    return '';
+  }
+
+  function handleSubmit() {
+    const err = validate(inputVal);
+    if (err) { setInputErr(err); return; }
+    setInputErr('');
+    onSave(inputVal.trim().toLowerCase());
+    setEditing(false);
+  }
 
   return (
     <div className="mb-10">
       <div className="clique-label mb-4">PAYOUTS</div>
       <div className="flex flex-col gap-4 rounded-md border border-dashed border-line-2 p-6">
 
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
               <div className="font-display text-[22px] font-bold tracking-[-0.02em]">
-                {isActive ? 'Payouts ready' : isPending ? 'KYC in progress' : isRejected ? 'Verification failed' : 'Set up payouts'}
+                {isActive && !editing ? 'Payouts active' : 'Set up payouts'}
               </div>
-              <Badge variant={badge.variant}>{badge.label}</Badge>
+              <Badge variant={isActive ? 'lime' : 'neutral'}>{isActive ? 'Active' : 'Not set up'}</Badge>
             </div>
             <p className="m-0 mt-2 max-w-[52ch] font-display text-sm leading-snug text-cream">
-              {isActive
-                ? 'Your PayU merchant account is verified. Payouts from paid events will settle to your bank.'
-                : isPending
-                ? 'Your KYC submission is under review by PayU. This usually takes 1–2 business days.'
-                : isRejected
-                ? 'Your KYC was not approved. Re-submit to try again — check the rejection reason in your email.'
-                : 'Complete KYC with PayU to receive payouts from paid events. Takes about 5 minutes.'}
+              {isActive && !editing
+                ? 'Ticket revenue from your paid events will be transferred to this UPI ID.'
+                : 'Add your UPI ID to receive payouts from paid events.'}
             </p>
           </div>
 
-          {!isActive && (
-            <Button onClick={onSetup} disabled={loading || isPending} loading={loading}>
-              {isRejected ? 'Retry KYC →' : isPending ? 'Pending review…' : 'Set up payouts →'}
-            </Button>
+          {isActive && !editing && (
+            <button
+              onClick={() => setEditing(true)}
+              className="font-mono text-[11px] tracking-[.06em] text-dim underline underline-offset-2 hover:text-paper"
+            >
+              Edit
+            </button>
           )}
         </div>
 
+        {/* Saved state — show UPI ID */}
+        {isActive && !editing && upiId && (
+          <div className="flex items-center gap-3 rounded-lg border border-line bg-ink px-4 py-3">
+            <span className="clique-label !text-[9px]">UPI ID</span>
+            <span className="font-mono text-[13px] text-paper">{upiId}</span>
+          </div>
+        )}
+
+        {/* Input state */}
+        {(!isActive || editing) && (
+          <div className="flex flex-col gap-3">
+            <div>
+              <input
+                type="text"
+                value={inputVal}
+                onChange={(e) => { setInputVal(e.target.value); setInputErr(''); }}
+                placeholder="yourname@upi"
+                className="w-full rounded-lg border border-line bg-ink px-4 py-2.5 font-mono text-[13px] text-paper placeholder-dim outline-none focus:border-lime"
+                style={{ maxWidth: 340 }}
+                disabled={loading}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+              />
+              {inputErr && <div className="mt-1.5 font-mono text-[11px] text-hot">{inputErr}</div>}
+            </div>
+            <div className="flex items-center gap-3">
+              <Button onClick={handleSubmit} disabled={loading} loading={loading}>
+                Save UPI ID →
+              </Button>
+              {isActive && editing && (
+                <button
+                  onClick={() => { setEditing(false); setInputVal(upiId ?? ''); setInputErr(''); }}
+                  className="font-mono text-[11px] tracking-[.06em] text-dim hover:text-paper"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Error toast */}
         {toast && (
           <div className="flex items-start justify-between gap-3 rounded-xl border border-hot/20 bg-hot/[.08] px-3.5 py-3">
             <span className="font-mono text-[11px] leading-relaxed tracking-[.06em] text-hot">{toast}</span>
@@ -206,12 +261,20 @@ function PayoutsSection({ payoutStatus, loading, toast, onSetup, onDismissToast 
           </div>
         )}
 
-        {isActive && (
+        {/* Success toast */}
+        {success && (
+          <div className="flex items-start justify-between gap-3 rounded-xl border border-lime/20 bg-lime/[.08] px-3.5 py-3">
+            <span className="font-mono text-[11px] leading-relaxed tracking-[.06em] text-lime">{success}</span>
+            <button onClick={onDismissSuccess} aria-label="Dismiss" className="shrink-0 leading-none text-lime">×</button>
+          </div>
+        )}
+
+        {/* Payout details — only shown when active */}
+        {isActive && !editing && (
           <div className="flex flex-wrap gap-6 border-t border-line pt-4">
             {[
               { label: 'PAYOUT SPLIT', value: '80 / 20' },
               { label: 'SETTLEMENT', value: 'T+2 days' },
-              { label: 'GATEWAY', value: 'PayU India' },
             ].map(({ label, value }) => (
               <div key={label}>
                 <div className="clique-label !text-[9px]">{label}</div>

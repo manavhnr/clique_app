@@ -18,6 +18,14 @@ export const updateSettingsSchema = z.object({
   pushNotificationsEnabled: z.boolean().optional(),
 });
 
+// UPI ID format: local-part@handle  e.g. 9876543210@upi, name@okaxis
+export const saveUpiIdSchema = z.object({
+  upiId: z.string()
+    .min(3)
+    .max(60)
+    .regex(/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/, 'Enter a valid UPI ID (e.g. yourname@upi)'),
+});
+
 export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   username: z

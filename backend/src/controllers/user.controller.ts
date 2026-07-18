@@ -67,6 +67,20 @@ export async function deleteMyAccount(req: AuthRequest, res: Response, next: Nex
   }
 }
 
+export async function saveUpiId(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { upiId } = req.body as { upiId: string };
+    const user = await User.findByIdAndUpdate(
+      req.user!.userId,
+      { upiId: upiId.trim().toLowerCase(), payoutStatus: 'active' },
+      { new: true }
+    );
+    sendSuccess(res, { upiId: user?.upiId, payoutStatus: user?.payoutStatus }, 'UPI ID saved');
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function updateSettings(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { isPrivate, pushNotificationsEnabled } = req.body;
