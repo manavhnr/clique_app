@@ -6,13 +6,27 @@ export interface IEventMember {
   addedAt: Date;
 }
 
+export interface IPricingTier {
+  label: string;
+  commonPrice: number;
+  malePrice: number;
+  femalePrice: number;
+  capacity?: number;
+}
+
+export interface IGroupPricing {
+  label: string;
+  size: number;
+  price: number;
+}
+
 export interface IEvent extends Document {
   hostId: mongoose.Types.ObjectId;
   title: string;
   description: string;
   images: string[];
   videos: string[];
-  category: 'house_party' | 'club' | 'college' | 'private' | 'concert' | 'other';
+  category: 'house_party' | 'club' | 'college' | 'private' | 'secret' | 'concert' | 'other';
   vibeTags: string[];
   musicTags: string[];
   rules?: string;
@@ -21,14 +35,18 @@ export interface IEvent extends Document {
   endTime: string;
   locationName: string;
   address: string;
-  location: { type: 'Point'; coordinates: [number, number] };
+  locationLink?: string;
+  location?: { type: 'Point'; coordinates: [number, number] };
   exactAddressHiddenBeforeBooking: boolean;
   price: number;
   platformFee: number;
+  pricingMode: 'common' | 'split';
+  pricingTiers: IPricingTier[];
+  groupPricing: IGroupPricing[];
   capacity: number;
   bookedCount: number;
   checkedInCount: number;
-  privacy: 'public' | 'private';
+  privacy: 'public' | 'private' | 'secret';
   approvalRequired: boolean;
   ageLimit?: number;
   refundPolicy?: string;
@@ -55,7 +73,7 @@ const eventSchema = new Schema<IEvent>(
     videos: { type: [String], default: [] },
     category: {
       type: String,
-      enum: ['house_party', 'club', 'college', 'private', 'concert', 'other'],
+      enum: ['house_party', 'club', 'college', 'private', 'secret', 'concert', 'other'],
       required: true,
     },
     vibeTags: { type: [String], default: [] },
@@ -66,17 +84,37 @@ const eventSchema = new Schema<IEvent>(
     endTime: { type: String, required: true },
     locationName: { type: String, required: true },
     address: { type: String, required: true },
+    locationLink: { type: String },
     location: {
-      type: { type: String, enum: ['Point'], required: true },
-      coordinates: { type: [Number], required: true },
+      type: { type: String, enum: ['Point'] },
+      coordinates: { type: [Number] },
     },
     exactAddressHiddenBeforeBooking: { type: Boolean, default: false },
     price: { type: Number, required: true, min: 0 },
     platformFee: { type: Number, default: 0 },
+    pricingMode: { type: String, enum: ['common', 'split'], default: 'common' },
+    pricingTiers: {
+      type: [{
+        label: { type: String, default: '' },
+        commonPrice: { type: Number, default: 0 },
+        malePrice: { type: Number, default: 0 },
+        femalePrice: { type: Number, default: 0 },
+        capacity: { type: Number },
+      }],
+      default: [],
+    },
+    groupPricing: {
+      type: [{
+        label: { type: String, default: '' },
+        size: { type: Number, default: 2 },
+        price: { type: Number, default: 0 },
+      }],
+      default: [],
+    },
     capacity: { type: Number, required: true, min: 1 },
     bookedCount: { type: Number, default: 0 },
     checkedInCount: { type: Number, default: 0 },
-    privacy: { type: String, enum: ['public', 'private'], default: 'public' },
+    privacy: { type: String, enum: ['public', 'private', 'secret'], default: 'public' },
     approvalRequired: { type: Boolean, default: false },
     ageLimit: { type: Number },
     refundPolicy: { type: String },
@@ -104,7 +142,7 @@ const eventSchema = new Schema<IEvent>(
   { timestamps: true }
 );
 
-eventSchema.index({ location: '2dsphere' });
+eventSchema.index({ location: '2dsphere' }, { sparse: true });
 eventSchema.index({ title: 'text', description: 'text' });
 eventSchema.index({ date: 1 });
 eventSchema.index({ status: 1 });

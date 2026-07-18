@@ -5,45 +5,34 @@ import { escapeRegex } from '../utils/regex';
 
 const RESULT_LIMIT = 20;
 
-// ─── Near Me ────────────────────────────────────────────────────────────────
+// ─── Near Me (city-based) ─────────────────────────────────────────────────────
 
 export interface NearMeFilters {
-  latitude: number;
-  longitude: number;
-  radius?: number;       // metres, default 10km
-  date?: string;         // ISO date — filter by day
+  date?: string;
   category?: string;
   minPrice?: number;
   maxPrice?: number;
-  sort?: 'distance' | 'trending' | 'date';
+  sort?: 'trending' | 'date';
   page?: number;
   limit?: number;
 }
 
 export async function getEventsNearMe(filters: NearMeFilters, requesterId: string) {
-  const {
-    latitude,
-    longitude,
-    radius = 10000,
-    date,
-    category,
-    minPrice,
-    maxPrice,
-    sort = 'distance',
-    page = 1,
-    limit = 20,
-  } = filters;
+  const { date, category, minPrice, maxPrice, sort = 'date', page = 1, limit = 20 } = filters;
+
+  const user = await User.findById(requesterId).select('city').lean();
+  const city = (user?.city ?? '').trim();
 
   const query: Record<string, unknown> = {
     status: 'published',
     date: { $gte: new Date() },
-    location: {
-      $near: {
-        $geometry: { type: 'Point', coordinates: [longitude, latitude] },
-        $maxDistance: radius,
-      },
-    },
+    privacy: { $ne: 'secret' },
   };
+
+  if (city) {
+    const cityRegex = new RegExp(escapeRegex(city), 'i');
+    query.$or = [{ locationName: cityRegex }, { address: cityRegex }];
+  }
 
   if (date) {
     const start = new Date(date);
@@ -60,10 +49,10 @@ export async function getEventsNearMe(filters: NearMeFilters, requesterId: strin
     };
   }
 
-  type SortOption = { likeCount?: -1; viewCount?: -1; date?: 1 };
-  let sortOption: SortOption = {};
-  if (sort === 'trending') sortOption = { likeCount: -1, viewCount: -1 };
-  else if (sort === 'date') sortOption = { date: 1 };
+  type SortOption = { likeCount?: -1; viewCount?: -1; date?: 1; isFeatured?: -1 };
+  const sortOption: SortOption = sort === 'trending'
+    ? { isFeatured: -1, likeCount: -1, viewCount: -1 }
+    : { isFeatured: -1, date: 1 };
 
   const events = await Event.find(query)
     .sort(sortOption)
@@ -78,20 +67,20 @@ export async function getEventsNearMe(filters: NearMeFilters, requesterId: strin
   }).select('eventId');
   const savedSet = new Set(savedEvents.map((s) => s.eventId.toString()));
 
-  return events.map((e) => ({
-    ...e.toObject(),
-    saved: savedSet.has(e._id.toString()),
-    availableSlots: e.capacity - e.bookedCount,
-  }));
+  return {
+    events: events.map((e) => ({
+      ...e.toObject(),
+      saved: savedSet.has(e._id.toString()),
+      availableSlots: e.capacity - e.bookedCount,
+    })),
+    city: city || null,
+  };
 }
 
 // ─── Event Search ────────────────────────────────────────────────────────────
 
 export interface EventSearchFilters {
   q?: string;
-  latitude?: number;
-  longitude?: number;
-  radius?: number;
   date?: string;
   category?: string;
   minPrice?: number;
@@ -101,30 +90,12 @@ export interface EventSearchFilters {
 }
 
 export async function searchEvents(filters: EventSearchFilters, requesterId: string) {
-  const { q, latitude, longitude, radius = 10000, date, category, minPrice, maxPrice, page = 1, limit = 20 } = filters;
+  const { q, date, category, minPrice, maxPrice, page = 1, limit = 20 } = filters;
 
   const query: Record<string, unknown> = { status: 'published', date: { $gte: new Date() } };
 
   if (q) {
     query.$text = { $search: q };
-  }
-
-  if (latitude !== undefined && longitude !== undefined) {
-    // $text and $near cannot coexist in one query. When a text search is present,
-    // use $geoWithin/$centerSphere (compatible with $text); otherwise use $near for
-    // distance-sorted results. radius is in metres; earth radius ≈ 6,378,100 m.
-    if (q) {
-      query.location = {
-        $geoWithin: { $centerSphere: [[longitude, latitude], radius / 6378100] },
-      };
-    } else {
-      query.location = {
-        $near: {
-          $geometry: { type: 'Point', coordinates: [longitude, latitude] },
-          $maxDistance: radius,
-        },
-      };
-    }
   }
 
   if (date) {

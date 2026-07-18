@@ -42,10 +42,13 @@ export async function createEvent(
     endTime: data.endTime,
     locationName: data.locationName,
     address: data.address,
-    location: { type: 'Point', coordinates: [data.longitude, data.latitude] },
+    locationLink: data.locationLink,
     exactAddressHiddenBeforeBooking: data.exactAddressHiddenBeforeBooking,
     price: data.price,
     platformFee: data.platformFee,
+    pricingMode: data.pricingData?.mode ?? 'common',
+    pricingTiers: data.pricingData?.tiers ?? [],
+    groupPricing: data.pricingData?.groups ?? [],
     capacity: data.capacity,
     privacy: data.privacy,
     approvalRequired: data.approvalRequired,
@@ -118,11 +121,12 @@ export async function updateEvent(
 
   const update: Record<string, unknown> = { ...data };
   if (data.date) update.date = new Date(data.date);
-  if (data.latitude !== undefined && data.longitude !== undefined) {
-    update.location = { type: 'Point', coordinates: [data.longitude, data.latitude] };
-    delete update.latitude;
-    delete update.longitude;
+  if (data.pricingData) {
+    update.pricingMode = data.pricingData.mode;
+    update.pricingTiers = data.pricingData.tiers;
+    update.groupPricing = data.pricingData.groups;
   }
+  delete update.pricingData;
 
   // Append any newly uploaded media to existing arrays
   if (imageFiles.length > 0) {

@@ -53,6 +53,7 @@ export default function EventsPage() {
   const [activeVibes, setActiveVibes] = useState<string[]>([]);
   const [events, setEvents]         = useState<Event[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [nearMeCity, setNearMeCity] = useState<string | null>(null);
 
   function toggleVibe(v: string) {
     setActiveVibes((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
@@ -60,7 +61,15 @@ export default function EventsPage() {
 
   const fetchEvents = useCallback(async (q = '', cat = 'all') => {
     setLoading(true);
+    setNearMeCity(null);
     try {
+      if (cat === 'near me') {
+        const { data } = await api.get('/events/near-me');
+        setEvents(data.data?.events ?? []);
+        setNearMeCity(data.data?.city ?? null);
+        return;
+      }
+
       const params: Record<string, string> = {};
       if (q) params.q = q;
       if (cat === 'tonight') params.date = 'tonight';
@@ -69,16 +78,6 @@ export default function EventsPage() {
       else if (cat === 'warehouse') params.category = 'warehouse';
       else if (cat === 'club') params.category = 'club';
       else if (cat === 'free') { params.minPrice = '0'; params.maxPrice = '0'; }
-      else if (cat === 'near me' && navigator.geolocation) {
-        await new Promise<void>((resolve) => {
-          navigator.geolocation.getCurrentPosition((pos) => {
-            params.latitude = String(pos.coords.latitude);
-            params.longitude = String(pos.coords.longitude);
-            params.radius = '10000';
-            resolve();
-          }, () => resolve());
-        });
-      }
       const { data } = await api.get('/events/search', { params });
       setEvents(data.data?.events ?? []);
     } catch { setEvents([]); }
@@ -107,7 +106,9 @@ export default function EventsPage() {
       <div style={{ marginBottom: isMobile ? 18 : 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span aria-hidden style={{ height: 1, width: 20, background: 'var(--line-2)' }} />
-          <div className="clique-label" style={{ whiteSpace: 'nowrap' }}>TONIGHT · YOUR CITY</div>
+          <div className="clique-label" style={{ whiteSpace: 'nowrap' }}>
+            {activeCat === 'near me' && nearMeCity ? `IN ${nearMeCity.toUpperCase()}` : 'TONIGHT · YOUR CITY'}
+          </div>
           <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line-2)' }} />
           <div className="clique-label" style={{ whiteSpace: 'nowrap' }}>
             {loading ? '· · ·' : `${String(events.length).padStart(2, '0')} ON THE BOARD`}
@@ -182,7 +183,9 @@ export default function EventsPage() {
             Nothing on the board.
           </div>
           <div style={{ fontFamily: 'var(--display)', fontSize: 15, color: 'var(--cream)', marginBottom: 24, maxWidth: '46ch', lineHeight: 1.45 }}>
-            No events match these filters. Loosen up, or check back once hosts post tonight&apos;s lineup.
+            {activeCat === 'near me' && !nearMeCity
+              ? 'Add your city to your profile and we\'ll show you what\'s happening nearby.'
+              : 'No events match these filters. Loosen up, or check back once hosts post tonight\'s lineup.'}
           </div>
           <button onClick={() => { setActiveCat('all'); setActiveVibes([]); setQuery(''); }} style={{ background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '13px 20px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
             Reset filters

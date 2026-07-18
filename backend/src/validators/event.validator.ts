@@ -23,10 +23,37 @@ const optionalInt = z.preprocess(
   z.coerce.number().int().min(0).optional()
 );
 
+const pricingDataField = z.preprocess(
+  (v) => {
+    if (typeof v === 'string' && v !== '') {
+      try { return JSON.parse(v); } catch { return undefined; }
+    }
+    return v ?? undefined;
+  },
+  z.object({
+    mode: z.enum(['common', 'split']),
+    tiers: z.array(z.object({
+      label: z.string().max(100).default(''),
+      commonPrice: z.coerce.number().min(0).default(0),
+      malePrice: z.coerce.number().min(0).default(0),
+      femalePrice: z.coerce.number().min(0).default(0),
+      capacity: z.preprocess(
+        (v) => (v === '' || v === null || v === undefined ? undefined : v),
+        z.coerce.number().int().min(1).optional()
+      ),
+    })).min(1).max(10),
+    groups: z.array(z.object({
+      label: z.string().max(100).default(''),
+      size: z.coerce.number().int().min(2).default(2),
+      price: z.coerce.number().min(0).default(0),
+    })).max(10),
+  }).optional()
+).optional();
+
 export const createEventSchema = z.object({
   title: z.string().min(3).max(200),
   description: z.string().min(10).max(3000),
-  category: z.enum(['house_party', 'club', 'college', 'private', 'concert', 'other']),
+  category: z.enum(['house_party', 'club', 'college', 'private', 'secret', 'concert', 'other']),
   vibeTags: stringArray.default([]),
   musicTags: stringArray.default([]),
   rules: z.string().max(1000).optional(),
@@ -35,13 +62,16 @@ export const createEventSchema = z.object({
   endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Use HH:MM format'),
   locationName: z.string().min(2).max(300),
   address: z.string().min(5).max(500),
-  latitude: z.coerce.number().min(-90).max(90).default(0),
-  longitude: z.coerce.number().min(-180).max(180).default(0),
+  locationLink: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.string().url().max(1000).optional()
+  ),
   exactAddressHiddenBeforeBooking: boolField.default(false),
   price: z.coerce.number().min(0),
   platformFee: z.coerce.number().min(0).default(0),
+  pricingData: pricingDataField,
   capacity: z.coerce.number().int().min(1),
-  privacy: z.enum(['public', 'private']).default('public'),
+  privacy: z.enum(['public', 'private', 'secret']).default('public'),
   approvalRequired: boolField.default(false),
   requiresSocials: boolField.default(false),
   requiredSocials: z.preprocess(

@@ -318,6 +318,7 @@ export default function NewEventPage() {
                 )}
               </Field>
 
+
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr 1fr', gap: isMobile ? 12 : 14 }}>
                 <Field label="DATE">
                   <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)}
