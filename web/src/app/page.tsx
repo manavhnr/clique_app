@@ -171,6 +171,8 @@ function MiniFooter() {
           { label: 'Code of conduct', href: '/conduct' },
           { label: 'Privacy',         href: '/privacy' },
           { label: 'Terms',           href: '/terms' },
+          { label: 'Refund policy',   href: '/refund' },
+          { label: 'Contact',         href: '/contact' },
           { label: '@clique',         href: '#' },
         ].map(({ label, href }) => (
           <a key={label} href={href} style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>{label}</a>

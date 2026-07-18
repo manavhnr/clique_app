@@ -372,6 +372,8 @@ export default function PrivacyPage() {
             <div style={{ display: 'flex', gap: 20 }}>
               <a href="/terms"   style={{ ...mono, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#5B544A' }}>Terms</a>
               <a href="/conduct" style={{ ...mono, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#5B544A' }}>Conduct</a>
+              <a href="/refund"  style={{ ...mono, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#5B544A' }}>Refunds</a>
+              <a href="/contact" style={{ ...mono, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#5B544A' }}>Contact</a>
               <a href="/"        style={{ ...mono, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#5B544A' }}>Home</a>
             </div>
           </div>
