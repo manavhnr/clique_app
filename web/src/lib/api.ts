@@ -1,4 +1,5 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import { storage } from '@/lib/storage';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5001/api/v1';
 
@@ -9,16 +10,14 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('clique_token');
+    const token = storage.getToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
 function forceLogout(): void {
-  localStorage.removeItem('clique_token');
-  localStorage.removeItem('clique_user');
-  localStorage.removeItem('clique_refresh');
+  storage.clear();
   window.location.href = '/login';
 }
 
@@ -26,7 +25,7 @@ function forceLogout(): void {
 let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = localStorage.getItem('clique_refresh');
+  const refreshToken = storage.getRefresh();
   if (!refreshToken) return null;
   try {
     // Bare axios (not `api`) to avoid recursive interceptors
@@ -34,8 +33,8 @@ async function refreshAccessToken(): Promise<string | null> {
     const newToken = data?.data?.token as string | undefined;
     const newRefresh = data?.data?.refreshToken as string | undefined;
     if (!newToken) return null;
-    localStorage.setItem('clique_token', newToken);
-    if (newRefresh) localStorage.setItem('clique_refresh', newRefresh);
+    storage.setToken(newToken);
+    if (newRefresh) storage.setRefresh(newRefresh);
     return newToken;
   } catch {
     return null;

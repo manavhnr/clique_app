@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '@/types';
+import { storage } from '@/lib/storage';
 
 interface AuthContextType {
   user: User | null;
@@ -20,38 +21,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('clique_token');
-    const storedUser = localStorage.getItem('clique_user');
+    const storedToken = storage.getToken();
+    const storedUser = storage.getUser();
     if (storedToken && storedUser) {
-      try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } catch {
-        localStorage.removeItem('clique_token');
-        localStorage.removeItem('clique_user');
-      }
+      setToken(storedToken);
+      setUser(storedUser);
     }
     setIsLoading(false);
   }, []);
 
   const login = useCallback((newToken: string, newUser: User, refreshToken?: string) => {
-    localStorage.setItem('clique_token', newToken);
-    localStorage.setItem('clique_user', JSON.stringify(newUser));
-    if (refreshToken) localStorage.setItem('clique_refresh', refreshToken);
+    storage.setToken(newToken);
+    storage.setUser(newUser);
+    if (refreshToken) storage.setRefresh(refreshToken);
     setToken(newToken);
     setUser(newUser);
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('clique_token');
-    localStorage.removeItem('clique_user');
-    localStorage.removeItem('clique_refresh');
+    storage.clear();
     setToken(null);
     setUser(null);
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {
-    localStorage.setItem('clique_user', JSON.stringify(updatedUser));
+    storage.setUser(updatedUser);
     setUser(updatedUser);
   }, []);
 
