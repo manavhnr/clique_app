@@ -30,17 +30,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(storedUser);
         setIsLoading(false);
       } else {
-        // Token exists but user data is missing (e.g. iOS PWA cleared localStorage).
-        // Re-fetch from API using the saved token.
+        // Token exists but user data is missing (localStorage empty or first run after
+        // storage migration from cookie → localStorage). Re-fetch from the API.
         api.get('/auth/me')
           .then(({ data }) => {
             const fetchedUser = data.data.user as User;
             storage.setUser(fetchedUser);
             setUser(fetchedUser);
           })
-          .catch(() => {
-            storage.clear();
-            setToken(null);
+          .catch((err: unknown) => {
+            const status = (err as { response?: { status?: number } })?.response?.status;
+            if (status === 401 || status === 403) {
+              // Token is genuinely invalid — clear everything.
+              storage.clear();
+              setToken(null);
+            }
+            // Network errors or server down: keep the token in the cookie so
+            // the next page load can retry. User will see the login redirect,
+            // but their session is preserved for when the server is back up.
           })
           .finally(() => setIsLoading(false));
       }

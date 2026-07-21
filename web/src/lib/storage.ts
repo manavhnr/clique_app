@@ -43,9 +43,20 @@ export const storage = {
   removeToken: () => removeCookie('clique_token'),
 
   getUser: () => {
-    const v = lsGet('clique_user');
-    if (!v) return null;
-    try { return JSON.parse(v); } catch { return null; }
+    // Primary: localStorage (no size limit)
+    const ls = lsGet('clique_user');
+    if (ls) { try { return JSON.parse(ls); } catch { /* fall through */ } }
+    // Fallback: old cookie-based storage — migrate to localStorage on read
+    const ck = getCookie('clique_user');
+    if (ck) {
+      try {
+        const parsed = JSON.parse(ck);
+        lsSet('clique_user', ck);       // migrate to localStorage
+        removeCookie('clique_user');    // clean up old cookie
+        return parsed;
+      } catch { /* invalid */ }
+    }
+    return null;
   },
   setUser: (v: object) => lsSet('clique_user', JSON.stringify(v)),
   removeUser: () => lsRemove('clique_user'),
