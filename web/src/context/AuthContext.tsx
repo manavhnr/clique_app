@@ -23,37 +23,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const storedToken = storage.getToken();
-    const storedUser = storage.getUser();
-    if (storedToken) {
-      setToken(storedToken);
-      if (storedUser) {
-        setUser(storedUser);
-        setIsLoading(false);
-      } else {
-        // Token exists but user data is missing (localStorage empty or first run after
-        // storage migration from cookie → localStorage). Re-fetch from the API.
-        api.get('/auth/me')
-          .then(({ data }) => {
-            const fetchedUser = data.data.user as User;
-            storage.setUser(fetchedUser);
-            setUser(fetchedUser);
-          })
-          .catch((err: unknown) => {
-            const status = (err as { response?: { status?: number } })?.response?.status;
-            if (status === 401 || status === 403) {
-              // Token is genuinely invalid — clear everything.
-              storage.clear();
-              setToken(null);
-            }
-            // Network errors or server down: keep the token in the cookie so
-            // the next page load can retry. User will see the login redirect,
-            // but their session is preserved for when the server is back up.
-          })
-          .finally(() => setIsLoading(false));
-      }
-    } else {
+    if (!storedToken) { setIsLoading(false); return; }
+
+    setToken(storedToken);
+
+    // 1. Full user in localStorage — instant restore (normal path).
+    const fullUser = storage.getUser();
+    if (fullUser) {
+      setUser(fullUser as User);
       setIsLoading(false);
+      return;
     }
+
+    // 2. Compact user in session cookie — instant restore for iOS PWA first launch.
+    //    The session cookie is shared between Safari and the homescreen app; localStorage is not.
+    //    We restore immediately from the compact user so the auth gate passes without an API round-trip,
+    //    then background-refresh to get the full user into this context's localStorage.
+    const sessionUser = storage.getSessionUser();
+    if (sessionUser) {
+      setUser(sessionUser as User);
+      setIsLoading(false);
+      api.get('/auth/me')
+        .then(({ data }) => {
+          const full = data.data.user as User;
+          storage.setUser(full);
+          setUser(full);
+        })
+        .catch(() => { /* compact user already set — app still works */ });
+      return;
+    }
+
+    // 3. No user anywhere — must fetch from API (e.g. after storage wipe).
+    api.get('/auth/me')
+      .then(({ data }) => {
+        const fetchedUser = data.data.user as User;
+        storage.setUser(fetchedUser);
+        setUser(fetchedUser);
+      })
+      .catch((err: unknown) => {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 401 || status === 403) {
+          storage.clear();
+          setToken(null);
+        }
+        // Network / server errors: keep token so next reload can retry.
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   const login = useCallback((newToken: string, newUser: User, refreshToken?: string) => {
