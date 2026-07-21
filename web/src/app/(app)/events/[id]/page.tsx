@@ -218,6 +218,7 @@ export default function EventDetailPage() {
   const [error, setError]           = useState('');
   const [requestMsg, setRequestMsg] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [bookLoading, setBookLoading] = useState(false);
 
   useEffect(() => {
     api.get(`/events/${id}`)
@@ -240,8 +241,9 @@ export default function EventDetailPage() {
 
   const isPending    = userRequest?.status === 'requested';
   const isApproved   = userRequest?.status === 'approved' || (userBooking && ['confirmed', 'checked_in'].includes(userBooking.status));
-  const isRejected   = userRequest?.status === 'rejected';
-  const isRegistered = !!(isPending || isApproved);
+  const isRejected     = userRequest?.status === 'rejected';
+  const isRegistered   = !!(isPending || isApproved);
+  const paymentPending = !!(userBooking && (userBooking as any).status === 'payment_pending');
 
   // Social gate: check if user has required socials
   const missingSocials = (event?.requiresSocials && (event?.requiredSocials?.length ?? 0) > 0)
@@ -270,6 +272,77 @@ export default function EventDetailPage() {
       setEvent({ ...event, saved: !event.saved });
     } catch { /* ignore */ }
     finally { setSaveLoading(false); }
+  };
+
+  const loadRazorpayScript = (): Promise<void> =>
+    new Promise((resolve, reject) => {
+      if ((window as any).Razorpay) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Razorpay failed to load'));
+      document.body.appendChild(s);
+    });
+
+  const handlePay = async (bookingId: string): Promise<void> => {
+    const { data: orderRes } = await api.post('/payments/create-order', { bookingId });
+    await loadRazorpayScript();
+    return new Promise<void>((resolve, reject) => {
+      const rzp = new (window as any).Razorpay({
+        key: orderRes.data.keyId,
+        amount: orderRes.data.amount,
+        currency: orderRes.data.currency,
+        order_id: orderRes.data.orderId,
+        name: 'Clique',
+        description: event?.title ?? 'Event Booking',
+        handler: async (response: any) => {
+          try {
+            await api.post('/payments/verify', {
+              bookingId,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            await refreshEvent();
+            resolve();
+          } catch (verifyErr: unknown) {
+            const e = verifyErr as { response?: { data?: { message?: string } } };
+            setError(e.response?.data?.message ?? 'Payment verification failed');
+            reject(verifyErr);
+          }
+        },
+        modal: { ondismiss: () => resolve() },
+      });
+      rzp.open();
+    });
+  };
+
+  const handleBook = async () => {
+    if (!event) return;
+    setError(''); setBookLoading(true);
+    try {
+      if (event.price === 0) {
+        await api.post('/bookings', { eventId: id });
+        await refreshEvent();
+      } else {
+        const { data: bookRes } = await api.post('/bookings', { eventId: id });
+        await handlePay(bookRes.data.booking._id);
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? 'Booking failed');
+    } finally { setBookLoading(false); }
+  };
+
+  const handleCompletePayment = async () => {
+    if (!userBooking) return;
+    setError(''); setBookLoading(true);
+    try {
+      await handlePay((userBooking as any)._id);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? 'Payment failed');
+    } finally { setBookLoading(false); }
   };
 
   if (loading) return (
@@ -468,13 +541,29 @@ export default function EventDetailPage() {
                     Connect socials in profile →
                   </button>
                 </div>
+              ) : paymentPending ? (
+                <button
+                  onClick={handleCompletePayment}
+                  disabled={bookLoading}
+                  style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: bookLoading ? 'not-allowed' : 'pointer', opacity: bookLoading ? 0.6 : 1 }}
+                >
+                  {bookLoading ? '…' : 'COMPLETE PAYMENT →'}
+                </button>
+              ) : event.privacy === 'public' ? (
+                <button
+                  onClick={handleBook}
+                  disabled={isFull || bookLoading || event.status !== 'published'}
+                  style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: (isFull || bookLoading || event.status !== 'published') ? 'not-allowed' : 'pointer', opacity: (isFull || bookLoading || event.status !== 'published') ? 0.45 : 1 }}
+                >
+                  {isFull ? 'SOLD OUT' : bookLoading ? '…' : event.price === 0 ? 'GET FREE PASS →' : 'BOOK NOW →'}
+                </button>
               ) : (
                 <button
                   onClick={() => { setError(''); setConfirmOpen(true); }}
                   disabled={isFull || event.status !== 'published'}
                   style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: (isFull || event.status !== 'published') ? 'not-allowed' : 'pointer', opacity: (isFull || event.status !== 'published') ? 0.45 : 1 }}
                 >
-                  {isFull ? 'SOLD OUT' : 'Request to Register →'}
+                  {isFull ? 'SOLD OUT' : 'REQUEST TO REGISTER →'}
                 </button>
               )}
 
@@ -494,9 +583,11 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.12em', textAlign: 'center', marginTop: 14 }}>
-            ※ HOST REVIEWS AND ACCEPTS REGISTRATIONS MANUALLY
-          </div>
+          {event.privacy !== 'public' && (
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.12em', textAlign: 'center', marginTop: 14 }}>
+              ※ HOST REVIEWS AND ACCEPTS REGISTRATIONS MANUALLY
+            </div>
+          )}
         </aside>
       </div>
 

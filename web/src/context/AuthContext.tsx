@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '@/types';
 import { storage } from '@/lib/storage';
+import api from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -23,11 +24,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedToken = storage.getToken();
     const storedUser = storage.getUser();
-    if (storedToken && storedUser) {
+    if (storedToken) {
       setToken(storedToken);
-      setUser(storedUser);
+      if (storedUser) {
+        setUser(storedUser);
+        setIsLoading(false);
+      } else {
+        // Token exists but user data is missing (e.g. iOS PWA cleared localStorage).
+        // Re-fetch from API using the saved token.
+        api.get('/auth/me')
+          .then(({ data }) => {
+            const fetchedUser = data.data.user as User;
+            storage.setUser(fetchedUser);
+            setUser(fetchedUser);
+          })
+          .catch(() => {
+            storage.clear();
+            setToken(null);
+          })
+          .finally(() => setIsLoading(false));
+      }
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const login = useCallback((newToken: string, newUser: User, refreshToken?: string) => {

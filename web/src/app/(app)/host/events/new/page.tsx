@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { X, Film, Image as ImageIcon, Plus, MapPin } from 'lucide-react';
+import { getImageUrl } from '@/lib/utils';
 import api from '@/lib/api';
 
 const CATEGORIES = [
@@ -87,18 +88,24 @@ const labelStyle: React.CSSProperties = {
   color: 'var(--dim)', textTransform: 'uppercase',
 };
 
-export default function NewEventPage() {
+function EventFormContent() {
   const router   = useRouter();
+  const searchParams = useSearchParams();
+  const editId   = searchParams.get('edit');
+  const isEditing = !!editId;
+
   const isMobile = useIsMobile();
   const [step, setStep]     = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState('');
   const [done, setDone]     = useState(false);
+  const [editLoading, setEditLoading] = useState(isEditing);
 
   const [images, setImages]               = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [videos, setVideos]               = useState<File[]>([]);
   const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
 
   // Pricing state
   const [pricingMode, setPricingMode] = useState<'common' | 'split'>('common');
@@ -125,6 +132,49 @@ export default function NewEventPage() {
     const current = form[field];
     set(field, current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag]);
   };
+
+  // Load existing event data when editing
+  useEffect(() => {
+    if (!editId) return;
+    api.get(`/events/${editId}`)
+      .then(({ data }) => {
+        const ev = data.data.event;
+        setForm({
+          title: ev.title ?? '',
+          description: ev.description ?? '',
+          category: ev.category ?? 'house_party',
+          date: ev.date ? ev.date.split('T')[0] : '',
+          startTime: ev.startTime ?? '',
+          endTime: ev.endTime ?? '',
+          locationName: ev.locationName ?? '',
+          address: ev.address ?? '',
+          locationLink: ev.locationLink ?? '',
+          capacity: String(ev.capacity ?? 100),
+          privacy: ev.privacy ?? 'public',
+          approvalRequired: ev.approvalRequired ?? false,
+          ageLimit: ev.ageLimit ? String(ev.ageLimit) : '',
+          refundPolicy: ev.refundPolicy ?? '',
+          rules: ev.rules ?? '',
+          exactAddressHiddenBeforeBooking: ev.exactAddressHiddenBeforeBooking ?? false,
+          status: ev.status ?? 'draft',
+          vibeTags: ev.vibeTags ?? [],
+          musicTags: ev.musicTags ?? [],
+        });
+        setExistingImages(ev.images ?? []);
+        if (ev.pricingData) {
+          try {
+            const pd = typeof ev.pricingData === 'string' ? JSON.parse(ev.pricingData) : ev.pricingData;
+            if (pd.mode) setPricingMode(pd.mode);
+            if (pd.tiers?.length) setTiers(pd.tiers);
+            if (pd.groups?.length) setGroupPricing(pd.groups);
+          } catch { /* use defaults */ }
+        } else {
+          setTiers([{ id: uid(), label: 'General', commonPrice: String(ev.price ?? 0), malePrice: '0', femalePrice: '0', capacity: '' }]);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setEditLoading(false));
+  }, [editId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tier helpers
   const addTier    = () => setTiers((t) => [...t, { id: uid(), label: '', commonPrice: '0', malePrice: '0', femalePrice: '0', capacity: '' }]);
@@ -193,23 +243,33 @@ export default function NewEventPage() {
       fd.append('pricingData', JSON.stringify({ mode: pricingMode, tiers, groups: groupPricing }));
 
       if (publish) fd.set('status', 'published');
+      existingImages.forEach((img) => fd.append('existingImages', img));
       images.forEach((img) => fd.append('images', img));
       videos.forEach((vid) => fd.append('videos', vid));
 
-      const { data } = await api.post('/events', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-
-      if (publish && data.data.event?.status !== 'published') {
-        await api.patch(`/events/${data.data.event._id}/publish`);
+      let eventId: string;
+      if (isEditing) {
+        const { data } = await api.put(`/events/${editId}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        eventId = data.data.event._id;
+        if (publish && data.data.event?.status !== 'published') {
+          await api.patch(`/events/${eventId}/publish`);
+        }
+      } else {
+        const { data } = await api.post('/events', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        eventId = data.data.event._id;
+        if (publish && data.data.event?.status !== 'published') {
+          await api.patch(`/events/${eventId}/publish`);
+        }
       }
 
       setDone(true);
-      setTimeout(() => router.push(`/host/events/${data.data.event._id}`), 1500);
+      setTimeout(() => router.push(`/host/events/${eventId}`), 1500);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string; errors?: { field: string; message: string }[] } } };
       const fieldErrors = e.response?.data?.errors;
       setError(fieldErrors?.length
         ? fieldErrors.map((fe) => `${fe.field}: ${fe.message}`).join(' · ')
-        : (e.response?.data?.message ?? 'Failed to create event'));
+        : (e.response?.data?.message ?? (isEditing ? 'Failed to update event' : 'Failed to create event')));
     } finally {
       setLoading(false);
     }
@@ -217,11 +277,23 @@ export default function NewEventPage() {
 
   const previewColor = PREVIEW_COLORS[form.category] ?? '#E8E1D2';
 
+  if (editLoading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '96px 0' }}>
+      <div style={{ width: 28, height: 28, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+    </div>
+  );
+
   if (done) return (
     <div style={{ padding: '80px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <span className="stamp" style={{ color: 'var(--lime)', fontSize: 18, padding: '14px 20px 12px', animation: 'stickIn .5s cubic-bezier(.5, 1.6, .4, 1) both' }}>✓ ON THE BOARD</span>
-      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'clamp(40px,5vw,64px)', lineHeight: 0.95, letterSpacing: '-0.03em', marginTop: 28 }}>You&apos;re live.</div>
-      <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream)', letterSpacing: '.08em', marginTop: 12 }}>YOUR EVENT IS UP. WE&apos;LL NOTIFY YOUR FOLLOWERS.</div>
+      <span className="stamp" style={{ color: 'var(--lime)', fontSize: 18, padding: '14px 20px 12px', animation: 'stickIn .5s cubic-bezier(.5, 1.6, .4, 1) both' }}>
+        {isEditing ? '✓ CHANGES SAVED' : '✓ ON THE BOARD'}
+      </span>
+      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'clamp(40px,5vw,64px)', lineHeight: 0.95, letterSpacing: '-0.03em', marginTop: 28 }}>
+        {isEditing ? 'Event updated.' : 'You\'re live.'}
+      </div>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream)', letterSpacing: '.08em', marginTop: 12 }}>
+        {isEditing ? 'YOUR CHANGES ARE LIVE.' : 'YOUR EVENT IS UP. WE\'LL NOTIFY YOUR FOLLOWERS.'}
+      </div>
     </div>
   );
 
@@ -243,10 +315,15 @@ export default function NewEventPage() {
         paddingBottom: isMobile ? 20 : 24, borderBottom: '1px solid var(--line)',
       }}>
         <div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 8 }}>NEW EVENT</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.14em', color: 'var(--dim)', marginBottom: 8 }}>
+            {isEditing ? 'EDIT EVENT' : 'NEW EVENT'}
+          </div>
           <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 'clamp(36px,10vw,52px)' : 'clamp(40px, 5vw, 64px)', lineHeight: 0.95, letterSpacing: '-0.03em', margin: 0 }}>
-            Throw something<br />
-            <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>tonight.</span>
+            {isEditing ? (
+              <>{form.title || 'Edit your event'}</>
+            ) : (
+              <>Throw something<br /><span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>tonight.</span></>
+            )}
           </h1>
         </div>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', alignSelf: 'flex-end' }}>STEP {step} OF 2</div>
@@ -417,10 +494,19 @@ export default function NewEventPage() {
                 </div>
               </Field>
 
-              <Field label="IMAGES" hint={`${imagePreviews.length}/5`}>
+              <Field label="IMAGES" hint={`${existingImages.length + imagePreviews.length}/5`}>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '80px' : '100px'}, 1fr))`, gap: isMobile ? 8 : 10 }}>
+                  {existingImages.map((src, i) => (
+                    <div key={`ex-${i}`} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--line-2)' }}>
+                      <img src={getImageUrl(src)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button type="button" onClick={() => setExistingImages((prev) => prev.filter((_, idx) => idx !== i))}
+                        style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
                   {imagePreviews.map((src, i) => (
-                    <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--line-2)' }}>
+                    <div key={`new-${i}`} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--line-2)' }}>
                       <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       <button type="button" onClick={() => removeImage(i)}
                         style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -428,7 +514,7 @@ export default function NewEventPage() {
                       </button>
                     </div>
                   ))}
-                  {imagePreviews.length < 5 && (
+                  {existingImages.length + imagePreviews.length < 5 && (
                     <label
                       style={{ aspectRatio: '1', borderRadius: 10, border: '2px dashed var(--line-2)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', transition: 'border-color .15s ease' }}
                       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--lime)')}
@@ -782,5 +868,13 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       </div>
       {children}
     </div>
+  );
+}
+
+export default function NewEventPage() {
+  return (
+    <Suspense fallback={null}>
+      <EventFormContent />
+    </Suspense>
   );
 }
