@@ -8,15 +8,162 @@ import {
   Image,
   StatusBar,
   Dimensions,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 const { width } = Dimensions.get('window');
 const COVER_H = Math.round(width * 0.56);
+
+// ─── UPI Payment Modal ────────────────────────────────────────────────────────
+
+function UPIPaymentModal({
+  visible,
+  onClose,
+  amount,
+  bookingId,
+  onSuccess,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  amount: number;
+  bookingId: string;
+  onSuccess: () => void;
+}) {
+  const [utr, setUtr] = useState('');
+  const [proofUri, setProofUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const pickProof = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access to upload proof.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    if (!result.canceled && result.assets[0]) setProofUri(result.assets[0].uri);
+  };
+
+  const handleSubmit = async () => {
+    if (!utr.trim()) { Alert.alert('Required', 'Enter the UTR / transaction ID.'); return; }
+    setSubmitting(true);
+    try {
+      let proofUrl: string | undefined;
+      if (proofUri) {
+        setUploading(true);
+        const form = new FormData();
+        form.append('proof', { uri: proofUri, name: 'proof.jpg', type: 'image/jpeg' } as any);
+        const { data: uploadRes } = await api.post('/payments/upload-proof', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        proofUrl = uploadRes.data.url;
+        setUploading(false);
+      }
+      await api.post('/payments/upi-submit', {
+        bookingId,
+        utrNumber: utr.trim(),
+        transactionProofUrl: proofUrl,
+      });
+      onSuccess();
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.message ?? 'Submission failed');
+    } finally {
+      setSubmitting(false);
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' }} activeOpacity={1} onPress={onClose} />
+        <View style={{ backgroundColor: '#0F172A', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 }}>
+          {/* Handle */}
+          <View style={{ width: 36, height: 4, backgroundColor: '#334155', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
+
+          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 4 }}>Pay via UPI</Text>
+          <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 20 }}>
+            Scan the QR with any UPI app and pay <Text style={{ color: '#F59E0B', fontWeight: '700' }}>₹{amount}</Text>
+          </Text>
+
+          {/* QR Code */}
+          <View style={{ alignItems: 'center', marginBottom: 20 }}>
+            <Image
+              source={require('@/assets/upi-qr.png')}
+              style={{ width: 220, height: 220, borderRadius: 12, backgroundColor: '#fff' }}
+              resizeMode="contain"
+            />
+            <Text style={{ color: '#64748B', fontSize: 11, marginTop: 8 }}>Pay ₹{amount} to Clique</Text>
+          </View>
+
+          {/* UTR */}
+          <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.5 }}>UTR / TRANSACTION ID *</Text>
+          <TextInput
+            style={{
+              backgroundColor: '#1E293B', color: '#fff', borderRadius: 10,
+              padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#334155', marginBottom: 14,
+            }}
+            placeholder="Enter 12-digit UTR number"
+            placeholderTextColor="#475569"
+            value={utr}
+            onChangeText={setUtr}
+            keyboardType="default"
+            autoCapitalize="characters"
+          />
+
+          {/* Proof upload */}
+          <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.5 }}>TRANSACTION SCREENSHOT</Text>
+          <TouchableOpacity
+            onPress={pickProof}
+            style={{
+              backgroundColor: '#1E293B', borderRadius: 10, borderWidth: 1,
+              borderColor: proofUri ? '#2563EB' : '#334155', borderStyle: 'dashed',
+              padding: 14, alignItems: 'center', marginBottom: 20, flexDirection: 'row', gap: 10,
+            }}
+          >
+            {proofUri ? (
+              <>
+                <Image source={{ uri: proofUri }} style={{ width: 40, height: 40, borderRadius: 6 }} />
+                <Text style={{ color: '#60A5FA', fontSize: 13, flex: 1 }}>Screenshot selected — tap to change</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="image-outline" size={20} color="#475569" />
+                <Text style={{ color: '#64748B', fontSize: 13 }}>Upload payment screenshot (optional)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Submit */}
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={submitting}
+            style={{
+              backgroundColor: submitting ? '#1D4ED8' : '#2563EB',
+              borderRadius: 14, paddingVertical: 16, alignItems: 'center',
+            }}
+            activeOpacity={0.85}
+          >
+            {submitting
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                  {uploading ? 'Uploading…' : 'Submit Payment Proof'}
+                </Text>
+            }
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,28 +171,39 @@ export default function EventDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
   const router = useRouter();
   const { user } = useAuth();
 
-  useEffect(() => {
+  const refreshEvent = () =>
     api.get(`/events/${id}`)
       .then(({ data }) => {
         setEvent(data.data?.event);
         setSaved(data.data?.event?.isSaved ?? false);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
+
+  useEffect(() => {
+    refreshEvent().finally(() => setLoading(false));
   }, [id]);
 
   const handleBook = async () => {
     if (!event) return;
     setBooking(true);
     try {
-      await api.post('/bookings', { eventId: event._id });
-      Alert.alert('Booked!', 'Your pass is confirmed.', [
-        { text: 'View Pass', onPress: () => router.push('/(main)/passes') },
-        { text: 'OK' },
-      ]);
+      const { data } = await api.post('/bookings', { eventId: event._id });
+      const createdBooking = data.data?.booking;
+
+      if (event.price > 0 && createdBooking?.status === 'payment_pending') {
+        // Open UPI payment modal for paid events
+        setUpiModal({ bookingId: createdBooking._id, amount: event.price });
+      } else {
+        // Free event — pass is already generated
+        Alert.alert('Booked!', 'Your pass is confirmed.', [
+          { text: 'View Pass', onPress: () => router.push('/(main)/passes') },
+          { text: 'OK' },
+        ]);
+      }
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message ?? 'Booking failed');
     } finally { setBooking(false); }
@@ -73,6 +231,15 @@ export default function EventDetailScreen() {
     } catch { }
   };
 
+  const handleUPISuccess = () => {
+    setUpiModal(null);
+    Alert.alert(
+      'Proof Submitted!',
+      'Your payment proof has been submitted. You\'ll be notified once it\'s verified.',
+      [{ text: 'OK', onPress: () => refreshEvent() }]
+    );
+  };
+
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0A0A0F', alignItems: 'center', justifyContent: 'center' }}>
@@ -98,6 +265,7 @@ export default function EventDetailScreen() {
   const isOwnEvent = event.hostId?._id === user?._id;
   const isPrivate = event.privacy === 'private';
   const isBooked = event.userBookingStatus === 'confirmed';
+  const isPaymentPending = event.userBookingStatus === 'payment_pending';
   const dateStr = event.date
     ? new Date(event.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })
     : null;
@@ -105,6 +273,16 @@ export default function EventDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#0A0A0F' }}>
       <StatusBar barStyle="light-content" />
+
+      {upiModal && (
+        <UPIPaymentModal
+          visible
+          onClose={() => setUpiModal(null)}
+          amount={upiModal.amount}
+          bookingId={upiModal.bookingId}
+          onSuccess={handleUPISuccess}
+        />
+      )}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Cover image */}
@@ -115,7 +293,6 @@ export default function EventDetailScreen() {
                 <Ionicons name="calendar" size={56} color="#374151" />
               </View>
           }
-          {/* Gradient overlay for back/save buttons */}
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', padding: 16, paddingTop: 52 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <TouchableOpacity
@@ -136,17 +313,13 @@ export default function EventDetailScreen() {
 
         {/* Content */}
         <View style={{ padding: 20 }}>
-          {/* Title + privacy badge */}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
             <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', flex: 1, lineHeight: 28, marginRight: 12 }}>
               {event.title}
             </Text>
             <View style={{
               backgroundColor: isPrivate ? '#422006' : '#14532d',
-              borderRadius: 8,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              marginTop: 4,
+              borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4,
             }}>
               <Text style={{ color: isPrivate ? '#fb923c' : '#4ade80', fontSize: 11, fontWeight: '700' }}>
                 {isPrivate ? 'Private' : 'Public'}
@@ -154,7 +327,6 @@ export default function EventDetailScreen() {
             </View>
           </View>
 
-          {/* Host */}
           <TouchableOpacity
             onPress={() => router.push(`/user/${event.hostId?._id}`)}
             style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
@@ -174,7 +346,6 @@ export default function EventDetailScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Info pills row */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
             {dateStr && <InfoPill icon="calendar-outline" label={dateStr} />}
             {(event.startTime || event.endTime) && (
@@ -193,14 +364,12 @@ export default function EventDetailScreen() {
             />
           </View>
 
-          {/* Description */}
           {event.description ? (
             <Section title="About">
               <Text style={{ color: '#9CA3AF', fontSize: 14, lineHeight: 22 }}>{event.description}</Text>
             </Section>
           ) : null}
 
-          {/* Vibe tags */}
           {event.vibeTags?.length ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
               {event.vibeTags.map((tag: string) => (
@@ -211,14 +380,12 @@ export default function EventDetailScreen() {
             </View>
           ) : null}
 
-          {/* Rules */}
           {event.rules ? (
             <Section title="Rules">
               <Text style={{ color: '#9CA3AF', fontSize: 14, lineHeight: 22 }}>{event.rules}</Text>
             </Section>
           ) : null}
 
-          {/* Refund */}
           {event.refundPolicy ? (
             <Section title="Refund Policy">
               <Text style={{ color: '#9CA3AF', fontSize: 14, lineHeight: 22 }}>{event.refundPolicy}</Text>
@@ -239,6 +406,20 @@ export default function EventDetailScreen() {
             <View style={{ backgroundColor: '#111827', borderRadius: 14, paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
               <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
               <Text style={{ color: '#22c55e', fontWeight: '700', fontSize: 15 }}>You're going!</Text>
+            </View>
+          ) : isPaymentPending ? (
+            <View style={{ gap: 10 }}>
+              <View style={{ backgroundColor: '#1C1600', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="time-outline" size={16} color="#F59E0B" />
+                <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', flex: 1 }}>Payment proof under review</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => event._id && setUpiModal({ bookingId: event.userBookingId, amount: event.price })}
+                style={{ backgroundColor: '#1F2937', borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
+                activeOpacity={0.85}
+              >
+                <Text style={{ color: '#94A3B8', fontWeight: '600', fontSize: 14 }}>Resubmit / Update Proof</Text>
+              </TouchableOpacity>
             </View>
           ) : isPrivate && !event.userBookingStatus ? (
             <TouchableOpacity

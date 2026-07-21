@@ -1,9 +1,15 @@
 import { Router } from 'express';
 import express from 'express';
 import { authenticate } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/role.middleware';
 import { validate } from '../middleware/validate.middleware';
-import { createOrderSchema, verifyPaymentSchema } from '../validators/payment.validator';
-import { createPaymentOrder, verifyPaymentHandler, webhookHandler } from '../controllers/payment.controller';
+import { createOrderSchema, verifyPaymentSchema, submitUPISchema } from '../validators/payment.validator';
+import {
+  createPaymentOrder, verifyPaymentHandler, webhookHandler,
+  submitUPIHandler, adminVerifyPaymentHandler, adminRejectPaymentHandler, listPendingPaymentsHandler,
+  uploadProofHandler,
+} from '../controllers/payment.controller';
+import { uploadImage } from '../middleware/upload.middleware';
 
 const router = Router();
 
@@ -18,5 +24,12 @@ router.use(authenticate);
 
 router.post('/create-order', validate(createOrderSchema), createPaymentOrder);
 router.post('/verify', validate(verifyPaymentSchema), verifyPaymentHandler);
+router.post('/upload-proof', uploadImage.single('proof'), uploadProofHandler);
+router.post('/upi-submit', validate(submitUPISchema), submitUPIHandler);
+
+// Admin: list and verify UPI payments
+router.get('/pending', requireRole('admin'), listPendingPaymentsHandler);
+router.patch('/:paymentId/verify', requireRole('admin'), adminVerifyPaymentHandler);
+router.patch('/:paymentId/reject', requireRole('admin'), adminRejectPaymentHandler);
 
 export default router;

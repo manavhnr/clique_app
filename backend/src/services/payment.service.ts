@@ -202,6 +202,114 @@ export async function handleWebhook(rawBody: Buffer, signature: string) {
   }
 }
 
+// ─── Submit UPI Payment ───────────────────────────────────────────────────────
+
+export async function submitUPIPayment(
+  bookingId: string,
+  userId: string,
+  utrNumber: string,
+  transactionProofUrl?: string
+) {
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw createError('Booking not found', 404);
+  if (booking.userId.toString() !== userId) throw createError('Forbidden', 403);
+  if (booking.status !== 'payment_pending') throw createError('Booking does not require payment', 400);
+
+  const event = await Event.findById(booking.eventId).select('title price platformFee status');
+  if (!event || event.status === 'cancelled') throw createError('Event no longer available', 400);
+
+  // Idempotency: if a pending_verification payment already exists, just return it
+  const existing = await Payment.findOne({ bookingId, status: 'pending_verification' });
+  if (existing) {
+    await Payment.findByIdAndUpdate(existing._id, { utrNumber, transactionProofUrl });
+    return { paymentId: existing._id, status: 'pending_verification' };
+  }
+
+  const totalAmount = Math.round((event.price + (event.platformFee ?? 0)) * 100);
+
+  const payment = await Payment.create({
+    bookingId,
+    userId,
+    eventId: booking.eventId,
+    paymentMethod: 'upi',
+    utrNumber,
+    transactionProofUrl,
+    amount: totalAmount,
+    currency: 'INR',
+    status: 'pending_verification',
+  });
+
+  await writeAuditLog({
+    actorId: userId,
+    action: 'UPI_PAYMENT_SUBMITTED',
+    targetType: 'Payment',
+    targetId: payment._id.toString(),
+    metadata: { bookingId, utrNumber, amount: totalAmount },
+  });
+
+  return { paymentId: payment._id, status: 'pending_verification' };
+}
+
+// ─── Admin: Verify UPI Payment ────────────────────────────────────────────────
+
+export async function adminVerifyUPIPayment(paymentId: string, adminId: string) {
+  const payment = await Payment.findById(paymentId);
+  if (!payment) throw createError('Payment not found', 404);
+  if (payment.status !== 'pending_verification') throw createError('Payment is not pending verification', 400);
+  if (payment.paymentMethod !== 'upi') throw createError('Only UPI payments can be manually verified', 400);
+
+  await Payment.findByIdAndUpdate(paymentId, {
+    status: 'paid',
+    webhookVerified: true,
+    verifiedBy: adminId,
+  });
+
+  const booking = await Booking.findById(payment.bookingId);
+  if (!booking) throw createError('Booking not found', 404);
+
+  const eventDoc = await Event.findById(payment.eventId).select('title');
+  const { pass } = await confirmBookingAfterPayment(payment.bookingId.toString(), paymentId);
+  void notifyPaymentSuccess(payment.userId.toString(), eventDoc?.title || 'the event');
+
+  await writeAuditLog({
+    actorId: adminId,
+    action: 'UPI_PAYMENT_VERIFIED',
+    targetType: 'Payment',
+    targetId: paymentId,
+    metadata: { bookingId: payment.bookingId.toString() },
+  });
+
+  return { pass };
+}
+
+// ─── Admin: Reject UPI Payment ────────────────────────────────────────────────
+
+export async function adminRejectUPIPayment(paymentId: string, adminId: string) {
+  const payment = await Payment.findById(paymentId);
+  if (!payment) throw createError('Payment not found', 404);
+  if (payment.status !== 'pending_verification') throw createError('Payment is not pending verification', 400);
+
+  await Payment.findByIdAndUpdate(paymentId, { status: 'failed', verifiedBy: adminId });
+
+  await writeAuditLog({
+    actorId: adminId,
+    action: 'UPI_PAYMENT_REJECTED',
+    targetType: 'Payment',
+    targetId: paymentId,
+    metadata: { bookingId: payment.bookingId.toString() },
+  });
+}
+
+// ─── List Pending UPI Payments (admin) ───────────────────────────────────────
+
+export async function listPendingUPIPayments() {
+  return Payment.find({ paymentMethod: 'upi', status: 'pending_verification' })
+    .populate('userId', 'name username phone')
+    .populate('eventId', 'title date price')
+    .populate('bookingId', 'status')
+    .sort({ createdAt: -1 });
+}
+
 // ─── Refund (called when a paid booking is cancelled) ─────────────────────────
 
 /**

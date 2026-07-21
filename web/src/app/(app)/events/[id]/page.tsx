@@ -219,6 +219,10 @@ export default function EventDetailPage() {
   const [requestMsg, setRequestMsg] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [bookLoading, setBookLoading] = useState(false);
+  const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
+  const [utr, setUtr] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [upiSubmitting, setUpiSubmitting] = useState(false);
 
   useEffect(() => {
     api.get(`/events/${id}`)
@@ -244,6 +248,7 @@ export default function EventDetailPage() {
   const isRejected     = userRequest?.status === 'rejected';
   const isRegistered   = !!(isPending || isApproved);
   const paymentPending = !!(userBooking && (userBooking as any).status === 'payment_pending');
+  const paymentUnderReview = !!(userBooking && (userBooking as any).paymentStatus === 'pending_verification');
 
   // Social gate: check if user has required socials
   const missingSocials = (event?.requiresSocials && (event?.requiredSocials?.length ?? 0) > 0)
@@ -274,59 +279,18 @@ export default function EventDetailPage() {
     finally { setSaveLoading(false); }
   };
 
-  const loadRazorpayScript = (): Promise<void> =>
-    new Promise((resolve, reject) => {
-      if ((window as any).Razorpay) { resolve(); return; }
-      const s = document.createElement('script');
-      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Razorpay failed to load'));
-      document.body.appendChild(s);
-    });
-
-  const handlePay = async (bookingId: string): Promise<void> => {
-    const { data: orderRes } = await api.post('/payments/create-order', { bookingId });
-    await loadRazorpayScript();
-    return new Promise<void>((resolve, reject) => {
-      const rzp = new (window as any).Razorpay({
-        key: orderRes.data.keyId,
-        amount: orderRes.data.amount,
-        currency: orderRes.data.currency,
-        order_id: orderRes.data.orderId,
-        name: 'Clique',
-        description: event?.title ?? 'Event Booking',
-        handler: async (response: any) => {
-          try {
-            await api.post('/payments/verify', {
-              bookingId,
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            });
-            await refreshEvent();
-            resolve();
-          } catch (verifyErr: unknown) {
-            const e = verifyErr as { response?: { data?: { message?: string } } };
-            setError(e.response?.data?.message ?? 'Payment verification failed');
-            reject(verifyErr);
-          }
-        },
-        modal: { ondismiss: () => resolve() },
-      });
-      rzp.open();
-    });
-  };
-
   const handleBook = async () => {
     if (!event) return;
     setError(''); setBookLoading(true);
     try {
-      if (event.price === 0) {
-        await api.post('/bookings', { eventId: id });
-        await refreshEvent();
+      const { data: bookRes } = await api.post('/bookings', { eventId: id });
+      const createdBooking = bookRes.data?.booking;
+      if (event.price > 0 && createdBooking?.status === 'payment_pending') {
+        setUtr('');
+        setProofFile(null);
+        setUpiModal({ bookingId: createdBooking._id, amount: event.price });
       } else {
-        const { data: bookRes } = await api.post('/bookings', { eventId: id });
-        await handlePay(bookRes.data.booking._id);
+        await refreshEvent();
       }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
@@ -334,15 +298,38 @@ export default function EventDetailPage() {
     } finally { setBookLoading(false); }
   };
 
-  const handleCompletePayment = async () => {
-    if (!userBooking) return;
-    setError(''); setBookLoading(true);
+  const handleCompletePayment = () => {
+    if (!userBooking || !event) return;
+    setUtr('');
+    setProofFile(null);
+    setUpiModal({ bookingId: (userBooking as any)._id, amount: event.price });
+  };
+
+  const handleUPISubmit = async () => {
+    if (!upiModal) return;
+    if (!utr.trim()) { setError('Enter the UTR / transaction ID.'); return; }
+    setError(''); setUpiSubmitting(true);
     try {
-      await handlePay((userBooking as any)._id);
+      let proofUrl: string | undefined;
+      if (proofFile) {
+        const form = new FormData();
+        form.append('proof', proofFile);
+        const { data: uploadRes } = await api.post('/payments/upload-proof', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        proofUrl = uploadRes.data.url;
+      }
+      await api.post('/payments/upi-submit', {
+        bookingId: upiModal.bookingId,
+        utrNumber: utr.trim(),
+        transactionProofUrl: proofUrl,
+      });
+      setUpiModal(null);
+      await refreshEvent();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Payment failed');
-    } finally { setBookLoading(false); }
+      setError(e.response?.data?.message ?? 'Submission failed');
+    } finally { setUpiSubmitting(false); }
   };
 
   if (loading) return (
@@ -541,6 +528,18 @@ export default function EventDetailPage() {
                     Connect socials in profile →
                   </button>
                 </div>
+              ) : paymentUnderReview ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ border: '1px dashed rgba(245,158,11,0.4)', borderRadius: 3, padding: '14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--gold)', letterSpacing: '.1em' }}>⏳ PAYMENT PROOF UNDER REVIEW</span>
+                  </div>
+                  <button
+                    onClick={handleCompletePayment}
+                    style={{ width: '100%', background: 'transparent', color: 'var(--cream)', border: '1px solid var(--line-2)', padding: '14px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', cursor: 'pointer' }}
+                  >
+                    RESUBMIT / UPDATE PROOF →
+                  </button>
+                </div>
               ) : paymentPending ? (
                 <button
                   onClick={handleCompletePayment}
@@ -590,6 +589,65 @@ export default function EventDetailPage() {
           )}
         </aside>
       </div>
+
+      {/* UPI Payment modal */}
+      {upiModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: 20 }} onClick={() => setUpiModal(null)}>
+          <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 10, width: '100%', maxWidth: 440, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.8)', animation: 'riseIn .25s cubic-bezier(.4,1.4,.5,1) both' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #1E293B' }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20 }}>Pay via UPI</div>
+              <button onClick={() => setUpiModal(null)} aria-label="Close" style={{ background: 'transparent', border: 'none', color: '#64748B', fontSize: 28, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 14, color: '#94A3B8', lineHeight: 1.5 }}>
+                Scan the QR with any UPI app and pay{' '}
+                <strong style={{ color: '#F59E0B', fontSize: 16 }}>₹{upiModal.amount}</strong>{' '}
+                to Clique.
+              </div>
+
+              {/* QR Code */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <img src="/upi-qr.png" alt="UPI QR Code" style={{ width: 220, height: 220, borderRadius: 10, background: '#fff', padding: 8, objectFit: 'contain' }} />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.1em' }}>SCAN & PAY ₹{upiModal.amount}</span>
+              </div>
+
+              {/* UTR input */}
+              <div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>UTR / TRANSACTION ID *</div>
+                <input
+                  className="clique-input"
+                  style={{ width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 6, boxSizing: 'border-box' }}
+                  placeholder="Enter 12-digit UTR number"
+                  value={utr}
+                  onChange={(e) => setUtr(e.target.value)}
+                />
+              </div>
+
+              {/* Proof upload */}
+              <div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>TRANSACTION SCREENSHOT (OPTIONAL)</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px dashed #334155', borderRadius: 6, padding: 12, cursor: 'pointer', color: proofFile ? '#60A5FA' : '#64748B', fontFamily: 'var(--display)', fontSize: 13 }}>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setProofFile(e.target.files?.[0] ?? null)} />
+                  {proofFile ? `✓ ${proofFile.name}` : '+ Upload payment screenshot'}
+                </label>
+              </div>
+
+              {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.06em' }}>{error}</div>}
+
+              <button
+                onClick={handleUPISubmit}
+                disabled={upiSubmitting}
+                style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: upiSubmitting ? 'not-allowed' : 'pointer', opacity: upiSubmitting ? 0.6 : 1 }}
+              >
+                {upiSubmitting ? 'SUBMITTING…' : 'SUBMIT PAYMENT PROOF →'}
+              </button>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.08em', textAlign: 'center' }}>
+                YOUR PASS WILL BE ISSUED AFTER VERIFICATION
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirm registration modal */}
       {confirmOpen && (

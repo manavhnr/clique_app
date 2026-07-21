@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendSuccess } from '../utils/response';
-import { createOrder, verifyPayment, handleWebhook } from '../services/payment.service';
+import { uploadFile } from '../utils/cloudinary';
+import { createOrder, verifyPayment, handleWebhook, submitUPIPayment, adminVerifyUPIPayment, adminRejectUPIPayment, listPendingUPIPayments } from '../services/payment.service';
 
 export async function createPaymentOrder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -22,6 +23,46 @@ export async function verifyPaymentHandler(req: AuthRequest, res: Response, next
       razorpaySignature
     );
     sendSuccess(res, result, 'Payment verified. Pass generated.');
+  } catch (err) { next(err); }
+}
+
+export async function uploadProofHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) { res.status(400).json({ success: false, message: 'No file uploaded' }); return; }
+    const url = await uploadFile(file, 'clique/payment-proofs');
+    sendSuccess(res, { url }, 'Proof uploaded');
+  } catch (err) { next(err); }
+}
+
+export async function submitUPIHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { bookingId, utrNumber, transactionProofUrl } = req.body;
+    const result = await submitUPIPayment(bookingId, req.user!.userId, utrNumber, transactionProofUrl);
+    sendSuccess(res, result, 'Payment proof submitted. Awaiting verification.');
+  } catch (err) { next(err); }
+}
+
+export async function adminVerifyPaymentHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { paymentId } = req.params;
+    const result = await adminVerifyUPIPayment(paymentId, req.user!.userId);
+    sendSuccess(res, result, 'Payment verified. Pass generated.');
+  } catch (err) { next(err); }
+}
+
+export async function adminRejectPaymentHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { paymentId } = req.params;
+    await adminRejectUPIPayment(paymentId, req.user!.userId);
+    sendSuccess(res, null, 'Payment rejected.');
+  } catch (err) { next(err); }
+}
+
+export async function listPendingPaymentsHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const payments = await listPendingUPIPayments();
+    sendSuccess(res, { payments }, 'Pending UPI payments');
   } catch (err) { next(err); }
 }
 

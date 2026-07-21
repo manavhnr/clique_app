@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { Pass, Event, Booking } from '@/types';
-import { useAuth } from '@/context/AuthContext';
-import { usePayment } from '@/hooks/usePayment';
 import { formatDate, formatPrice } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -142,9 +140,6 @@ const TABS = [
 export default function PassesPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
-  const { user } = useAuth();
-  const { paying, initiatePayment } = usePayment();
-
   const [passes, setPasses] = useState<PassGroup>({ upcoming: [], past: [], cancelled: [] });
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +147,11 @@ export default function PassesPage() {
   const [openPass, setOpenPass] = useState<Pass | null>(null);
   const [passDetail, setPassDetail] = useState<Pass | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
+  const [utr, setUtr] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [upiSubmitting, setUpiSubmitting] = useState(false);
+  const [upiError, setUpiError] = useState('');
 
   const fetchData = () => {
     return Promise.all([
@@ -183,14 +183,30 @@ export default function PassesPage() {
   };
 
   const handleCompletePayment = (booking: Booking) => {
-    const evt = typeof booking.eventId === 'object' ? booking.eventId as Event : null;
-    initiatePayment({
-      bookingId: booking._id,
-      eventTitle: evt?.title ?? 'Event',
-      userName: user?.name ?? '',
-      onSuccess: () => { setLoading(true); fetchData(); },
-      onDismiss: () => {},
-    });
+    setUtr(''); setProofFile(null); setUpiError('');
+    setUpiModal({ bookingId: booking._id, amount: booking.amount / 100 });
+  };
+
+  const handleUPISubmit = async () => {
+    if (!upiModal) return;
+    if (!utr.trim()) { setUpiError('Enter the UTR / transaction ID.'); return; }
+    setUpiError(''); setUpiSubmitting(true);
+    try {
+      let proofUrl: string | undefined;
+      if (proofFile) {
+        const form = new FormData();
+        form.append('proof', proofFile);
+        const { data: uploadRes } = await api.post('/payments/upload-proof', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+        proofUrl = uploadRes.data.url;
+      }
+      await api.post('/payments/upi-submit', { bookingId: upiModal.bookingId, utrNumber: utr.trim(), transactionProofUrl: proofUrl });
+      setUpiModal(null);
+      setLoading(true);
+      fetchData();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setUpiError(e.response?.data?.message ?? 'Submission failed');
+    } finally { setUpiSubmitting(false); }
   };
 
   const displayPasses = passes[activeTab];
@@ -246,8 +262,8 @@ export default function PassesPage() {
                       {formatPrice(booking.amount)} DUE
                     </div>
                   </div>
-                  <button onClick={() => handleCompletePayment(booking)} disabled={paying}
-                    style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '11px 16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', cursor: paying ? 'not-allowed' : 'pointer', opacity: paying ? 0.6 : 1, flexShrink: 0 }}>
+                  <button onClick={() => handleCompletePayment(booking)}
+                    style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '11px 16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0 }}>
                     Pay now →
                   </button>
                 </div>
@@ -293,6 +309,44 @@ export default function PassesPage() {
           {displayPasses.map((pass) => (
             <PassCard key={pass._id} pass={pass} onOpen={() => handleOpenPass(pass)} />
           ))}
+        </div>
+      )}
+
+      {/* UPI Payment modal */}
+      {upiModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: 20 }} onClick={() => setUpiModal(null)}>
+          <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 10, width: '100%', maxWidth: 440, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.8)', animation: 'riseIn .25s cubic-bezier(.4,1.4,.5,1) both' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #1E293B' }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20 }}>Pay via UPI</div>
+              <button onClick={() => setUpiModal(null)} aria-label="Close" style={{ background: 'transparent', border: 'none', color: '#64748B', fontSize: 28, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 14, color: '#94A3B8', lineHeight: 1.5 }}>
+                Scan the QR with any UPI app and pay{' '}
+                <strong style={{ color: '#F59E0B', fontSize: 16 }}>₹{upiModal.amount}</strong> to Clique.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <img src="/upi-qr.png" alt="UPI QR Code" style={{ width: 220, height: 220, borderRadius: 10, background: '#fff', padding: 8, objectFit: 'contain' }} />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.1em' }}>SCAN & PAY ₹{upiModal.amount}</span>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>UTR / TRANSACTION ID *</div>
+                <input className="clique-input" style={{ width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 6, boxSizing: 'border-box' }} placeholder="Enter UTR number" value={utr} onChange={(e) => setUtr(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>TRANSACTION SCREENSHOT (OPTIONAL)</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px dashed #334155', borderRadius: 6, padding: 12, cursor: 'pointer', color: proofFile ? '#60A5FA' : '#64748B', fontFamily: 'var(--display)', fontSize: 13 }}>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setProofFile(e.target.files?.[0] ?? null)} />
+                  {proofFile ? `✓ ${proofFile.name}` : '+ Upload payment screenshot'}
+                </label>
+              </div>
+              {upiError && <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.06em' }}>{upiError}</div>}
+              <button onClick={handleUPISubmit} disabled={upiSubmitting} style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: upiSubmitting ? 'not-allowed' : 'pointer', opacity: upiSubmitting ? 0.6 : 1 }}>
+                {upiSubmitting ? 'SUBMITTING…' : 'SUBMIT PAYMENT PROOF →'}
+              </button>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.08em', textAlign: 'center' }}>YOUR PASS WILL BE ISSUED AFTER VERIFICATION</div>
+            </div>
+          </div>
         </div>
       )}
 
