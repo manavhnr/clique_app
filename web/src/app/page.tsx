@@ -89,6 +89,129 @@ function Nav() {
   );
 }
 
+function HowItWorks() {
+  const { isMobile, isTablet } = useBreakpoint();
+  const hPad = isMobile ? '16px' : isTablet ? '28px' : '40px';
+
+  const steps = [
+    {
+      num: '01',
+      title: 'Discover',
+      body: 'Browse local events near you — house parties, club nights, college events, private gatherings, and more. Filter by date, distance, or vibe.',
+    },
+    {
+      num: '02',
+      title: 'Book',
+      body: 'Reserve your spot with a secure one-time payment per event. No subscription required. Receive a digital QR pass to your account instantly.',
+    },
+    {
+      num: '03',
+      title: 'Attend',
+      body: 'Show your QR pass at the door. The host scans it to confirm your entry. Your pass is unique, non-transferable, and single-use.',
+    },
+    {
+      num: '04',
+      title: 'Host',
+      body: 'Verified organisers can list events, set capacity and pricing, manage the guest list, and scan passes — all from one dashboard.',
+    },
+  ];
+
+  return (
+    <section style={{
+      borderTop: '1px solid var(--line)',
+      padding: `${isMobile ? '56px' : '80px'} ${hPad}`,
+      maxWidth: 1480, margin: '0 auto',
+    }}>
+      {/* About block */}
+      <div style={{ maxWidth: 720, marginBottom: isMobile ? 48 : 64 }}>
+        <div style={{
+          fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.16em',
+          textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 18,
+        }}>
+          About Clique
+        </div>
+        <h2 style={{
+          fontFamily: 'var(--display)', fontWeight: 800,
+          fontSize: isMobile ? 'clamp(28px, 7vw, 40px)' : 'clamp(32px, 3.5vw, 48px)',
+          letterSpacing: '-0.035em', lineHeight: 1.1,
+          color: 'var(--paper)', margin: 0,
+        }}>
+          A social platform for discovering and hosting local events
+        </h2>
+        <p style={{
+          fontFamily: 'var(--display)', fontSize: isMobile ? 15 : 17,
+          lineHeight: 1.7, color: 'var(--cream)',
+          marginTop: 20, maxWidth: '64ch',
+        }}>
+          Clique is a social platform that allows users to discover local gatherings, host events,
+          and manage RSVPs and check-ins. Attendees pay a one-time ticket price per event — there
+          are no subscriptions or hidden fees. Hosts receive 80% of net ticket revenue; Clique
+          retains a 20% platform commission.
+        </p>
+      </div>
+
+      {/* Steps grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : 'repeat(4, 1fr)',
+        gap: isMobile ? 24 : 20,
+      }}>
+        {steps.map(({ num, title, body }) => (
+          <div key={num} style={{
+            background: 'var(--card)', border: '1px solid var(--line)',
+            borderRadius: 8, padding: isMobile ? '20px 18px' : '24px 20px',
+          }}>
+            <div style={{
+              fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--lime)',
+              letterSpacing: '.1em', marginBottom: 10,
+            }}>
+              {num}
+            </div>
+            <div style={{
+              fontFamily: 'var(--display)', fontSize: isMobile ? 17 : 19,
+              fontWeight: 700, color: 'var(--paper)', marginBottom: 10,
+              letterSpacing: '-0.02em',
+            }}>
+              {title}
+            </div>
+            <p style={{
+              fontFamily: 'var(--display)', fontSize: 14, lineHeight: 1.65,
+              color: 'var(--cream)', margin: 0,
+            }}>
+              {body}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Legal / compliance note */}
+      <div style={{
+        marginTop: isMobile ? 36 : 48,
+        display: 'flex', flexWrap: 'wrap', gap: isMobile ? 10 : 16,
+        alignItems: 'center',
+      }}>
+        {[
+          { label: 'How it works',  href: '#how-it-works' },
+          { label: 'Pricing',       href: '/terms#payment' },
+          { label: 'Refund policy', href: '/refund' },
+          { label: 'Privacy',       href: '/privacy' },
+          { label: 'Terms',         href: '/terms' },
+          { label: 'Contact us',    href: '/contact' },
+        ].map(({ label, href }) => (
+          <Link key={label} href={href} style={{
+            fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em',
+            textTransform: 'uppercase', color: 'var(--dim)',
+            border: '1px solid var(--line)', borderRadius: 999,
+            padding: '6px 12px',
+          }}>
+            {label}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function SignupBand() {
   const { isMobile, isTablet } = useBreakpoint();
   const hPad = isMobile ? '16px' : isTablet ? '28px' : '40px';
@@ -143,7 +266,7 @@ function SignupBand() {
           marginTop: 18,
           textAlign: 'center',
         }}>
-          Find the secret. Everyone&apos;s invited.
+          Discover events. Book your pass. Show up.
         </p>
       </div>
     </section>
@@ -190,6 +313,7 @@ export default function LandingPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink)', color: 'var(--paper)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <Nav />
+      <HowItWorks />
       <SignupBand />
       <MiniFooter />
     </div>

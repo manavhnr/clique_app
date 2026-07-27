@@ -79,16 +79,17 @@ const TOC = [
   { id: 'overview',    label: '01', title: 'Overview' },
   { id: 'collect',     label: '02', title: 'Data We Collect' },
   { id: 'use',         label: '03', title: 'How We Use Your Data' },
-  { id: 'sharing',     label: '04', title: 'Sharing & Disclosure' },
-  { id: 'retention',   label: '05', title: 'Data Retention' },
-  { id: 'security',    label: '06', title: 'Security' },
-  { id: 'rights',      label: '07', title: 'Your Rights' },
-  { id: 'cookies',     label: '08', title: 'Cookies & Tracking' },
-  { id: 'children',    label: '09', title: 'Children\'s Privacy' },
-  { id: 'transfers',   label: '10', title: 'International Transfers' },
-  { id: 'dpdpa',       label: '11', title: 'DPDPA 2023 Compliance' },
-  { id: 'changes',     label: '12', title: 'Policy Changes' },
-  { id: 'contact',     label: '13', title: 'Contact Us' },
+  { id: 'payments',    label: '04', title: 'Payments & Billing' },
+  { id: 'sharing',     label: '05', title: 'Sharing & Disclosure' },
+  { id: 'retention',   label: '06', title: 'Data Retention' },
+  { id: 'security',    label: '07', title: 'Security' },
+  { id: 'rights',      label: '08', title: 'Your Rights' },
+  { id: 'cookies',     label: '09', title: 'Cookies & Tracking' },
+  { id: 'children',    label: '10', title: 'Children\'s Privacy' },
+  { id: 'transfers',   label: '11', title: 'International Transfers' },
+  { id: 'dpdpa',       label: '12', title: 'DPDPA 2023 Compliance' },
+  { id: 'changes',     label: '13', title: 'Policy Changes' },
+  { id: 'contact',     label: '14', title: 'Contact Us' },
 ];
 
 export default function PrivacyPage() {
@@ -242,8 +243,49 @@ export default function PrivacyPage() {
             ]} />
           </Section>
 
-          {/* 04 Sharing */}
-          <Section id="sharing" label="04 — Sharing" title="Sharing & Disclosure">
+          {/* 04 Payments & Billing */}
+          <Section id="payments" label="04 — Payments" title={<>Payments <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>&amp; Billing</span></>}>
+            <Highlight>
+              Clique is a ticketing and event management platform. Users pay a one-time fee per event ticket. There are no subscription fees, no recurring charges, and no hidden platform costs charged to attendees.
+            </Highlight>
+
+            <div style={{ ...mono, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B544A', paddingTop: 8 }}>
+              What You Pay For
+            </div>
+            <UL items={[
+              <><Strong>Event tickets (per-event, one-time):</Strong> When you book an event on Clique, you pay the ticket price set by the Host for that specific event. This is a single purchase — you are not enrolled in any subscription.</>,
+              <><Strong>No platform subscription:</Strong> Clique does not charge attendees any monthly, annual, or recurring subscription fee. Creating an account and browsing events is completely free.</>,
+              <><Strong>No booking surcharge hidden at checkout:</Strong> The price displayed on the event listing is the total price you pay, inclusive of Clique&apos;s platform fee. There are no additional charges added at checkout.</>,
+            ]} />
+
+            <div style={{ ...mono, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B544A', paddingTop: 8 }}>
+              Flow of Funds
+            </div>
+            <P>When an attendee purchases a ticket, the full ticket price is collected by Clique via Razorpay (our payment processor). Clique then distributes funds as follows:</P>
+            <UL items={[
+              <><Strong>80% to the Host</Strong> — paid within 7 business days after the event concludes, by electronic transfer to the Host&apos;s registered bank account.</>,
+              <><Strong>20% retained by Clique</Strong> — this is our platform commission and service fee, which covers payment processing costs, platform operations, fraud prevention, and customer support.</>,
+              <><Strong>Payment gateway fees</Strong> — Razorpay&apos;s transaction fees are deducted before calculating the Host&apos;s 80% share (i.e., from gross revenue before the split).</>,
+            ]} />
+
+            <div style={{ ...mono, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B544A', paddingTop: 8 }}>
+              Refunds & Cancellations
+            </div>
+            <UL items={[
+              <><Strong>Host cancels the event:</Strong> All affected attendees receive a full refund of the ticket price, processed within 5–7 business days to the original payment method.</>,
+              <><Strong>Attendee cancels:</Strong> Refund eligibility depends on the cancellation policy selected by the Host at the time of listing. The applicable policy is displayed on the event page before purchase.</>,
+              <><Strong>Force majeure:</Strong> In the case of government restrictions, natural disasters, or other force majeure events preventing an event from occurring, Clique will issue full refunds regardless of the Host&apos;s stated cancellation policy.</>,
+              <>Full details are available in our <a href="/refund" style={{ color: '#C9F36E', textDecoration: 'underline' }}>Refund Policy</a> and <a href="/terms#refunds" style={{ color: '#C9F36E', textDecoration: 'underline' }}>Terms of Service §08</a>.</>,
+            ]} />
+
+            <div style={{ ...mono, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B544A', paddingTop: 8 }}>
+              Payment Processor
+            </div>
+            <P>All payments are processed by <Strong>Razorpay</Strong> (razorpay.com), a PCI-DSS Level 1 compliant payment gateway regulated under applicable Indian law. Clique never stores your card number, CVV, or bank credentials. Clique verifies all payment signatures server-side; a frontend confirmation alone does not constitute a valid payment record.</P>
+          </Section>
+
+          {/* 05 Sharing */}
+          <Section id="sharing" label="05 — Sharing" title="Sharing & Disclosure">
             <Highlight>
               We do not sell, rent, or trade your personal data to any third party, ever.
             </Highlight>
@@ -258,8 +300,8 @@ export default function PrivacyPage() {
             ]} />
           </Section>
 
-          {/* 05 Retention */}
-          <Section id="retention" label="05 — Retention" title="Data Retention">
+          {/* 06 Retention */}
+          <Section id="retention" label="06 — Retention" title="Data Retention">
             <P>We retain your personal data only for as long as necessary for the purposes set out in this Policy or as required by law.</P>
             <UL items={[
               'Account data: retained while your account is active. Deleted within 30 days of account deletion request, subject to legal holds.',
@@ -271,8 +313,8 @@ export default function PrivacyPage() {
             ]} />
           </Section>
 
-          {/* 06 Security */}
-          <Section id="security" label="06 — Security" title="Security">
+          {/* 07 Security */}
+          <Section id="security" label="07 — Security" title="Security">
             <P>We implement appropriate technical and organisational measures to protect your personal data against unauthorised access, loss, destruction, or alteration.</P>
             <UL items={[
               'All data in transit is encrypted using TLS 1.2 or higher.',
@@ -287,8 +329,8 @@ export default function PrivacyPage() {
             </Highlight>
           </Section>
 
-          {/* 07 Your Rights */}
-          <Section id="rights" label="07 — Your Rights" title={<>Your <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>Rights</span></>}>
+          {/* 08 Your Rights */}
+          <Section id="rights" label="08 — Your Rights" title={<>Your <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>Rights</span></>}>
             <P>Under the Digital Personal Data Protection Act 2023 (India) and applicable law, you have the following rights:</P>
             <UL items={[
               <><Strong>Right to access:</Strong> You can request a copy of the personal data we hold about you.</>,
@@ -301,8 +343,8 @@ export default function PrivacyPage() {
             <P>To exercise any of these rights, email us at <a href="mailto:privacy@clique.app" style={{ color: '#C9F36E' }}>privacy@clique.app</a> or use the in-app support feature. We will respond within 30 days.</P>
           </Section>
 
-          {/* 08 Cookies */}
-          <Section id="cookies" label="08 — Cookies" title="Cookies & Tracking">
+          {/* 09 Cookies */}
+          <Section id="cookies" label="09 — Cookies" title="Cookies & Tracking">
             <P>The Clique mobile app does not use browser cookies. The Clique web platform uses the following minimal set of technologies:</P>
             <UL items={[
               <><Strong>Session storage:</Strong> A short-lived token stored in memory to maintain your login session. Cleared when you close the browser.</>,
@@ -313,22 +355,22 @@ export default function PrivacyPage() {
             ]} />
           </Section>
 
-          {/* 09 Children */}
-          <Section id="children" label="09 — Children" title="Children's Privacy">
+          {/* 10 Children */}
+          <Section id="children" label="10 — Children" title="Children's Privacy">
             <Highlight>
               Clique is strictly for users aged 18 and above. We do not knowingly collect personal data from anyone under 18.
             </Highlight>
             <P>If you believe a minor has registered on the Platform, please contact us immediately at <a href="mailto:privacy@clique.app" style={{ color: '#C9F36E' }}>privacy@clique.app</a> and we will delete the account and all associated data promptly.</P>
           </Section>
 
-          {/* 10 International */}
-          <Section id="transfers" label="10 — Transfers" title="International Transfers">
+          {/* 11 International */}
+          <Section id="transfers" label="11 — Transfers" title="International Transfers">
             <P>Clique is operated from India. If you access the Platform from outside India, your data may be processed in India or in other countries where our cloud providers operate.</P>
             <P>We ensure that any transfer of personal data outside India is made only to countries or recipients that provide adequate levels of data protection, or is subject to appropriate safeguards such as contractual clauses.</P>
           </Section>
 
-          {/* 11 DPDPA */}
-          <Section id="dpdpa" label="11 — DPDPA 2023" title={<>DPDPA 2023 <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>Compliance</span></>}>
+          {/* 12 DPDPA */}
+          <Section id="dpdpa" label="12 — DPDPA 2023" title={<>DPDPA 2023 <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>Compliance</span></>}>
             <P>Clique is committed to compliance with the <Strong>Digital Personal Data Protection Act, 2023</Strong> (India). The following measures are in place:</P>
             <UL items={[
               <><Strong>Consent:</Strong> We obtain explicit, informed consent before collecting personal data, presented in clear language at the point of collection.</>,
@@ -341,8 +383,8 @@ export default function PrivacyPage() {
             <P>Our Data Protection Officer can be reached at <a href="mailto:dpo@clique.app" style={{ color: '#C9F36E' }}>dpo@clique.app</a>.</P>
           </Section>
 
-          {/* 12 Changes */}
-          <Section id="changes" label="12 — Changes" title="Policy Changes">
+          {/* 13 Changes */}
+          <Section id="changes" label="13 — Changes" title="Policy Changes">
             <P>We may update this Privacy Policy from time to time. When we make material changes, we will:</P>
             <UL items={[
               'Update the effective date at the top of this Policy.',
@@ -352,8 +394,8 @@ export default function PrivacyPage() {
             <P>Continued use of the Platform after the effective date of a revised Policy constitutes your acceptance of the changes.</P>
           </Section>
 
-          {/* 13 Contact */}
-          <Section id="contact" label="13 — Contact" title="Contact Us">
+          {/* 14 Contact */}
+          <Section id="contact" label="14 — Contact" title="Contact Us">
             <P>If you have questions, concerns, or requests relating to this Privacy Policy or your personal data, please reach out:</P>
             <Highlight>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

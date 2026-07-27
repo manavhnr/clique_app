@@ -182,6 +182,11 @@ export default function TermsPage() {
 
           {/* 03 Platform */}
           <Section id="platform" label="03 — Platform" title={<>Platform <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>& Services</span></>}>
+            <Highlight>
+              <strong style={{ color: '#F2EDE2' }}>What is Clique?</strong>
+              <br />
+              Clique is a social platform that allows users to discover local gatherings, host events, and manage RSVPs and check-ins. It is a social networking and event management application — similar in model to Meetup or Eventbrite — with an added social feed, host profiles, and QR-based entry management.
+            </Highlight>
             <P>Clique is a social-first nightlife platform that enables Hosts to list and sell tickets to Events and enables Guests to discover, book, and attend those Events. Clique acts solely as an <Strong>intermediate technology platform</Strong> and is not a party to the actual Event organised by the Host.</P>
             <UL items={[
               'Clique provides online listing, discovery, and marketing of Events.',
@@ -261,6 +266,9 @@ export default function TermsPage() {
 
           {/* 07 Payment & Commission */}
           <Section id="payment" label="07 — Payment" title={<>Payment <span style={{ ...serif, fontStyle: 'italic', color: '#C9F36E' }}>&amp; Commission</span></>}>
+            <Highlight>
+              <strong style={{ color: '#F2EDE2' }}>What attendees pay for:</strong> Attendees pay a one-time ticket price per event. This is not a subscription. There are no recurring charges. The ticket price is set by the Host and displayed in full on the event listing before purchase. Clique&apos;s platform commission is included in the listed price — there are no additional fees added at checkout.
+            </Highlight>
             <P>Clique holds the exclusive right to process all ticket sales and payment collection for Events listed on the Platform.</P>
 
             <Highlight>

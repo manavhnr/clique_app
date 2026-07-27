@@ -129,6 +129,20 @@ export default function ContactPage() {
         <p style={{ ...display, fontSize: 18, lineHeight: 1.5, color: '#C8C2B6', maxWidth: 560, marginTop: 28 }}>
           Booking issues, refund requests, host enquiries, or anything else — drop us a message and we&apos;ll get back to you.
         </p>
+        <div style={{
+          marginTop: 32, padding: '16px 20px',
+          background: '#0F0C09', border: '1px solid #2A2520', borderRadius: 8,
+          maxWidth: 560,
+        }}>
+          <div style={{ ...mono, fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B544A', marginBottom: 8 }}>
+            About Clique
+          </div>
+          <p style={{ ...display, fontSize: 14, lineHeight: 1.65, color: '#C8C2B6', margin: 0 }}>
+            Clique is a social platform for discovering local events, hosting gatherings, and managing RSVPs and check-ins.
+            Attendees pay a one-time ticket price per event — no subscriptions. Hosts receive 80% of net revenue.
+            Payments are processed securely via Razorpay.
+          </p>
+        </div>
       </header>
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 40px 120px', display: 'grid', gridTemplateColumns: '220px 1fr', gap: 72, alignItems: 'start' }}>
@@ -161,8 +175,8 @@ export default function ContactPage() {
 
             <ContactRow
               icon="⌖"
-              label="Registered Address"
-              value={`Clique\nChennai, Tamil Nadu\nIndia`}
+              label="Registered Business Address"
+              value={`Clique\n[STREET ADDRESS PLACEHOLDER]\nChennai, Tamil Nadu 600001\nIndia`}
             />
 
           </div>
