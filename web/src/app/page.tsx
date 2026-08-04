@@ -93,72 +93,14 @@ function HowItWorks() {
   const { isMobile, isTablet } = useBreakpoint();
   const hPad = isMobile ? '16px' : isTablet ? '28px' : '40px';
 
-  const steps = [
-    {
-      num: '01',
-      title: 'Discover',
-      body: 'Browse local events near you — house parties, club nights, college events, private gatherings, and more. Filter by date, distance, or vibe.',
-    },
-    {
-      num: '02',
-      title: 'Book',
-      body: 'Reserve your spot with a secure one-time payment per event. No subscription required. Receive a digital QR pass to your account instantly.',
-    },
-    {
-      num: '03',
-      title: 'Attend',
-      body: 'Show your QR pass at the door. The host scans it to confirm your entry. Your pass is unique, non-transferable, and single-use.',
-    },
-    {
-      num: '04',
-      title: 'Host',
-      body: 'Verified organisers can list events, set capacity and pricing, manage the guest list, and scan passes — all from one dashboard.',
-    },
-  ];
-
   return (
     <section style={{
       borderTop: '1px solid var(--line)',
       padding: `${isMobile ? '56px' : '80px'} ${hPad}`,
       maxWidth: 1480, margin: '0 auto',
     }}>
-      {/* Steps grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : 'repeat(4, 1fr)',
-        gap: isMobile ? 24 : 20,
-      }}>
-        {steps.map(({ num, title, body }) => (
-          <div key={num} style={{
-            background: 'var(--card)', border: '1px solid var(--line)',
-            borderRadius: 8, padding: isMobile ? '20px 18px' : '24px 20px',
-          }}>
-            <div style={{
-              fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--lime)',
-              letterSpacing: '.1em', marginBottom: 10,
-            }}>
-              {num}
-            </div>
-            <div style={{
-              fontFamily: 'var(--display)', fontSize: isMobile ? 17 : 19,
-              fontWeight: 700, color: 'var(--paper)', marginBottom: 10,
-              letterSpacing: '-0.02em',
-            }}>
-              {title}
-            </div>
-            <p style={{
-              fontFamily: 'var(--display)', fontSize: 14, lineHeight: 1.65,
-              color: 'var(--cream)', margin: 0,
-            }}>
-              {body}
-            </p>
-          </div>
-        ))}
-      </div>
-
       {/* Legal / compliance note */}
       <div style={{
-        marginTop: isMobile ? 36 : 48,
         display: 'flex', flexWrap: 'wrap', gap: isMobile ? 10 : 16,
         alignItems: 'center',
       }}>
