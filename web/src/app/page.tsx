@@ -89,42 +89,6 @@ function Nav() {
   );
 }
 
-function HowItWorks() {
-  const { isMobile, isTablet } = useBreakpoint();
-  const hPad = isMobile ? '16px' : isTablet ? '28px' : '40px';
-
-  return (
-    <section style={{
-      borderTop: '1px solid var(--line)',
-      padding: `${isMobile ? '56px' : '80px'} ${hPad}`,
-      maxWidth: 1480, margin: '0 auto',
-    }}>
-      {/* Legal / compliance note */}
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: isMobile ? 10 : 16,
-        alignItems: 'center',
-      }}>
-        {[
-          { label: 'How it works',  href: '#how-it-works' },
-          { label: 'Pricing',       href: '/terms#payment' },
-          { label: 'Refund policy', href: '/refund' },
-          { label: 'Privacy',       href: '/privacy' },
-          { label: 'Terms',         href: '/terms' },
-          { label: 'Contact us',    href: '/contact' },
-        ].map(({ label, href }) => (
-          <Link key={label} href={href} style={{
-            fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em',
-            textTransform: 'uppercase', color: 'var(--dim)',
-            border: '1px solid var(--line)', borderRadius: 999,
-            padding: '6px 12px',
-          }}>
-            {label}
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 function SignupBand() {
   const { isMobile, isTablet } = useBreakpoint();
@@ -227,7 +191,6 @@ export default function LandingPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink)', color: 'var(--paper)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <Nav />
-      <HowItWorks />
       <SignupBand />
       <MiniFooter />
     </div>
