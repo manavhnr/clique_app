@@ -122,34 +122,6 @@ function HowItWorks() {
       padding: `${isMobile ? '56px' : '80px'} ${hPad}`,
       maxWidth: 1480, margin: '0 auto',
     }}>
-      {/* About block */}
-      <div style={{ maxWidth: 720, marginBottom: isMobile ? 48 : 64 }}>
-        <div style={{
-          fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.16em',
-          textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 18,
-        }}>
-          About Clique
-        </div>
-        <h2 style={{
-          fontFamily: 'var(--display)', fontWeight: 800,
-          fontSize: isMobile ? 'clamp(28px, 7vw, 40px)' : 'clamp(32px, 3.5vw, 48px)',
-          letterSpacing: '-0.035em', lineHeight: 1.1,
-          color: 'var(--paper)', margin: 0,
-        }}>
-          A social platform for discovering and hosting local events
-        </h2>
-        <p style={{
-          fontFamily: 'var(--display)', fontSize: isMobile ? 15 : 17,
-          lineHeight: 1.7, color: 'var(--cream)',
-          marginTop: 20, maxWidth: '64ch',
-        }}>
-          Clique is a social platform that allows users to discover local gatherings, host events,
-          and manage RSVPs and check-ins. Attendees pay a one-time ticket price per event — there
-          are no subscriptions or hidden fees. Hosts receive 80% of net ticket revenue; Clique
-          retains a 20% platform commission.
-        </p>
-      </div>
-
       {/* Steps grid */}
       <div style={{
         display: 'grid',
