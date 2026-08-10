@@ -6,6 +6,7 @@ import {
   events, blockEv, unblockEv,
   reports, resolveRep,
   pendingHosts, allHosts, approveHost, rejectHost,
+  getConfig, setConfig,
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -25,5 +26,8 @@ router.get('/hosts/pending', pendingHosts);
 router.get('/hosts', allHosts);
 router.patch('/hosts/:userId/approve', approveHost);
 router.patch('/hosts/:userId/reject', rejectHost);
+
+router.get('/config', getConfig);
+router.put('/config', setConfig);
 
 export default router;

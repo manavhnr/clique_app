@@ -7,6 +7,7 @@ import {
   listReports, resolveReport,
   getDashboardStats,
   listPendingHosts, listAllHosts, approveHostAdmin, rejectHostAdmin,
+  getAdminConfigs, setAdminConfig,
 } from '../services/admin.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
@@ -106,5 +107,24 @@ export async function rejectHost(req: AuthRequest, res: Response, next: NextFunc
     const reason = req.body.rejectionReason ?? 'Application rejected by admin';
     await rejectHostAdmin(req.params.userId, req.user!.userId, reason);
     sendSuccess(res, null, 'Host application rejected');
+  } catch (err) { next(err); }
+}
+
+export async function getConfig(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const configs = await getAdminConfigs();
+    sendSuccess(res, configs);
+  } catch (err) { next(err); }
+}
+
+export async function setConfig(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { key, value } = req.body as { key?: unknown; value?: unknown };
+    if (!key || typeof key !== 'string' || typeof value !== 'string') {
+      res.status(400).json({ success: false, message: 'key and value must be strings' });
+      return;
+    }
+    await setAdminConfig(key, value, req.user!.userId);
+    sendSuccess(res, null, 'Config updated');
   } catch (err) { next(err); }
 }

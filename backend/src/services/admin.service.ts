@@ -3,7 +3,9 @@ import { Event } from '../models/Event';
 import { Report } from '../models/Report';
 import { Pass } from '../models/Pass';
 import { Booking } from '../models/Booking';
+import { Payment } from '../models/Payment';
 import { HostVerification } from '../models/HostVerification';
+import { AdminConfig } from '../models/AdminConfig';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
 import { escapeRegex } from '../utils/regex';
@@ -155,11 +157,30 @@ export async function rejectHostAdmin(targetUserId: string, adminId: string, rej
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export async function getDashboardStats() {
-  const [totalUsers, totalEvents, openReports, totalBookings] = await Promise.all([
+  const [totalUsers, totalEvents, openReports, totalBookings, pendingHosts, pendingPayments] = await Promise.all([
     User.countDocuments({ isBanned: false }),
     Event.countDocuments({ status: 'published' }),
     Report.countDocuments({ status: 'open' }),
     Booking.countDocuments({ status: 'confirmed' }),
+    HostVerification.countDocuments({ status: 'pending' }),
+    Payment.countDocuments({ paymentMethod: 'upi', status: 'pending_verification' }),
   ]);
-  return { totalUsers, totalEvents, openReports, totalBookings };
+  return { totalUsers, totalEvents, openReports, totalBookings, pendingHosts, pendingPayments };
+}
+
+// ─── Admin Config (compliance content) ───────────────────────────────────────
+
+export async function getAdminConfigs(): Promise<Record<string, string>> {
+  const docs = await AdminConfig.find({});
+  return Object.fromEntries(docs.map((d) => [d.key, d.value]));
+}
+
+export async function setAdminConfig(key: string, value: string, adminId: string) {
+  await AdminConfig.findOneAndUpdate({ key }, { value }, { upsert: true, new: true });
+  await writeAuditLog({
+    actorId: adminId,
+    action: 'ADMIN_CONFIG_UPDATED',
+    targetType: 'AdminConfig',
+    metadata: { key },
+  });
 }

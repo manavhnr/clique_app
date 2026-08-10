@@ -13,6 +13,8 @@ const NAV_ITEMS = [
   { to: '/profile',        label: 'Profile',   match: ['/profile'],        icon: NavIconProfile },
 ];
 
+const ADMIN_NAV_ITEM = { to: '/admin', label: 'Admin', match: ['/admin'], icon: NavIconAdmin };
+
 // ─── Inline SVG icons (no lucide dependency) ─────────────────────────────────
 function NavIconEvents({ size = 16 }: { size?: number }) {
   return (
@@ -42,6 +44,13 @@ function NavIconProfile({ size = 16 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
       <circle cx="8" cy="5" r="3" />
       <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+    </svg>
+  );
+}
+function NavIconAdmin({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 1.5L13 3.5V8c0 3-5 6.5-5 6.5S3 11 3 8V3.5L8 1.5z" />
     </svg>
   );
 }
@@ -110,10 +119,15 @@ function SidebarNav({
 }: {
   collapsed: boolean;
   pathname: string;
-  user: { name: string; username: string; city?: string } | null;
+  user: { name: string; username: string; city?: string; role?: string } | null;
   logout: () => void;
   onLinkClick?: () => void;
 }) {
+  const navItems = [
+    ...NAV_ITEMS,
+    ...(user?.role === 'admin' ? [ADMIN_NAV_ITEM] : []),
+  ];
+
   return (
     <>
       {/* Logo */}
@@ -137,7 +151,7 @@ function SidebarNav({
 
       {/* Nav links — numbered like a ledger index */}
       <nav className="ledger" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-        {NAV_ITEMS.map((item, i) => {
+        {navItems.map((item, i) => {
           const active = item.match.some((m) => pathname === m || pathname.startsWith(m + '/'));
           const Icon = item.icon;
           return (
