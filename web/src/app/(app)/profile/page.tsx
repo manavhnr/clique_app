@@ -285,7 +285,7 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div style={{ maxWidth: 860, overflowX: 'hidden' }}>
+    <div style={{ maxWidth: 860, overflowX: 'hidden', margin: '0 auto', width: '100%' }}>
 
       {/* ── Masthead ─────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isMobile ? 18 : 24 }}>
