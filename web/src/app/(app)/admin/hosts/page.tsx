@@ -42,22 +42,26 @@ function VerificationRow({
   v, onApprove, onReject,
 }: {
   v: Verification;
-  onApprove: (id: string) => void;
-  onReject: (id: string, reason: string) => void;
+  onApprove: (id: string) => Promise<void>;
+  onReject: (id: string, reason: string) => Promise<void>;
 }) {
   const [rejecting, setRejecting]   = useState(false);
   const [reason, setReason]         = useState('');
   const [working, setWorking]       = useState(false);
 
+  const userId    = v.userId ?? null;
+  const userIdStr = userId?._id ?? '';
+
   async function handleApprove() {
+    if (!userIdStr) return;
     setWorking(true);
-    onApprove(v.userId._id);
+    try { await onApprove(userIdStr); } catch { setWorking(false); }
   }
 
   async function handleReject() {
-    if (!reason.trim()) return;
+    if (!reason.trim() || !userIdStr) return;
     setWorking(true);
-    onReject(v.userId._id, reason.trim());
+    try { await onReject(userIdStr, reason.trim()); } catch { setWorking(false); }
   }
 
   return (
@@ -73,20 +77,22 @@ function VerificationRow({
         <div style={{ flex: 1, minWidth: 240 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <span style={{ fontFamily: 'var(--display)', fontSize: 17, fontWeight: 600, color: 'var(--paper)' }}>
-              {v.userId.name}
+              {userId?.name ?? <span style={{ color: 'var(--dim)', fontStyle: 'italic' }}>User deleted</span>}
             </span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em' }}>
-              @{v.userId.username}
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            {v.userId.phone && (
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.04em' }}>
-                {v.userId.phone}
+            {userId?.username && (
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em' }}>
+                @{userId.username}
               </span>
             )}
-            {v.userId.city && (
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)' }}>· {v.userId.city}</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            {userId?.phone && (
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.04em' }}>
+                {userId.phone}
+              </span>
+            )}
+            {userId?.city && (
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)' }}>· {userId.city}</span>
             )}
             <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)' }}>
               · Applied {dateFmt(v.createdAt)}
@@ -213,22 +219,24 @@ export default function AdminHostsPage() {
   async function handleApprove(userId: string) {
     try {
       await api.patch(`/admin/hosts/${userId}/approve`);
-      setPending((prev) => prev.filter((v) => v.userId._id !== userId));
-      setAll((prev) => prev.map((v) => v.userId._id === userId ? { ...v, status: 'approved' } : v));
+      setPending((prev) => prev.filter((v) => v.userId?._id !== userId));
+      setAll((prev) => prev.map((v) => v.userId?._id === userId ? { ...v, status: 'approved' as const } : v));
       showToast('Host approved. They can now create events.', 'ok');
     } catch {
       showToast('Failed to approve. Please try again.', 'err');
+      throw new Error('approve failed'); // re-throw so VerificationRow resets working=false
     }
   }
 
   async function handleReject(userId: string, reason: string) {
     try {
       await api.patch(`/admin/hosts/${userId}/reject`, { rejectionReason: reason });
-      setPending((prev) => prev.filter((v) => v.userId._id !== userId));
-      setAll((prev) => prev.map((v) => v.userId._id === userId ? { ...v, status: 'rejected', rejectionReason: reason } : v));
+      setPending((prev) => prev.filter((v) => v.userId?._id !== userId));
+      setAll((prev) => prev.map((v) => v.userId?._id === userId ? { ...v, status: 'rejected' as const, rejectionReason: reason } : v));
       showToast('Application rejected.', 'ok');
     } catch {
       showToast('Failed to reject. Please try again.', 'err');
+      throw new Error('reject failed');
     }
   }
 
