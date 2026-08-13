@@ -98,13 +98,34 @@ export async function resolveReport(reportId: string, adminId: string, resolutio
 // ─── Host Verifications ───────────────────────────────────────────────────────
 
 export async function listPendingHosts(page: number, limit: number) {
-  const verifications = await HostVerification.find({ status: 'pending' })
-    .populate('userId', 'name username phone profileImage city createdAt')
-    .sort({ createdAt: 1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
-  const total = await HostVerification.countDocuments({ status: 'pending' });
-  return { verifications, total, page, limit };
+  // Fetch all pending — host verifications are a small dataset
+  const all = await HostVerification.find({ status: 'pending' })
+    .populate('userId', 'name username phone profileImage city isVerifiedHost createdAt')
+    .sort({ createdAt: 1 });
+
+  const orphanIds: string[] = [];
+  const autoApproveIds: string[] = [];
+  const valid: typeof all = [];
+
+  for (const v of all) {
+    const u = v.userId as { isVerifiedHost?: boolean } | null;
+    if (!u) {
+      // User was hard-deleted from the DB — clean up the orphaned record
+      orphanIds.push((v._id as object).toString());
+    } else if (u.isVerifiedHost) {
+      // Role was manually set in the DB — sync the verification status
+      autoApproveIds.push((v._id as object).toString());
+    } else {
+      valid.push(v);
+    }
+  }
+
+  if (orphanIds.length) HostVerification.deleteMany({ _id: { $in: orphanIds } }).catch(() => {});
+  if (autoApproveIds.length) HostVerification.updateMany({ _id: { $in: autoApproveIds } }, { status: 'approved' }).catch(() => {});
+
+  const total = valid.length;
+  const paginated = valid.slice((page - 1) * limit, page * limit);
+  return { verifications: paginated, total, page, limit };
 }
 
 export async function listAllHosts(page: number, limit: number, status?: string) {

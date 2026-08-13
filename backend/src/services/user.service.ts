@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import { User, IUser } from '../models/User';
 import { RefreshToken } from '../models/RefreshToken';
 import { FCMToken } from '../models/FCMToken';
+import { HostVerification } from '../models/HostVerification';
 import { createError } from '../middleware/error.middleware';
 import { z } from 'zod';
 import { updateProfileSchema } from '../validators/user.validator';
@@ -90,9 +91,10 @@ export async function deleteAccount(userId: string): Promise<void> {
       connectedSocials: {},
     },
   });
-  // Revoke all sessions and push tokens so access ends immediately
+  // Revoke all sessions, push tokens, and host verification records
   await Promise.all([
     RefreshToken.deleteMany({ userId }),
     FCMToken.deleteMany({ userId }),
+    HostVerification.deleteMany({ userId }),
   ]);
 }
