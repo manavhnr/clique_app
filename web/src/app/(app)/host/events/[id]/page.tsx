@@ -18,6 +18,7 @@ interface Booking {
   userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; age?: number; phone?: string; connectedSocials?: { instagram?: string }; city?: string; cliquescore?: number };
   status: string;
   amount: number;
+  tierLabel?: string;
   createdAt: string;
 }
 
@@ -706,10 +707,15 @@ function GuestsTab({ eventTitle, bookings, requests, squads, onRefresh }: {
                   entryType={entryType}
                   squadName={sq?.name}
                   right={
-                    <div className="flex items-center gap-2">
-                      <BookingStatusBadge status={b.status} />
-                      {(b.status === 'confirmed' || b.status === 'checked_in') && (
-                        <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <BookingStatusBadge status={b.status} />
+                        {(b.status === 'confirmed' || b.status === 'checked_in') && (
+                          <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
+                        )}
+                      </div>
+                      {b.tierLabel && (
+                        <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
                       )}
                     </div>
                   }

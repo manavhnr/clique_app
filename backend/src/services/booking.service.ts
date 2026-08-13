@@ -40,7 +40,7 @@ export async function generatePass(bookingId: string, userId: string, eventId: s
 
 // ─── Create Booking ───────────────────────────────────────────────────────────
 
-export async function createBooking(userId: string, eventId: string) {
+export async function createBooking(userId: string, eventId: string, tierLabel?: string) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
   if (event.status !== 'published') throw createError('Event is not available for booking', 400);
@@ -68,12 +68,18 @@ export async function createBooking(userId: string, eventId: string) {
   const isFree = event.price === 0;
   const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
 
+  // Resolve tier label — use provided value, fall back to first pricing tier, then 'General'
+  const resolvedTierLabel = tierLabel
+    || event.pricingTiers?.[0]?.label
+    || 'General';
+
   const booking = await Booking.create({
     userId,
     eventId,
     hostId: event.hostId,
     status: bookingStatus,
     amount: event.price,
+    tierLabel: resolvedTierLabel,
   });
 
   // Free event — generate pass immediately
@@ -100,7 +106,7 @@ export async function createBooking(userId: string, eventId: string) {
 export async function confirmBookingAfterPayment(bookingId: string, paymentId: string) {
   const booking = await Booking.findById(bookingId);
   if (!booking) throw createError('Booking not found', 404);
-  if (booking.status !== 'payment_pending') throw createError('Booking not in payment_pending state', 400);
+  if (!['payment_pending', 'utr_submitted'].includes(booking.status)) throw createError('Booking not in payment_pending state', 400);
 
   const event = await Event.findById(booking.eventId).select('title');
   const pass = await generatePass(bookingId, booking.userId.toString(), booking.eventId.toString());
@@ -132,7 +138,7 @@ export async function cancelBooking(bookingId: string, userId: string) {
   if (!booking) throw createError('Booking not found', 404);
   if (booking.userId.toString() !== userId) throw createError('Forbidden', 403);
 
-  const cancellable = ['pending', 'payment_pending', 'confirmed'];
+  const cancellable = ['pending', 'payment_pending', 'utr_submitted', 'confirmed'];
   if (!cancellable.includes(booking.status)) {
     throw createError(`Cannot cancel a booking with status: ${booking.status}`, 400);
   }
@@ -192,6 +198,7 @@ export async function getEventBookings(hostId: string, eventId: string) {
 
   const bookings = await Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
     .populate({ path: 'userId', select: '+phone name username profileImage connectedSocials gender age city cliquescore' })
+    .select('userId status amount tierLabel passId createdAt')
     .sort({ createdAt: -1 });
 
   return { bookings };

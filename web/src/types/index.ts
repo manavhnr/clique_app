@@ -88,7 +88,7 @@ export interface Booking {
   userId: string | User;
   eventId: string | Event;
   hostId: string;
-  status: 'pending' | 'payment_pending' | 'confirmed' | 'checked_in' | 'cancelled' | 'refunded' | 'rejected';
+  status: 'pending' | 'payment_pending' | 'utr_submitted' | 'confirmed' | 'checked_in' | 'cancelled' | 'refunded' | 'rejected';
   amount: number;
   passId?: string;
   createdAt: string;
@@ -114,7 +114,7 @@ export interface Pass {
   groupId?: string;
   memberIds?: string[];
   qrCodeUrl?: string;
-  status: 'active' | 'used' | 'expired' | 'cancelled';
+  status: 'pending_verification' | 'active' | 'used' | 'expired' | 'cancelled';
   checkedInAt?: string;
   createdAt: string;
 }

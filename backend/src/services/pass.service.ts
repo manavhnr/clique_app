@@ -35,7 +35,7 @@ export async function getMyPasses(userId: string) {
 
   const upcoming = passes.filter((p) => {
     const event = p.eventId as { date?: Date };
-    return p.status === 'active' && event?.date && new Date(event.date) >= now;
+    return (p.status === 'active' || p.status === 'pending_verification') && event?.date && new Date(event.date) >= now;
   });
   const past = passes.filter((p) => {
     const event = p.eventId as { date?: Date };
@@ -64,9 +64,12 @@ export async function getPassById(passId: string, userId: string) {
 
   if (pass.status === 'cancelled') throw createError('Pass has been cancelled', 400);
 
+  // QR is withheld until payment is verified by admin
+  if (pass.status === 'pending_verification') {
+    return { ...pass.toObject(), qrToken: null, qrCodeUrl: null };
+  }
+
   // Generate a fresh scannable JWT token so the frontend can render a real QR code.
-  // The token embeds passId + eventId + userId — identical payload to what was originally
-  // encoded into the Cloudinary QR image, so the scanner can verify it with jwt.verify().
   const eventId = (pass.eventId as { _id?: unknown })?._id?.toString() ?? pass.eventId.toString();
   const ownerId = (pass.userId as { _id?: unknown })?._id?.toString() ?? pass.userId.toString();
 

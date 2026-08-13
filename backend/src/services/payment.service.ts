@@ -5,7 +5,7 @@ import { Booking } from '../models/Booking';
 import { Event } from '../models/Event';
 import { Pass } from '../models/Pass';
 import { createError } from '../middleware/error.middleware';
-import { confirmBookingAfterPayment } from './booking.service';
+import { confirmBookingAfterPayment, generatePass } from './booking.service';
 import { writeAuditLog } from '../utils/auditLog';
 import { notifyPaymentSuccess } from './notification.service';
 
@@ -213,19 +213,30 @@ export async function submitUPIPayment(
   const booking = await Booking.findById(bookingId);
   if (!booking) throw createError('Booking not found', 404);
   if (booking.userId.toString() !== userId) throw createError('Forbidden', 403);
-  if (booking.status !== 'payment_pending') throw createError('Booking does not require payment', 400);
+  if (!['payment_pending', 'utr_submitted'].includes(booking.status)) {
+    throw createError('Booking does not require payment', 400);
+  }
 
   const event = await Event.findById(booking.eventId).select('title price platformFee status');
   if (!event || event.status === 'cancelled') throw createError('Event no longer available', 400);
 
-  // Idempotency: if a pending_verification payment already exists, just return it
-  const existing = await Payment.findOne({ bookingId, status: 'pending_verification' });
-  if (existing) {
-    await Payment.findByIdAndUpdate(existing._id, { utrNumber, transactionProofUrl });
-    return { paymentId: existing._id, status: 'pending_verification' };
-  }
-
   const totalAmount = Math.round((event.price + (event.platformFee ?? 0)) * 100);
+
+  // Resubmission: booking already in utr_submitted — just update the UTR on existing payment
+  if (booking.status === 'utr_submitted') {
+    const existingPayment = await Payment.findOne({ bookingId, status: 'pending_verification' });
+    if (existingPayment) {
+      await Payment.findByIdAndUpdate(existingPayment._id, { utrNumber, transactionProofUrl });
+      await writeAuditLog({
+        actorId: userId,
+        action: 'UPI_PAYMENT_UTR_UPDATED',
+        targetType: 'Payment',
+        targetId: existingPayment._id.toString(),
+        metadata: { bookingId, utrNumber },
+      });
+      return { paymentId: existingPayment._id, passId: booking.passId, status: 'pending_verification' };
+    }
+  }
 
   const payment = await Payment.create({
     bookingId,
@@ -239,6 +250,16 @@ export async function submitUPIPayment(
     status: 'pending_verification',
   });
 
+  // Generate pass immediately with pending_verification status — QR is withheld until admin confirms
+  const pass = await generatePass(bookingId, userId, booking.eventId.toString());
+  await Pass.findByIdAndUpdate(pass._id, { status: 'pending_verification' });
+
+  await Booking.findByIdAndUpdate(bookingId, {
+    status: 'utr_submitted',
+    passId: pass._id,
+    paymentId: payment._id,
+  });
+
   await writeAuditLog({
     actorId: userId,
     action: 'UPI_PAYMENT_SUBMITTED',
@@ -247,7 +268,7 @@ export async function submitUPIPayment(
     metadata: { bookingId, utrNumber, amount: totalAmount },
   });
 
-  return { paymentId: payment._id, status: 'pending_verification' };
+  return { paymentId: payment._id, passId: pass._id, status: 'pending_verification' };
 }
 
 // ─── Admin: Verify UPI Payment ────────────────────────────────────────────────
@@ -268,7 +289,22 @@ export async function adminVerifyUPIPayment(paymentId: string, adminId: string) 
   if (!booking) throw createError('Booking not found', 404);
 
   const eventDoc = await Event.findById(payment.eventId).select('title');
-  const { pass } = await confirmBookingAfterPayment(payment.bookingId.toString(), paymentId);
+
+  // Activate the pre-generated pass (created during UTR submission)
+  let pass = null;
+  if (booking.passId) {
+    pass = await Pass.findByIdAndUpdate(
+      booking.passId,
+      { status: 'active' },
+      { new: true }
+    );
+  }
+
+  await Booking.findByIdAndUpdate(payment.bookingId, { status: 'confirmed' });
+
+  const { incrementEventAttendance } = await import('./cliquescore.service');
+  await incrementEventAttendance(payment.userId.toString());
+
   void notifyPaymentSuccess(payment.userId.toString(), eventDoc?.title || 'the event');
 
   await writeAuditLog({

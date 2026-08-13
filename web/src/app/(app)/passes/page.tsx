@@ -59,7 +59,21 @@ function Spinner() {
   return <div style={{ width: 32, height: 32, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />;
 }
 
-function PassQRModal({ pass, event, onClose }: { pass: Pass; event: Event | null; onClose: () => void }) {
+// ── Pass QR modal ─────────────────────────────────────────────────────────────
+
+function PassQRModal({
+  pass,
+  event,
+  onClose,
+  onUTRResubmit,
+}: {
+  pass: Pass;
+  event: Event | null;
+  onClose: () => void;
+  onUTRResubmit: (passId: string, bookingId: string, amount: number) => void;
+}) {
+  const isPendingVerification = pass.status === 'pending_verification';
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,9,7,0.94)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
       <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 6, padding: 0, maxWidth: 360, width: '100%', animation: 'riseIn .3s ease-out', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
@@ -91,8 +105,20 @@ function PassQRModal({ pass, event, onClose }: { pass: Pass; event: Event | null
               <div style={{ width: 200, height: 200, background: 'var(--line)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span className="stamp" style={{ color: 'var(--dim)', fontSize: 13, padding: '8px 14px 7px' }}>{pass.status.toUpperCase()}</span>
               </div>
+            ) : isPendingVerification ? (
+              /* Blurred QR with overlay — real QR withheld until admin confirms payment */
+              <div style={{ position: 'relative', width: 200, height: 200 }}>
+                <div style={{ background: 'var(--paper)', borderRadius: 4, padding: 14, filter: 'blur(6px)', userSelect: 'none', pointerEvents: 'none' }}>
+                  <PseudoQR seed={pass._id} size={172} />
+                </div>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.12em', color: 'var(--amber, #F59E0B)', textAlign: 'center', lineHeight: 1.4 }}>
+                    AWAITING PAYMENT<br />CONFIRMATION
+                  </div>
+                </div>
+              </div>
             ) : (
-              /* Real scannable QR — prefer the JWT token (from getPassById), fall back to Cloudinary image */
+              /* Real scannable QR */
               <div style={{ background: 'var(--paper)', borderRadius: 4, padding: 14 }}>
                 {(pass as Pass & { qrToken?: string }).qrToken ? (
                   <QRCodeSVG
@@ -105,21 +131,40 @@ function PassQRModal({ pass, event, onClose }: { pass: Pass; event: Event | null
                 ) : pass.qrCodeUrl ? (
                   <img src={pass.qrCodeUrl} alt="QR Code" style={{ width: 176, height: 176, objectFit: 'contain', display: 'block' }} />
                 ) : (
-                  /* Last-resort: generate QR from pass ID — scanner will reject it, but at least it's a real QR */
                   <QRCodeSVG value={pass._id} size={176} bgColor="#FFFFFF" fgColor="#0B0907" level="M" />
                 )}
               </div>
             )}
           </div>
+
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: pass.status === 'active' ? 'var(--lime)' : 'var(--dim)' }}>
-              {pass.status === 'active' ? '● ACTIVE · SHOW AT THE DOOR' : pass.status === 'used' ? '✓ CHECKED IN' : '○ ' + pass.status.toUpperCase()}
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: isPendingVerification ? '#F59E0B' : pass.status === 'active' ? 'var(--lime)' : 'var(--dim)' }}>
+              {isPendingVerification
+                ? '○ PAYMENT UNDER REVIEW'
+                : pass.status === 'active'
+                  ? '● ACTIVE · SHOW AT THE DOOR'
+                  : pass.status === 'used'
+                    ? '✓ CHECKED IN'
+                    : '○ ' + pass.status.toUpperCase()}
             </div>
           </div>
+
           <div className="barcode" aria-hidden style={{ height: 22, color: 'var(--line-2)', marginBottom: 6 }} />
           <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.3em', color: 'var(--dim)', textAlign: 'center', marginBottom: 18 }}>
             № {pass._id.slice(-8).toUpperCase()}
           </div>
+
+          {isPendingVerification && (
+            <button
+              onClick={() => {
+                onUTRResubmit(pass._id, pass.bookingId, event?.price ?? 0);
+              }}
+              style={{ width: '100%', background: 'transparent', border: '1px solid #F59E0B', color: '#F59E0B', padding: '12px 0', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: 10 }}
+            >
+              Update UTR number →
+            </button>
+          )}
+
           <button onClick={onClose} style={{ width: '100%', background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--cream)', padding: '12px 0', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', cursor: 'pointer' }}>
             Close
           </button>
@@ -128,6 +173,8 @@ function PassQRModal({ pass, event, onClose }: { pass: Pass; event: Event | null
     </div>
   );
 }
+
+// ── Pass card ─────────────────────────────────────────────────────────────────
 
 type PassGroup = { upcoming: Pass[]; past: Pass[]; cancelled: Pass[] };
 
@@ -147,7 +194,9 @@ export default function PassesPage() {
   const [openPass, setOpenPass] = useState<Pass | null>(null);
   const [passDetail, setPassDetail] = useState<Pass | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
+
+  // UPI modal state (for pending_payment bookings without a pass, and UTR resubmit)
+  const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number; isResubmit?: boolean } | null>(null);
   const [utr, setUtr] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [upiSubmitting, setUpiSubmitting] = useState(false);
@@ -161,6 +210,7 @@ export default function PassesPage() {
       .then(([passesResp, bookingsResp]) => {
         setPasses(passesResp.data.data);
         const allBookings: Booking[] = bookingsResp.data.data.bookings;
+        // Only show payment_pending bookings (no pass yet) — utr_submitted ones already have a pass card
         setPendingBookings(allBookings.filter((b) => b.status === 'payment_pending'));
       })
       .catch(() => {})
@@ -185,6 +235,12 @@ export default function PassesPage() {
   const handleCompletePayment = (booking: Booking) => {
     setUtr(''); setProofFile(null); setUpiError('');
     setUpiModal({ bookingId: booking._id, amount: booking.amount / 100 });
+  };
+
+  const handleUTRResubmit = (_passId: string, bookingId: string, amount: number) => {
+    setOpenPass(null); setPassDetail(null);
+    setUtr(''); setProofFile(null); setUpiError('');
+    setUpiModal({ bookingId, amount, isResubmit: true });
   };
 
   const handleUPISubmit = async () => {
@@ -244,7 +300,7 @@ export default function PassesPage() {
         </div>
       </div>
 
-      {/* Pending payments */}
+      {/* Pending payments (booking exists but no pass generated yet) */}
       {pendingBookings.length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--hot)', marginBottom: 10 }}>
@@ -317,34 +373,49 @@ export default function PassesPage() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: 20 }} onClick={() => setUpiModal(null)}>
           <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 10, width: '100%', maxWidth: 440, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.8)', animation: 'riseIn .25s cubic-bezier(.4,1.4,.5,1) both' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #1E293B' }}>
-              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20 }}>Pay via UPI</div>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20 }}>
+                {upiModal.isResubmit ? 'Update UTR number' : 'Pay via UPI'}
+              </div>
               <button onClick={() => setUpiModal(null)} aria-label="Close" style={{ background: 'transparent', border: 'none', color: '#64748B', fontSize: 28, cursor: 'pointer', lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <div style={{ fontFamily: 'var(--display)', fontSize: 14, color: '#94A3B8', lineHeight: 1.5 }}>
-                Scan the QR with any UPI app and pay{' '}
-                <strong style={{ color: '#F59E0B', fontSize: 16 }}>₹{upiModal.amount}</strong> to Clique.
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <img src="/upi-qr.png" alt="UPI QR Code" style={{ width: 220, height: 220, borderRadius: 10, background: '#fff', padding: 8, objectFit: 'contain' }} />
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.1em' }}>SCAN & PAY ₹{upiModal.amount}</span>
-              </div>
+              {upiModal.isResubmit ? (
+                <div style={{ fontFamily: 'var(--display)', fontSize: 14, color: '#94A3B8', lineHeight: 1.5 }}>
+                  If you entered an incorrect UTR, update it here. Admin will re-verify your payment.
+                </div>
+              ) : (
+                <div style={{ fontFamily: 'var(--display)', fontSize: 14, color: '#94A3B8', lineHeight: 1.5 }}>
+                  Scan the QR with any UPI app and pay{' '}
+                  <strong style={{ color: '#F59E0B', fontSize: 16 }}>₹{upiModal.amount}</strong> to Clique.
+                </div>
+              )}
+              {!upiModal.isResubmit && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/upi-qr.png" alt="UPI QR Code" style={{ width: 220, height: 220, borderRadius: 10, background: '#fff', padding: 8, objectFit: 'contain' }} />
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.1em' }}>SCAN & PAY ₹{upiModal.amount}</span>
+                </div>
+              )}
               <div>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>UTR / TRANSACTION ID *</div>
                 <input className="clique-input" style={{ width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 6, boxSizing: 'border-box' }} placeholder="Enter UTR number" value={utr} onChange={(e) => setUtr(e.target.value)} />
               </div>
-              <div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>TRANSACTION SCREENSHOT (OPTIONAL)</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px dashed #334155', borderRadius: 6, padding: 12, cursor: 'pointer', color: proofFile ? '#60A5FA' : '#64748B', fontFamily: 'var(--display)', fontSize: 13 }}>
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setProofFile(e.target.files?.[0] ?? null)} />
-                  {proofFile ? `✓ ${proofFile.name}` : '+ Upload payment screenshot'}
-                </label>
-              </div>
+              {!upiModal.isResubmit && (
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>TRANSACTION SCREENSHOT (OPTIONAL)</div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px dashed #334155', borderRadius: 6, padding: 12, cursor: 'pointer', color: proofFile ? '#60A5FA' : '#64748B', fontFamily: 'var(--display)', fontSize: 13 }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setProofFile(e.target.files?.[0] ?? null)} />
+                    {proofFile ? `✓ ${proofFile.name}` : '+ Upload payment screenshot'}
+                  </label>
+                </div>
+              )}
               {upiError && <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.06em' }}>{upiError}</div>}
-              <button onClick={handleUPISubmit} disabled={upiSubmitting} style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: upiSubmitting ? 'not-allowed' : 'pointer', opacity: upiSubmitting ? 0.6 : 1 }}>
-                {upiSubmitting ? 'SUBMITTING…' : 'SUBMIT PAYMENT PROOF →'}
+              <button onClick={handleUPISubmit} disabled={upiSubmitting} style={{ width: '100%', background: upiModal.isResubmit ? '#F59E0B' : 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '16px', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: upiSubmitting ? 'not-allowed' : 'pointer', opacity: upiSubmitting ? 0.6 : 1 }}>
+                {upiSubmitting ? 'SUBMITTING…' : upiModal.isResubmit ? 'UPDATE UTR →' : 'SUBMIT PAYMENT PROOF →'}
               </button>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.08em', textAlign: 'center' }}>YOUR PASS WILL BE ISSUED AFTER VERIFICATION</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.08em', textAlign: 'center' }}>
+                {upiModal.isResubmit ? 'ADMIN WILL BE NOTIFIED TO RE-VERIFY' : 'YOUR PASS WILL BE ISSUED AFTER VERIFICATION'}
+              </div>
             </div>
           </div>
         </div>
@@ -361,6 +432,7 @@ export default function PassesPage() {
           pass={passDetail ?? openPass}
           event={typeof (passDetail ?? openPass).eventId === 'object' ? (passDetail ?? openPass).eventId as Event : null}
           onClose={() => { setOpenPass(null); setPassDetail(null); }}
+          onUTRResubmit={handleUTRResubmit}
         />
       )}
     </div>
@@ -370,23 +442,24 @@ export default function PassesPage() {
 function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
   const evt = typeof pass.eventId === 'object' ? pass.eventId as Event : null;
   const status = pass.status;
+  const isPendingVerification = status === 'pending_verification';
   const isActive = status === 'active';
-  const stampColor = status === 'active' ? 'var(--lime)' : status === 'used' ? 'var(--dim)' : 'var(--hot)';
-  const stampLabel = status === 'active' ? 'Admit one' : status === 'used' ? 'Checked in' : status;
+  const stampColor = isPendingVerification ? '#F59E0B' : isActive ? 'var(--lime)' : status === 'used' ? 'var(--dim)' : 'var(--hot)';
+  const stampLabel = isPendingVerification ? 'Under review' : isActive ? 'Admit one' : status === 'used' ? 'Checked in' : status;
 
   return (
     <button onClick={onOpen}
       style={{
         position: 'relative', textAlign: 'left', width: '100%',
-        background: isActive ? '#100D0A' : '#0E0C09',
-        border: `1px solid ${isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`,
+        background: isPendingVerification ? '#0F0D09' : isActive ? '#100D0A' : '#0E0C09',
+        border: `1px solid ${isPendingVerification ? 'rgba(245,158,11,0.3)' : isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`,
         borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
         transition: 'transform .2s ease, border-color .2s ease',
-        padding: 0, opacity: isActive ? 1 : 0.6,
+        padding: 0, opacity: (isActive || isPendingVerification) ? 1 : 0.6,
         fontFamily: 'inherit', color: 'inherit',
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'var(--lime)' : 'var(--cream)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.borderColor = isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.borderColor = isPendingVerification ? '#F59E0B' : isActive ? 'var(--lime)' : 'var(--cream)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.borderColor = isPendingVerification ? 'rgba(245,158,11,0.3)' : isActive ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'; }}
     >
       {/* Head */}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', padding: '20px 22px 18px' }}>
@@ -410,10 +483,19 @@ function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
 
       {/* Body */}
       <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 18, padding: '18px 22px 16px' }}>
-        <div style={{ width: 80, height: 80, borderRadius: 3, background: isActive ? 'var(--paper)' : '#26221C', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6 }}>
-          {isActive && <PseudoQR seed={pass._id} size={68} />}
-          {status === 'used' && <span style={{ color: 'var(--lime)', fontSize: 32 }}>✓</span>}
-          {(status === 'expired' || status === 'cancelled') && <span style={{ color: 'var(--dim)', fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.1em', textAlign: 'center' }}>{status.toUpperCase()}</span>}
+        <div style={{ position: 'relative', width: 80, height: 80 }}>
+          <div style={{ width: 80, height: 80, borderRadius: 3, background: (isActive || isPendingVerification) ? 'var(--paper)' : '#26221C', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, filter: isPendingVerification ? 'blur(3px)' : 'none' }}>
+            {(isActive || isPendingVerification) && <PseudoQR seed={pass._id} size={68} />}
+            {status === 'used' && <span style={{ color: 'var(--lime)', fontSize: 32 }}>✓</span>}
+            {(status === 'expired' || status === 'cancelled') && <span style={{ color: 'var(--dim)', fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.1em', textAlign: 'center' }}>{status.toUpperCase()}</span>}
+          </div>
+          {isPendingVerification && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, letterSpacing: '.06em', color: '#F59E0B', textAlign: 'center', lineHeight: 1.3 }}>
+                PENDING<br />REVIEW
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           {evt && (
@@ -443,10 +525,10 @@ function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
 
       {/* Barcode footer */}
       <div style={{ padding: '0 22px 18px' }}>
-        <div className="barcode" aria-hidden style={{ height: 20, color: isActive ? '#3A3428' : 'var(--line-2)' }} />
+        <div className="barcode" aria-hidden style={{ height: 20, color: (isActive || isPendingVerification) ? '#3A3428' : 'var(--line-2)' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>
           <span>№ {pass._id.slice(-6).toUpperCase()}</span>
-          <span>TAP FOR QR →</span>
+          <span>{isPendingVerification ? 'TAP TO UPDATE UTR →' : 'TAP FOR QR →'}</span>
         </div>
       </div>
     </button>

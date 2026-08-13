@@ -248,7 +248,7 @@ export default function EventDetailPage() {
   const isRejected     = userRequest?.status === 'rejected';
   const isRegistered   = !!(isPending || isApproved);
   const paymentPending = !!(userBooking && (userBooking as any).status === 'payment_pending');
-  const paymentUnderReview = !!(userBooking && (userBooking as any).paymentStatus === 'pending_verification');
+  const paymentUnderReview = !!(userBooking && (userBooking as any).status === 'utr_submitted');
 
   // Social gate: check if user has required socials
   const missingSocials = (event?.requiresSocials && (event?.requiredSocials?.length ?? 0) > 0)

@@ -4,8 +4,9 @@ export interface IBooking extends Document {
   userId: mongoose.Types.ObjectId;
   eventId: mongoose.Types.ObjectId;
   hostId: mongoose.Types.ObjectId;
-  status: 'pending' | 'payment_pending' | 'confirmed' | 'checked_in' | 'cancelled' | 'refunded' | 'rejected';
+  status: 'pending' | 'payment_pending' | 'utr_submitted' | 'confirmed' | 'checked_in' | 'cancelled' | 'refunded' | 'rejected';
   amount: number;
+  tierLabel?: string;
   paymentId?: mongoose.Types.ObjectId;
   passId?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -19,10 +20,11 @@ const bookingSchema = new Schema<IBooking>(
     hostId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     status: {
       type: String,
-      enum: ['pending', 'payment_pending', 'confirmed', 'checked_in', 'cancelled', 'refunded', 'rejected'],
+      enum: ['pending', 'payment_pending', 'utr_submitted', 'confirmed', 'checked_in', 'cancelled', 'refunded', 'rejected'],
       default: 'pending',
     },
     amount: { type: Number, required: true, min: 0 },
+    tierLabel: { type: String },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
     passId: { type: Schema.Types.ObjectId, ref: 'Pass' },
   },

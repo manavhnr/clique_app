@@ -9,7 +9,7 @@ export interface IPass extends Document {
   memberIds?: mongoose.Types.ObjectId[];       // all member userIds covered (group passes only)
   qrTokenHash: string;
   qrCodeUrl?: string;
-  status: 'active' | 'used' | 'expired' | 'cancelled';
+  status: 'pending_verification' | 'active' | 'used' | 'expired' | 'cancelled';
   checkedInAt?: Date;
   scannedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -26,7 +26,7 @@ const passSchema = new Schema<IPass>(
     memberIds:  { type: [Schema.Types.ObjectId], default: undefined },
     qrTokenHash: { type: String, required: true, unique: true },
     qrCodeUrl:  { type: String },
-    status:     { type: String, enum: ['active', 'used', 'expired', 'cancelled'], default: 'active' },
+    status:     { type: String, enum: ['pending_verification', 'active', 'used', 'expired', 'cancelled'], default: 'active' },
     checkedInAt: { type: Date },
     scannedBy:  { type: Schema.Types.ObjectId, ref: 'User' },
   },
