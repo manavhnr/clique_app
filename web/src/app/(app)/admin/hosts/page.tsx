@@ -28,8 +28,8 @@ interface Verification {
 
 function Spinner() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-      <div style={{ width: 28, height: 28, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+    <div className="flex items-center justify-center min-h-[200px]">
+      <div className="w-7 h-7 rounded-full border-2 border-line-2 border-t-lime animate-spin" />
     </div>
   );
 }
@@ -38,16 +38,16 @@ function dateFmt(s: string) {
   return new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function VerificationRow({
+function VerificationCard({
   v, onApprove, onReject,
 }: {
   v: Verification;
   onApprove: (id: string) => Promise<void>;
   onReject: (id: string, reason: string) => Promise<void>;
 }) {
-  const [rejecting, setRejecting]   = useState(false);
-  const [reason, setReason]         = useState('');
-  const [working, setWorking]       = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason]       = useState('');
+  const [working, setWorking]     = useState(false);
 
   const userId    = v.userId ?? null;
   const userIdStr = userId?._id ?? '';
@@ -65,67 +65,53 @@ function VerificationRow({
   }
 
   return (
-    <div style={{
-      borderBottom: '1px solid var(--line)',
-      padding: '20px 4px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 12,
-    }}>
-      {/* Identity row */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <span style={{ fontFamily: 'var(--display)', fontSize: 17, fontWeight: 600, color: 'var(--paper)' }}>
-              {userId?.name ?? <span style={{ color: 'var(--dim)', fontStyle: 'italic' }}>User deleted</span>}
+    <div className="rounded-xl border border-line-2 bg-card p-5 flex flex-col gap-4">
+      {/* Identity + doc links */}
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="font-display text-[17px] font-semibold text-paper leading-tight">
+              {userId?.name ?? (
+                <span className="text-dim italic">User deleted</span>
+              )}
             </span>
             {userId?.username && (
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em' }}>
+              <span className="font-mono text-[10px] text-dim tracking-[.06em]">
                 @{userId.username}
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <div className="flex flex-wrap items-center gap-1.5">
             {userId?.phone && (
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.04em' }}>
+              <span className="font-mono text-[11px] text-cream tracking-[.04em]">
                 {userId.phone}
               </span>
             )}
             {userId?.city && (
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)' }}>· {userId.city}</span>
+              <span className="font-mono text-[11px] text-dim">· {userId.city}</span>
             )}
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)' }}>
+            <span className="font-mono text-[11px] text-dim">
               · Applied {dateFmt(v.createdAt)}
             </span>
           </div>
-          <div style={{ marginTop: 6 }}>
-            <span className="clique-label" style={{ marginRight: 6 }}>DOC TYPE</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-              {v.documentType}
-            </span>
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <span className="clique-label" style={{ marginRight: 6 }}>ADDRESS</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)' }}>{v.address}</span>
-          </div>
         </div>
 
-        {/* Document links */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start', flexShrink: 0 }}>
+        {/* Doc links — top right */}
+        <div className="flex flex-col gap-1 shrink-0 items-end">
           <a
             href={v.documentUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', color: 'var(--sky)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+            className="font-mono text-[11px] text-sky underline underline-offset-2 tracking-[.08em] whitespace-nowrap hover:text-paper transition-colors"
           >
-            View document ↗
+            View doc ↗
           </a>
           {v.selfieUrl && (
             <a
               href={v.selfieUrl}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', color: 'var(--sky)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+              className="font-mono text-[11px] text-sky underline underline-offset-2 tracking-[.08em] whitespace-nowrap hover:text-paper transition-colors"
             >
               View selfie ↗
             </a>
@@ -133,9 +119,36 @@ function VerificationRow({
         </div>
       </div>
 
-      {/* Action row */}
+      {/* Meta tags */}
+      <div className="flex flex-wrap gap-x-5 gap-y-2">
+        <div>
+          <span className="clique-label mr-1.5">DOC TYPE</span>
+          <span className="font-mono text-[11px] text-cream uppercase tracking-[.06em]">
+            {v.documentType}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <span className="clique-label mr-1.5">ADDRESS</span>
+          <span className="font-mono text-[11px] text-cream break-words">{v.address}</span>
+        </div>
+      </div>
+
+      {/* Status / actions */}
+      {v.status === 'approved' && (
+        <span className="stamp text-lime self-start" style={{ fontSize: 10 }}>Approved</span>
+      )}
+
+      {v.status === 'rejected' && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="stamp text-hot" style={{ fontSize: 10 }}>Rejected</span>
+          {v.rejectionReason && (
+            <span className="font-mono text-[11px] text-dim">— {v.rejectionReason}</span>
+          )}
+        </div>
+      )}
+
       {v.status === 'pending' && !rejecting && (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={handleApprove} disabled={working} loading={working}>
             Approve →
           </Button>
@@ -146,22 +159,15 @@ function VerificationRow({
       )}
 
       {v.status === 'pending' && rejecting && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex flex-col gap-3">
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Rejection reason (visible to applicant)..."
             rows={3}
-            style={{
-              background: 'var(--card)', border: '1px solid var(--line-2)',
-              borderRadius: 6, padding: '10px 12px',
-              fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--paper)',
-              resize: 'vertical', outline: 'none', maxWidth: 480, width: '100%',
-            }}
-            onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-            onBlur={(e)  => (e.target.style.borderColor = 'var(--line-2)')}
+            className="bg-well border border-line-2 rounded-md px-3 py-2.5 font-mono text-[12px] text-paper resize-y outline-none w-full focus:border-lime transition-colors"
           />
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="flex gap-2">
             <Button size="sm" variant="danger" onClick={handleReject} disabled={working || !reason.trim()} loading={working}>
               Confirm reject
             </Button>
@@ -171,30 +177,16 @@ function VerificationRow({
           </div>
         </div>
       )}
-
-      {v.status === 'approved' && (
-        <span className="stamp" style={{ color: 'var(--lime)', alignSelf: 'flex-start', fontSize: 10 }}>Approved</span>
-      )}
-      {v.status === 'rejected' && (
-        <div>
-          <span className="stamp" style={{ color: 'var(--hot)', fontSize: 10 }}>Rejected</span>
-          {v.rejectionReason && (
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', marginLeft: 8 }}>
-              — {v.rejectionReason}
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
 export default function AdminHostsPage() {
-  const [pending, setPending]   = useState<Verification[]>([]);
-  const [all, setAll]           = useState<Verification[]>([]);
-  const [showAll, setShowAll]   = useState(false);
-  const [loading, setLoading]   = useState(true);
-  const [toast, setToast]       = useState('');
+  const [pending, setPending]     = useState<Verification[]>([]);
+  const [all, setAll]             = useState<Verification[]>([]);
+  const [showAll, setShowAll]     = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [toast, setToast]         = useState('');
   const [toastType, setToastType] = useState<'ok' | 'err'>('ok');
 
   function showToast(msg: string, type: 'ok' | 'err' = 'ok') {
@@ -224,7 +216,7 @@ export default function AdminHostsPage() {
       showToast('Host approved. They can now create events.', 'ok');
     } catch {
       showToast('Failed to approve. Please try again.', 'err');
-      throw new Error('approve failed'); // re-throw so VerificationRow resets working=false
+      throw new Error('approve failed');
     }
   }
 
@@ -240,28 +232,50 @@ export default function AdminHostsPage() {
     }
   }
 
+  const approved = all.filter((v) => v.status === 'approved').length;
+  const rejected = all.filter((v) => v.status === 'rejected').length;
+
   return (
     <div>
-      {/* Head */}
-      <div style={{ marginBottom: 32 }}>
-        <div className="clique-label" style={{ marginBottom: 8 }}>ADMIN / HOST VERIFICATION</div>
-        <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(28px, 4.5vw, 44px)', fontWeight: 800, lineHeight: 0.94, letterSpacing: '-0.03em', margin: 0 }}>
+      {/* Header */}
+      <div className="mb-8">
+        <div className="clique-label mb-2">ADMIN / HOST VERIFICATION</div>
+        <h1 className="font-display font-extrabold leading-[0.94] tracking-[-0.03em] m-0" style={{ fontSize: 'clamp(28px, 4.5vw, 44px)' }}>
           Host applications.
         </h1>
-        <p style={{ fontFamily: 'var(--display)', fontSize: 15, color: 'var(--cream)', margin: '8px 0 0' }}>
+        <p className="font-display text-[15px] text-cream mt-2 m-0">
           Review, approve, or reject creator requests.
         </p>
+
+        {/* Stats row */}
+        {!loading && (
+          <div className="flex flex-wrap gap-4 mt-5">
+            <div className="flex items-center gap-2">
+              <span className="clique-label">PENDING</span>
+              <span className="font-mono text-[13px] font-semibold text-paper">{pending.length}</span>
+            </div>
+            <div className="w-px bg-line-2 self-stretch" />
+            <div className="flex items-center gap-2">
+              <span className="clique-label">APPROVED</span>
+              <span className="font-mono text-[13px] font-semibold text-lime">{approved}</span>
+            </div>
+            <div className="w-px bg-line-2 self-stretch" />
+            <div className="flex items-center gap-2">
+              <span className="clique-label">REJECTED</span>
+              <span className="font-mono text-[13px] font-semibold text-hot">{rejected}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Toast */}
       {toast && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          background: toastType === 'ok' ? 'color-mix(in srgb, var(--lime) 8%, transparent)' : 'color-mix(in srgb, var(--hot) 8%, transparent)',
-          border: `1px solid ${toastType === 'ok' ? 'color-mix(in srgb, var(--lime) 25%, transparent)' : 'color-mix(in srgb, var(--hot) 25%, transparent)'}`,
-          borderRadius: 6, padding: '10px 14px', marginBottom: 20,
-        }}>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: toastType === 'ok' ? 'var(--lime)' : 'var(--hot)', letterSpacing: '.06em' }}>
+        <div className={`flex items-center gap-3 rounded-md border px-3.5 py-2.5 mb-5 ${
+          toastType === 'ok'
+            ? 'bg-lime/10 border-lime/25'
+            : 'bg-hot/10 border-hot/25'
+        }`}>
+          <span className={`font-mono text-[11px] tracking-[.06em] ${toastType === 'ok' ? 'text-lime' : 'text-hot'}`}>
             {toast}
           </span>
         </div>
@@ -272,31 +286,27 @@ export default function AdminHostsPage() {
       ) : (
         <>
           {/* Pending queue */}
-          <div style={{ marginBottom: 40 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-4">
               <div className="clique-label">PENDING REVIEW</div>
               {pending.length > 0 && (
-                <span style={{
-                  background: 'var(--hot)', color: 'var(--paper)',
-                  fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 600,
-                  borderRadius: 99, padding: '2px 7px', letterSpacing: '.06em',
-                }}>
+                <span className="bg-hot text-paper font-mono text-[10px] font-semibold rounded-full px-2 py-0.5 tracking-[.06em]">
                   {pending.length}
                 </span>
               )}
             </div>
 
             {pending.length === 0 ? (
-              <div style={{ padding: '32px 4px', borderTop: '1px solid var(--line)' }}>
-                <div className="clique-label" style={{ marginBottom: 8 }}>NO PENDING APPLICATIONS</div>
-                <p style={{ fontFamily: 'var(--display)', fontSize: 15, color: 'var(--cream)', margin: 0 }}>
+              <div className="pt-8 pb-4 border-t border-line">
+                <div className="clique-label mb-2">NO PENDING APPLICATIONS</div>
+                <p className="font-display text-[15px] text-cream m-0">
                   All clear. Check back when new hosts apply.
                 </p>
               </div>
             ) : (
-              <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {pending.map((v) => (
-                  <VerificationRow key={v._id} v={v} onApprove={handleApprove} onReject={handleReject} />
+                  <VerificationCard key={v._id} v={v} onApprove={handleApprove} onReject={handleReject} />
                 ))}
               </div>
             )}
@@ -307,26 +317,23 @@ export default function AdminHostsPage() {
             <div>
               <button
                 onClick={() => setShowAll((x) => !x)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, background: 'transparent',
-                  border: 'none', color: 'var(--dim)', cursor: 'pointer',
-                  fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase',
-                  marginBottom: showAll ? 12 : 0,
-                }}
+                className="flex items-center gap-2 bg-transparent border-none text-dim cursor-pointer font-mono text-[11px] tracking-[.1em] uppercase mb-3 hover:text-cream transition-colors"
               >
                 <span className="clique-label">ALL APPLICATIONS</span>
-                <span style={{ display: 'inline-block', transition: 'transform .15s', transform: showAll ? 'rotate(90deg)' : 'none', fontSize: 13 }}>›</span>
-                <span style={{
-                  background: 'var(--line)', borderRadius: 99,
-                  padding: '1px 7px', fontSize: 10, color: 'var(--dim)',
-                }}>
+                <span
+                  className="text-[13px] transition-transform duration-150"
+                  style={{ display: 'inline-block', transform: showAll ? 'rotate(90deg)' : 'none' }}
+                >
+                  ›
+                </span>
+                <span className="bg-line rounded-full px-1.5 py-px text-[10px] text-dim">
                   {all.length}
                 </span>
               </button>
               {showAll && (
-                <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {all.map((v) => (
-                    <VerificationRow key={v._id} v={v} onApprove={handleApprove} onReject={handleReject} />
+                    <VerificationCard key={v._id} v={v} onApprove={handleApprove} onReject={handleReject} />
                   ))}
                 </div>
               )}
