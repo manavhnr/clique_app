@@ -129,7 +129,15 @@ export async function updateEvent(
   if (data.date) update.date = new Date(data.date);
   if (data.pricingData) {
     update.pricingMode = data.pricingData.mode;
-    update.pricingTiers = data.pricingData.tiers;
+    // Preserve soldCount and isOpen from existing tiers when label matches
+    update.pricingTiers = data.pricingData.tiers.map((incoming) => {
+      const existing = event.pricingTiers.find((t) => t.label === incoming.label);
+      return {
+        ...incoming,
+        soldCount: existing?.soldCount ?? 0,
+        isOpen: existing?.isOpen ?? true,
+      };
+    });
     update.groupPricing = data.pricingData.groups;
   }
   delete update.pricingData;

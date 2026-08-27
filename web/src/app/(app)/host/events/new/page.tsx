@@ -161,15 +161,26 @@ function EventFormContent() {
           musicTags: ev.musicTags ?? [],
         });
         setExistingImages(ev.images ?? []);
-        if (ev.pricingData) {
-          try {
-            const pd = typeof ev.pricingData === 'string' ? JSON.parse(ev.pricingData) : ev.pricingData;
-            if (pd.mode) setPricingMode(pd.mode);
-            if (pd.tiers?.length) setTiers(pd.tiers);
-            if (pd.groups?.length) setGroupPricing(pd.groups);
-          } catch { /* use defaults */ }
+        if (ev.pricingMode) setPricingMode(ev.pricingMode);
+        if (ev.pricingTiers?.length) {
+          setTiers(ev.pricingTiers.map((t: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number }) => ({
+            id: uid(),
+            label: t.label ?? '',
+            commonPrice: String(t.commonPrice ?? 0),
+            malePrice: String(t.malePrice ?? 0),
+            femalePrice: String(t.femalePrice ?? 0),
+            capacity: t.capacity != null ? String(t.capacity) : '',
+          })));
         } else {
           setTiers([{ id: uid(), label: 'General', commonPrice: String(ev.price ?? 0), malePrice: '0', femalePrice: '0', capacity: '' }]);
+        }
+        if (ev.groupPricing?.length) {
+          setGroupPricing(ev.groupPricing.map((g: { label: string; size: number; price: number }) => ({
+            id: uid(),
+            label: g.label ?? '',
+            size: String(g.size ?? 2),
+            price: String(g.price ?? 0),
+          })));
         }
       })
       .catch(() => {})
