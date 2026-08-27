@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -32,8 +32,10 @@ function Spinner() {
   return <div style={{ width: 14, height: 14, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />;
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') ?? '/events';
   const { login } = useAuth();
 
   const [identifier, setIdentifier] = useState('');
@@ -54,7 +56,7 @@ export default function LoginPage() {
         password,
       });
       login(data.data.token, data.data.user, data.data.refreshToken);
-      router.push('/events');
+      router.push(redirect);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message ?? 'Invalid phone/username or password.');
@@ -127,8 +129,12 @@ export default function LoginPage() {
         <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line)' }} />
       </div>
       <div style={{ textAlign: 'center', fontFamily: 'var(--display)', fontSize: 14, color: 'var(--cream)' }}>
-        <Link href="/signup" style={{ color: 'var(--lime)' }}>Sign up in 30s →</Link>
+        <Link href={`/signup${redirect !== '/events' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`} style={{ color: 'var(--lime)' }}>Sign up in 30s →</Link>
       </div>
     </AuthShell>
   );
+}
+
+export default function LoginPage() {
+  return <Suspense><LoginForm /></Suspense>;
 }

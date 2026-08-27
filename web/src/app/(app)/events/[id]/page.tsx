@@ -239,6 +239,9 @@ export default function EventDetailPage() {
   const isFull       = event ? event.bookedCount >= event.capacity : false;
   const spotsLeft    = event ? event.capacity - event.bookedCount : 0;
   const filled       = event ? Math.min(100, (event.bookedCount / event.capacity) * 100) : 0;
+  const activeTier   = (event as unknown as { activeTier?: { label: string; commonPrice: number; capacity?: number; soldCount: number } | null })?.activeTier ?? null;
+  const hasPhases    = !!((event as unknown as { pricingTiers?: unknown[] })?.pricingTiers?.length);
+  const ticketsAvailable = !hasPhases || !!activeTier;
 
   const userRequest  = event?.userRequest as JoinRequest | null;
   const userBooking  = event?.userBooking;
@@ -459,9 +462,18 @@ export default function EventDetailPage() {
           <div style={{ background: '#100D0A', border: '1px solid var(--line-2)', borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
             {/* Stub head */}
             <div style={{ padding: '18px 22px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-              <span className="clique-label">ADMIT ONE</span>
+              <div>
+                <span className="clique-label">ADMIT ONE</span>
+                {activeTier && (
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--lime)', marginTop: 4, textTransform: 'uppercase' }}>
+                    {activeTier.label}
+                  </div>
+                )}
+              </div>
               <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
-                {event.price === 0 ? 'Free' : `₹${event.price.toLocaleString('en-IN')}`}
+                {activeTier
+                  ? (activeTier.commonPrice === 0 ? 'Free' : `₹${activeTier.commonPrice.toLocaleString('en-IN')}`)
+                  : (event.price === 0 ? 'Free' : `₹${event.price.toLocaleString('en-IN')}`)}
               </span>
             </div>
 
@@ -548,13 +560,20 @@ export default function EventDetailPage() {
                 >
                   {bookLoading ? '…' : 'COMPLETE PAYMENT →'}
                 </button>
+              ) : !ticketsAvailable ? (
+                <div style={{ textAlign: 'center', padding: '18px 0 10px' }}>
+                  <span className="stamp" style={{ color: 'var(--dim)', fontSize: 12, padding: '8px 14px 7px' }}>NO TICKETS AVAILABLE</span>
+                  <div style={{ fontFamily: 'var(--display)', fontSize: 13, color: 'var(--cream)', marginTop: 10, lineHeight: 1.4 }}>
+                    The host hasn&apos;t opened the next phase yet.
+                  </div>
+                </div>
               ) : event.privacy === 'public' ? (
                 <button
                   onClick={handleBook}
                   disabled={isFull || bookLoading || event.status !== 'published'}
                   style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: (isFull || bookLoading || event.status !== 'published') ? 'not-allowed' : 'pointer', opacity: (isFull || bookLoading || event.status !== 'published') ? 0.45 : 1 }}
                 >
-                  {isFull ? 'SOLD OUT' : bookLoading ? '…' : event.price === 0 ? 'GET FREE PASS →' : 'BOOK NOW →'}
+                  {isFull ? 'SOLD OUT' : bookLoading ? '…' : (activeTier?.commonPrice === 0 || (!activeTier && event.price === 0)) ? 'GET FREE PASS →' : 'BOOK NOW →'}
                 </button>
               ) : (
                 <button

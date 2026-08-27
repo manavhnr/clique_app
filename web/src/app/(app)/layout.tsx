@@ -247,8 +247,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
-  }, [isLoading, user, router]);
+    if (!isLoading && !user) {
+      const dest = pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : '';
+      router.replace(`/login${dest}`);
+    }
+  }, [isLoading, user, router, pathname]);
 
   useEffect(() => {
     const saved = localStorage.getItem('clique_sidebar_collapsed');

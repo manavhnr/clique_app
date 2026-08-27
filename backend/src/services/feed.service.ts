@@ -61,6 +61,7 @@ export async function getHomeFeed(
     const events = await Event.find({
       status: 'published',
       date: { $gte: new Date() },
+      privacy: { $ne: 'secret' },
       location: {
         $near: {
           $geometry: { type: 'Point', coordinates: [longitude, latitude] },
@@ -75,7 +76,7 @@ export async function getHomeFeed(
     eventCards = events;
   } else if (isColdStart) {
     // No location but cold start — show featured/upcoming events
-    const events = await Event.find({ status: 'published', date: { $gte: new Date() } })
+    const events = await Event.find({ status: 'published', date: { $gte: new Date() }, privacy: { $ne: 'secret' } })
       .sort({ isFeatured: -1, date: 1 })
       .limit(eventSlots)
       .select('title images date startTime locationName price capacity bookedCount privacy hostId vibeTags isFeatured')

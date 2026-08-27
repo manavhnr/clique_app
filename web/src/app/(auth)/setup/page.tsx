@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -62,6 +62,8 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 
 export default function SetupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') ?? '/events';
   const { user, updateUser, token } = useAuth();
   const [name, setName]           = useState(user?.name ?? '');
   const [username, setUsername]   = useState('');
@@ -127,7 +129,7 @@ export default function SetupPage() {
         connectedSocials: { instagram: instagram.trim().replace(/^@/, '') },
       });
       updateUser(data.data.user);
-      router.push('/events');
+      router.push(redirect);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message ?? 'Setup failed');

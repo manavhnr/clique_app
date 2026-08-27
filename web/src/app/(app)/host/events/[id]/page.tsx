@@ -33,6 +33,7 @@ interface PendingRequest {
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'guests', label: 'Guests' },
+  { key: 'phases', label: 'Phases' },
   { key: 'team', label: 'Team' },
   { key: 'scanner', label: 'Scanner' },
 ] as const;
@@ -44,7 +45,7 @@ export default function HostEventPage() {
   const [requests, setRequests] = useState<PendingRequest[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'team' | 'scanner'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'phases' | 'team' | 'scanner'>('overview');
 
   const fetchGuests = () => {
     Promise.all([
@@ -117,6 +118,7 @@ export default function HostEventPage() {
       {activeTab === 'guests' && (
         <GuestsTab eventTitle={event.title} bookings={bookings} requests={requests} squads={squads} onRefresh={fetchGuests} />
       )}
+      {activeTab === 'phases' && <PhasesTab event={event} onRefresh={refreshEvent} />}
       {activeTab === 'team' && <TeamTab event={event} onRefresh={refreshEvent} />}
       {activeTab === 'scanner' && <ScannerTab event={event} />}
     </div>
@@ -723,6 +725,176 @@ function GuestsTab({ eventTitle, bookings, requests, squads, onRefresh }: {
               );
             })}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Phases tab ───────────────────────────────────────────────────────────────
+
+interface PricingTier {
+  _id: string;
+  label: string;
+  commonPrice: number;
+  malePrice: number;
+  femalePrice: number;
+  capacity?: number;
+  soldCount: number;
+  isOpen: boolean;
+}
+
+function PhasesTab({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
+  const tiers: PricingTier[] = (event as unknown as { pricingTiers?: PricingTier[] }).pricingTiers ?? [];
+
+  const [label, setLabel]       = useState('');
+  const [price, setPrice]       = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [adding, setAdding]     = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
+  const [error, setError]       = useState('');
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!label.trim() || !price.trim()) return;
+    setError(''); setAdding(true);
+    try {
+      await api.post(`/events/${event._id}/tiers`, {
+        label: label.trim(),
+        commonPrice: Number(price),
+        capacity: capacity ? Number(capacity) : undefined,
+      });
+      setLabel(''); setPrice(''); setCapacity('');
+      await onRefresh();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? 'Failed to add phase');
+    } finally { setAdding(false); }
+  };
+
+  const handleToggle = async (tier: PricingTier) => {
+    setError(''); setToggling(tier._id);
+    try {
+      const action = tier.isOpen ? 'close' : 'open';
+      await api.patch(`/events/${event._id}/tiers/${tier._id}/${action}`);
+      await onRefresh();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? 'Failed to update phase');
+    } finally { setToggling(null); }
+  };
+
+  const canAdd = !['cancelled', 'completed', 'blocked'].includes(event.status);
+
+  return (
+    <div className="flex flex-col gap-6">
+
+      {/* Current phases list */}
+      {tiers.length === 0 ? (
+        <div className="ledger px-1 py-10">
+          <div className="clique-label mb-3 !text-[10px] !tracking-[.16em]">№ 000 — NO PHASES</div>
+          <p className="m-0 font-display text-xl font-bold tracking-[-0.02em] text-paper">No ticket phases yet.</p>
+          <p className="m-0 mt-2 font-display text-sm leading-relaxed text-cream">
+            Add a phase below — it goes live immediately and attendees can book it.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="clique-label">ALL PHASES</div>
+          {tiers.map((tier, i) => {
+            const soldOut = tier.capacity != null && tier.soldCount >= tier.capacity;
+            const spotsLeft = tier.capacity != null ? tier.capacity - tier.soldCount : null;
+            const isBusy = toggling === tier._id;
+            return (
+              <div key={tier._id} className={`rounded-card border bg-card p-4 ${tier.isOpen ? 'border-lime/30' : 'border-line-2'}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="font-mono text-[9px] tracking-[.14em] text-dim">{String(i + 1).padStart(2, '0')}</span>
+                      <span className="font-display text-base font-bold text-paper">{tier.label}</span>
+                      {tier.isOpen && !soldOut && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-lime/40 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-lime" />Live
+                        </span>
+                      )}
+                      {soldOut && (
+                        <span className="rounded-full border border-hot/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-hot">Sold out</span>
+                      )}
+                      {!tier.isOpen && !soldOut && (
+                        <span className="rounded-full border border-line-2 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-dim">Closed</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10px] tracking-[.08em] text-cream">
+                      <span>₹{tier.commonPrice.toLocaleString('en-IN')}</span>
+                      <span>{tier.soldCount} sold{tier.capacity != null ? ` / ${tier.capacity} capacity` : ''}</span>
+                      {spotsLeft != null && !soldOut && <span className={spotsLeft < 10 ? 'text-hot' : ''}>{spotsLeft} left</span>}
+                    </div>
+                  </div>
+                  {canAdd && !soldOut && (
+                    <button
+                      onClick={() => handleToggle(tier)}
+                      disabled={isBusy}
+                      className={`shrink-0 rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.08em] transition-colors disabled:opacity-50 ${
+                        tier.isOpen
+                          ? 'border-hot/30 text-hot hover:bg-hot/10'
+                          : 'border-lime/30 text-lime hover:bg-lime/10'
+                      }`}
+                    >
+                      {isBusy ? '…' : tier.isOpen ? 'Close' : 'Open'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add phase form */}
+      {canAdd && (
+        <div className="rounded-card border border-dashed border-line-2 p-5">
+          <div className="clique-label mb-4">ADD A PHASE</div>
+          <form onSubmit={handleAdd} className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <label className="flex flex-col gap-1.5">
+                <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Phase name *</span>
+                <input
+                  className="clique-input"
+                  placeholder="e.g. Early Bird"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Price (₹) *</span>
+                <input
+                  className="clique-input"
+                  type="number"
+                  min="0"
+                  placeholder="299"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Capacity (optional)</span>
+                <input
+                  className="clique-input"
+                  type="number"
+                  min="1"
+                  placeholder="50"
+                  value={capacity}
+                  onChange={(e) => setCapacity(e.target.value)}
+                />
+              </label>
+            </div>
+            {error && <p className="m-0 font-mono text-xs text-hot">{error}</p>}
+            <Button type="submit" loading={adding} className="self-start">
+              Add phase →
+            </Button>
+          </form>
         </div>
       )}
     </div>

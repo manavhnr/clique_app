@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 
@@ -44,8 +44,10 @@ function Spinner() {
   return <div style={{ width: 14, height: 14, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />;
 }
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') ?? '';
 
   const [phone, setPhone]               = useState('');
   const [password, setPassword]         = useState('');
@@ -76,7 +78,8 @@ export default function SignupPage() {
         password,
       });
       await api.post('/auth/send-otp', { phone: phone.trim() });
-      router.push(`/otp?phone=${encodeURIComponent(phone.trim())}`);
+      const redirectParam = redirect ? `&redirect=${encodeURIComponent(redirect)}` : '';
+      router.push(`/otp?phone=${encodeURIComponent(phone.trim())}${redirectParam}`);
     } catch (err: unknown) {
       const e = err as { response?: { status?: number; data?: { message?: string } } };
       if (!e.response) {
@@ -213,8 +216,12 @@ export default function SignupPage() {
         <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line)' }} />
       </div>
       <div style={{ textAlign: 'center', fontFamily: 'var(--display)', fontSize: 14, color: 'var(--cream)' }}>
-        <Link href="/login" style={{ color: 'var(--lime)' }}>Log in →</Link>
+        <Link href={`/login${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`} style={{ color: 'var(--lime)' }}>Log in →</Link>
       </div>
     </AuthShell>
   );
+}
+
+export default function SignupPage() {
+  return <Suspense><SignupForm /></Suspense>;
 }

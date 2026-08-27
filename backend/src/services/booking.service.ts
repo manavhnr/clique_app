@@ -56,29 +56,52 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     if (!request) throw createError('Access not approved for this private event', 403);
   }
 
-  // Atomic capacity check — increment bookedCount only if space available
-  const updated = await Event.findOneAndUpdate(
-    { _id: eventId, status: 'published', $expr: { $lt: ['$bookedCount', '$capacity'] } },
-    { $inc: { bookedCount: 1 } },
-    { new: true }
-  );
+  // Resolve the active tier — first open tier with remaining capacity
+  const hasPhases = event.pricingTiers?.length > 0;
+  const activeTier = hasPhases
+    ? event.pricingTiers.find((t) => t.isOpen && (!t.capacity || t.soldCount < t.capacity))
+    : null;
+
+  if (hasPhases && !activeTier) {
+    throw createError('No tickets available right now — the host hasn\'t opened the next phase yet', 400);
+  }
+
+  const ticketPrice = activeTier ? activeTier.commonPrice : event.price;
+  const resolvedTierLabel = activeTier?.label || tierLabel || 'General';
+  const tierId = (activeTier as (typeof activeTier & { _id?: unknown }) | null)?._id;
+
+  // Atomic global capacity check + tier soldCount increment
+  const capacityQuery = { _id: eventId, status: 'published', $expr: { $lt: ['$bookedCount', '$capacity'] } };
+  const updated = tierId
+    ? await Event.findOneAndUpdate(
+        capacityQuery,
+        { $inc: { bookedCount: 1, 'pricingTiers.$[tier].soldCount': 1 } },
+        { new: true, arrayFilters: [{ 'tier._id': tierId }] }
+      )
+    : await Event.findOneAndUpdate(capacityQuery, { $inc: { bookedCount: 1 } }, { new: true });
   if (!updated) throw createError('Event is fully booked', 409);
 
-  // Determine initial status
-  const isFree = event.price === 0;
-  const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
+  // Auto-close this tier if it just sold out
+  if (activeTier?.capacity && tierId) {
+    const updatedTier = updated.pricingTiers.find((t) => t._id?.toString() === tierId.toString());
+    if (updatedTier && updatedTier.soldCount >= (updatedTier.capacity ?? Infinity)) {
+      await Event.updateOne(
+        { _id: eventId, 'pricingTiers._id': tierId },
+        { $set: { 'pricingTiers.$.isOpen': false } }
+      );
+    }
+  }
 
-  // Resolve tier label — use provided value, fall back to first pricing tier, then 'General'
-  const resolvedTierLabel = tierLabel
-    || event.pricingTiers?.[0]?.label
-    || 'General';
+  // Determine initial booking status
+  const isFree = ticketPrice === 0;
+  const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
 
   const booking = await Booking.create({
     userId,
     eventId,
     hostId: event.hostId,
     status: bookingStatus,
-    amount: event.price,
+    amount: ticketPrice,
     tierLabel: resolvedTierLabel,
   });
 

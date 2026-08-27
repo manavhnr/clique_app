@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import { requireVerifiedHost } from '../middleware/role.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { uploadMedia } from '../middleware/upload.middleware';
-import { createEventSchema, updateEventSchema, cancelEventSchema } from '../validators/event.validator';
+import { createEventSchema, updateEventSchema, cancelEventSchema, addTierSchema } from '../validators/event.validator';
 import {
   create,
   getEvent,
@@ -20,6 +20,9 @@ import {
   removeCoHostHandler,
   addScannerHandler,
   removeScannerHandler,
+  addTierHandler,
+  openTierHandler,
+  closeTierHandler,
 } from '../controllers/event.controller';
 import { nearMe, eventSearch } from './search.routes';
 
@@ -55,6 +58,11 @@ router.delete('/:eventId/co-hosts/:userId', requireVerifiedHost, removeCoHostHan
 // Scanner permission management (host only)
 router.post('/:eventId/scanners', requireVerifiedHost, addScannerHandler);
 router.delete('/:eventId/scanners/:userId', requireVerifiedHost, removeScannerHandler);
+
+// Ticket phase management (host only)
+router.post('/:eventId/tiers', requireVerifiedHost, validate(addTierSchema), addTierHandler);
+router.patch('/:eventId/tiers/:tierId/open', requireVerifiedHost, openTierHandler);
+router.patch('/:eventId/tiers/:tierId/close', requireVerifiedHost, closeTierHandler);
 
 // Any authenticated user
 router.post('/:eventId/save', save);

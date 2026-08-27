@@ -11,10 +11,11 @@ import { incrementEventCreationScore } from './cliquescore.service';
 import { notifyEventCancelled } from './notification.service';
 import { uploadFile } from '../utils/cloudinary';
 import { z } from 'zod';
-import { createEventSchema, updateEventSchema } from '../validators/event.validator';
+import { createEventSchema, updateEventSchema, addTierSchema } from '../validators/event.validator';
 
 type CreateEventInput = z.infer<typeof createEventSchema>;
 type UpdateEventInput = z.infer<typeof updateEventSchema>;
+type AddTierInput = z.infer<typeof addTierSchema>;
 
 export async function createEvent(
   hostId: string,
@@ -94,6 +95,10 @@ export async function getEventById(eventId: string, requesterId: string) {
   // Fire-and-forget view increment — never block or fail the read on it
   void Event.findByIdAndUpdate(eventId, { $inc: { viewCount: 1 } }).catch(() => {});
 
+  const activeTier = event.pricingTiers?.find(
+    (t) => t.isOpen && (!t.capacity || t.soldCount < t.capacity)
+  ) ?? null;
+
   return {
     event: {
       ...event.toObject(),
@@ -101,6 +106,7 @@ export async function getEventById(eventId: string, requesterId: string) {
       saved: !!saved,
       userBooking: userBooking || null,
       userRequest: userRequest || null,
+      activeTier,
     },
   };
 }
@@ -293,6 +299,42 @@ export async function removeScanner(eventId: string, requesterId: string, target
   if (event.hostId.toString() !== requesterId) throw createError('Not your event', 403);
 
   event.scanners = event.scanners.filter((s) => s.userId.toString() !== targetUserId) as typeof event.scanners;
+  await event.save();
+  return event;
+}
+
+// ─── Ticket Phases ────────────────────────────────────────────────────────────
+
+export async function addTier(eventId: string, hostId: string, data: AddTierInput) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  if (['cancelled', 'completed', 'blocked'].includes(event.status)) {
+    throw createError('Cannot add a phase to this event', 400);
+  }
+
+  event.pricingTiers.push({
+    label: data.label,
+    commonPrice: data.commonPrice,
+    malePrice: data.malePrice ?? 0,
+    femalePrice: data.femalePrice ?? 0,
+    capacity: data.capacity,
+    soldCount: 0,
+    isOpen: true,
+  } as typeof event.pricingTiers[number]);
+  await event.save();
+  return event;
+}
+
+export async function setTierOpen(eventId: string, hostId: string, tierId: string, isOpen: boolean) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+
+  const tier = event.pricingTiers.find((t) => t._id?.toString() === tierId);
+  if (!tier) throw createError('Phase not found', 404);
+
+  tier.isOpen = isOpen;
   await event.save();
   return event;
 }

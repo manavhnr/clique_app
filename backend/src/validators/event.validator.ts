@@ -92,3 +92,14 @@ export const updateEventSchema = createEventSchema.partial().omit({ status: true
 export const cancelEventSchema = z.object({
   reason: z.string().min(5).max(500).optional(),
 });
+
+export const addTierSchema = z.object({
+  label: z.string().min(1).max(100),
+  commonPrice: z.coerce.number().min(0),
+  malePrice: z.coerce.number().min(0).default(0),
+  femalePrice: z.coerce.number().min(0).default(0),
+  capacity: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.coerce.number().int().min(1).optional()
+  ),
+});

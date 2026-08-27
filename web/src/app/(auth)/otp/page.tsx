@@ -49,6 +49,7 @@ function OtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const phone = searchParams.get('phone') ?? '';
+  const redirect = searchParams.get('redirect') ?? '/events';
   const { login } = useAuth();
 
   const [digits, setDigits]     = useState(['', '', '', '', '', '']);
@@ -87,8 +88,12 @@ function OtpForm() {
       const { data } = await api.post('/auth/verify-otp', { phone, otp: code });
       const { token, user, needsSetup, refreshToken } = data.data;
       login(token, user, refreshToken);
-      if (needsSetup) router.push('/setup');
-      else router.push('/events');
+      if (needsSetup) {
+        const redirectParam = redirect !== '/events' ? `?redirect=${encodeURIComponent(redirect)}` : '';
+        router.push(`/setup${redirectParam}`);
+      } else {
+        router.push(redirect);
+      }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message ?? 'Invalid OTP. Try again.');

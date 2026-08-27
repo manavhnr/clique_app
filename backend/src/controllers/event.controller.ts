@@ -17,6 +17,8 @@ import {
   removeCoHost,
   addScanner,
   removeScanner,
+  addTier,
+  setTierOpen,
 } from '../services/event.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
@@ -136,5 +138,26 @@ export async function removeScannerHandler(req: AuthRequest, res: Response, next
   try {
     const event = await removeScanner(req.params.eventId, req.user!.userId, req.params.userId);
     sendSuccess(res, { scanners: event.scanners }, 'Scanner removed');
+  } catch (err) { next(err); }
+}
+
+export async function addTierHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await addTier(req.params.eventId, req.user!.userId, req.body);
+    sendSuccess(res, { pricingTiers: event.pricingTiers }, 'Phase added', 201);
+  } catch (err) { next(err); }
+}
+
+export async function openTierHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await setTierOpen(req.params.eventId, req.user!.userId, req.params.tierId, true);
+    sendSuccess(res, { pricingTiers: event.pricingTiers }, 'Phase opened');
+  } catch (err) { next(err); }
+}
+
+export async function closeTierHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await setTierOpen(req.params.eventId, req.user!.userId, req.params.tierId, false);
+    sendSuccess(res, { pricingTiers: event.pricingTiers }, 'Phase closed');
   } catch (err) { next(err); }
 }

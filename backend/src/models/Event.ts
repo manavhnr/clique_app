@@ -7,11 +7,14 @@ export interface IEventMember {
 }
 
 export interface IPricingTier {
+  _id?: mongoose.Types.ObjectId;
   label: string;
   commonPrice: number;
   malePrice: number;
   femalePrice: number;
   capacity?: number;
+  soldCount: number;
+  isOpen: boolean;
 }
 
 export interface IGroupPricing {
@@ -100,6 +103,8 @@ const eventSchema = new Schema<IEvent>(
         malePrice: { type: Number, default: 0 },
         femalePrice: { type: Number, default: 0 },
         capacity: { type: Number },
+        soldCount: { type: Number, default: 0 },
+        isOpen: { type: Boolean, default: true },
       }],
       default: [],
     },
