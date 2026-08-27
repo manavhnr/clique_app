@@ -92,7 +92,11 @@ export interface EventSearchFilters {
 export async function searchEvents(filters: EventSearchFilters, requesterId: string) {
   const { q, date, category, minPrice, maxPrice, page = 1, limit = 20 } = filters;
 
-  const query: Record<string, unknown> = { status: 'published', date: { $gte: new Date() } };
+  const query: Record<string, unknown> = {
+    status: 'published',
+    date: { $gte: new Date() },
+    privacy: { $ne: 'secret' },
+  };
 
   if (q) {
     query.$text = { $search: q };
@@ -166,6 +170,7 @@ export async function globalSearch(q: string, requesterId: string) {
     // Events
     Event.find({
       status: 'published',
+      privacy: { $ne: 'secret' },
       $or: [{ title: regex }, { description: regex }, { locationName: regex }, { vibeTags: regex }],
     })
       .select('title images date startTime locationName price hostId privacy category')

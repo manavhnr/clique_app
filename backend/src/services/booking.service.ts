@@ -66,7 +66,15 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     throw createError('No tickets available right now — the host hasn\'t opened the next phase yet', 400);
   }
 
-  const ticketPrice = activeTier ? activeTier.commonPrice : event.price;
+  const bookingUser = await import('../models/User').then(m => m.User.findById(userId).select('gender').lean());
+  const gender = bookingUser?.gender as string | undefined;
+  const ticketPrice = activeTier
+    ? event.pricingMode === 'split'
+      ? gender === 'male' ? activeTier.malePrice
+        : gender === 'female' ? activeTier.femalePrice
+        : activeTier.commonPrice
+      : activeTier.commonPrice
+    : event.price;
   const resolvedTierLabel = activeTier?.label || tierLabel || 'General';
   const tierId = (activeTier as (typeof activeTier & { _id?: unknown }) | null)?._id;
 

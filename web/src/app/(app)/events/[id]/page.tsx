@@ -244,14 +244,18 @@ export default function EventDetailPage() {
   const ticketsAvailable = !hasPhases || !!activeTier;
 
   const userRequest  = event?.userRequest as JoinRequest | null;
-  const userBooking  = event?.userBooking;
+  const userBooking  = event?.userBooking as any;
 
-  const isPending    = userRequest?.status === 'requested';
-  const isApproved   = userRequest?.status === 'approved' || (userBooking && ['confirmed', 'checked_in'].includes(userBooking.status));
-  const isRejected     = userRequest?.status === 'rejected';
-  const isRegistered   = !!(isPending || isApproved);
-  const paymentPending = !!(userBooking && (userBooking as any).status === 'payment_pending');
-  const paymentUnderReview = !!(userBooking && (userBooking as any).status === 'utr_submitted');
+  const isPending           = userRequest?.status === 'requested';
+  const requestApproved     = userRequest?.status === 'approved';
+  const isRejected          = userRequest?.status === 'rejected';
+  const bookingConfirmed    = !!(userBooking && ['confirmed', 'checked_in'].includes(userBooking.status));
+  // Request approved but user hasn't completed booking/payment yet
+  const needsBookingAfterApproval = requestApproved && !userBooking;
+  const isApproved          = bookingConfirmed;
+  const isRegistered        = !!(isPending || requestApproved || bookingConfirmed);
+  const paymentPending      = !!(userBooking?.status === 'payment_pending');
+  const paymentUnderReview  = !!(userBooking?.status === 'utr_submitted');
 
   // Social gate: check if user has required socials
   const missingSocials = (event?.requiresSocials && (event?.requiredSocials?.length ?? 0) > 0)
@@ -288,10 +292,10 @@ export default function EventDetailPage() {
     try {
       const { data: bookRes } = await api.post('/bookings', { eventId: id });
       const createdBooking = bookRes.data?.booking;
-      if (event.price > 0 && createdBooking?.status === 'payment_pending') {
+      if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
         setUtr('');
         setProofFile(null);
-        setUpiModal({ bookingId: createdBooking._id, amount: event.price });
+        setUpiModal({ bookingId: createdBooking._id, amount: createdBooking.amount });
       } else {
         await refreshEvent();
       }
@@ -305,7 +309,7 @@ export default function EventDetailPage() {
     if (!userBooking || !event) return;
     setUtr('');
     setProofFile(null);
-    setUpiModal({ bookingId: (userBooking as any)._id, amount: event.price });
+    setUpiModal({ bookingId: userBooking._id, amount: userBooking.amount });
   };
 
   const handleUPISubmit = async () => {
@@ -376,6 +380,7 @@ export default function EventDetailPage() {
           <span className="clique-label">{categoryLabel(event.category).toUpperCase()}</span>
           <span aria-hidden style={{ height: 1, flex: 1, background: 'var(--line-2)' }} />
           {event.privacy === 'private' && <span className="stamp stamp-flat" style={{ color: 'var(--dim)' }}>Private</span>}
+          {event.privacy === 'secret' && <span className="stamp stamp-flat" style={{ color: 'var(--dim)' }}>Secret</span>}
           {isFull && <span className="stamp" style={{ color: 'var(--hot)' }}>Sold out</span>}
           {event.status === 'cancelled' && <span className="stamp" style={{ color: 'var(--hot)' }}>Cancelled</span>}
         </div>
@@ -523,6 +528,19 @@ export default function EventDetailPage() {
                     You&apos;ll get notified when the host responds.
                   </div>
                 </div>
+              ) : needsBookingAfterApproval ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ border: '1px dashed rgba(201,243,110,0.35)', borderRadius: 3, padding: '12px 14px', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--lime)', letterSpacing: '.1em' }}>
+                    ✓ REQUEST APPROVED — COMPLETE YOUR BOOKING
+                  </div>
+                  <button
+                    onClick={handleBook}
+                    disabled={isFull || bookLoading}
+                    style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: (isFull || bookLoading) ? 'not-allowed' : 'pointer', opacity: (isFull || bookLoading) ? 0.45 : 1 }}
+                  >
+                    {bookLoading ? '…' : event.price === 0 ? 'GET FREE PASS →' : 'BOOK & PAY →'}
+                  </button>
+                </div>
               ) : isRejected ? (
                 <div style={{ textAlign: 'center', padding: '10px 0' }}>
                   <span className="stamp" style={{ color: 'var(--hot)', fontSize: 12, padding: '8px 14px 7px' }}>REGISTRATION DECLINED</span>
@@ -567,7 +585,8 @@ export default function EventDetailPage() {
                     The host hasn&apos;t opened the next phase yet.
                   </div>
                 </div>
-              ) : event.privacy === 'public' ? (
+              ) : event.privacy !== 'private' ? (
+                /* public + secret: direct booking */
                 <button
                   onClick={handleBook}
                   disabled={isFull || bookLoading || event.status !== 'published'}
@@ -576,6 +595,7 @@ export default function EventDetailPage() {
                   {isFull ? 'SOLD OUT' : bookLoading ? '…' : (activeTier?.commonPrice === 0 || (!activeTier && event.price === 0)) ? 'GET FREE PASS →' : 'BOOK NOW →'}
                 </button>
               ) : (
+                /* private: request approval first */
                 <button
                   onClick={() => { setError(''); setConfirmOpen(true); }}
                   disabled={isFull || event.status !== 'published'}
@@ -601,7 +621,7 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-          {event.privacy !== 'public' && (
+          {event.privacy === 'private' && (
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.12em', textAlign: 'center', marginTop: 14 }}>
               ※ HOST REVIEWS AND ACCEPTS REGISTRATIONS MANUALLY
             </div>

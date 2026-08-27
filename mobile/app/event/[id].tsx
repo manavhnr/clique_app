@@ -194,9 +194,9 @@ export default function EventDetailScreen() {
       const { data } = await api.post('/bookings', { eventId: event._id });
       const createdBooking = data.data?.booking;
 
-      if (event.price > 0 && createdBooking?.status === 'payment_pending') {
+      if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
         // Open UPI payment modal for paid events
-        setUpiModal({ bookingId: createdBooking._id, amount: event.price });
+        setUpiModal({ bookingId: createdBooking._id, amount: createdBooking.amount });
       } else {
         // Free event — pass is already generated
         Alert.alert('Booked!', 'Your pass is confirmed.', [
@@ -263,9 +263,26 @@ export default function EventDetailScreen() {
   const spotsLeft = (event.capacity ?? 0) - (event.bookedCount ?? 0);
   const isFull = spotsLeft <= 0;
   const isOwnEvent = event.hostId?._id === user?._id;
-  const isPrivate = event.privacy === 'private';
-  const isBooked = event.userBookingStatus === 'confirmed';
-  const isPaymentPending = event.userBookingStatus === 'payment_pending';
+  const needsApproval = event.privacy === 'private' && event.approvalRequired;
+  const isBooked = event.userBooking?.status === 'confirmed';
+  const isPaymentPending = event.userBooking?.status === 'payment_pending';
+  const isUtrSubmitted = event.userBooking?.status === 'utr_submitted';
+
+  // Effective price: use active tier + user gender for split pricing
+  const activeTier = event.activeTier;
+  const effectivePrice = (() => {
+    if (!activeTier) return event.price ?? 0;
+    if (event.pricingMode === 'split') {
+      if (user?.gender === 'male') return activeTier.malePrice;
+      if (user?.gender === 'female') return activeTier.femalePrice;
+    }
+    return activeTier.commonPrice;
+  })();
+
+  const privacyLabel = event.privacy === 'secret' ? 'Secret' : event.privacy === 'private' ? 'Private' : 'Public';
+  const privacyColor = event.privacy === 'public' ? '#14532d' : '#422006';
+  const privacyText = event.privacy === 'public' ? '#4ade80' : '#fb923c';
+
   const dateStr = event.date
     ? new Date(event.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })
     : null;
@@ -317,13 +334,8 @@ export default function EventDetailScreen() {
             <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', flex: 1, lineHeight: 28, marginRight: 12 }}>
               {event.title}
             </Text>
-            <View style={{
-              backgroundColor: isPrivate ? '#422006' : '#14532d',
-              borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4,
-            }}>
-              <Text style={{ color: isPrivate ? '#fb923c' : '#4ade80', fontSize: 11, fontWeight: '700' }}>
-                {isPrivate ? 'Private' : 'Public'}
-              </Text>
+            <View style={{ backgroundColor: privacyColor, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4 }}>
+              <Text style={{ color: privacyText, fontSize: 11, fontWeight: '700' }}>{privacyLabel}</Text>
             </View>
           </View>
 
@@ -359,8 +371,8 @@ export default function EventDetailScreen() {
             />
             <InfoPill
               icon="cash-outline"
-              label={event.price > 0 ? `₹${event.price}` : 'Free Entry'}
-              accent={event.price > 0 ? '#F59E0B' : '#22c55e'}
+              label={effectivePrice > 0 ? `₹${effectivePrice}` : 'Free Entry'}
+              accent={effectivePrice > 0 ? '#F59E0B' : '#22c55e'}
             />
           </View>
 
@@ -379,6 +391,20 @@ export default function EventDetailScreen() {
               ))}
             </View>
           ) : null}
+
+          {event.groupPricing?.length > 0 && (
+            <Section title="Group Offers">
+              {event.groupPricing.map((g: any, i: number) => (
+                <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#111827', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#1F2937' }}>
+                  <View>
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>{g.label || `Group of ${g.size}`}</Text>
+                    <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 2 }}>{g.size} people</Text>
+                  </View>
+                  <Text style={{ color: '#F59E0B', fontSize: 15, fontWeight: '700' }}>₹{g.price}</Text>
+                </View>
+              ))}
+            </Section>
+          )}
 
           {event.rules ? (
             <Section title="Rules">
@@ -407,21 +433,21 @@ export default function EventDetailScreen() {
               <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
               <Text style={{ color: '#22c55e', fontWeight: '700', fontSize: 15 }}>You're going!</Text>
             </View>
-          ) : isPaymentPending ? (
+          ) : (isPaymentPending || isUtrSubmitted) ? (
             <View style={{ gap: 10 }}>
               <View style={{ backgroundColor: '#1C1600', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="time-outline" size={16} color="#F59E0B" />
                 <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', flex: 1 }}>Payment proof under review</Text>
               </View>
               <TouchableOpacity
-                onPress={() => event._id && setUpiModal({ bookingId: event.userBookingId, amount: event.price })}
+                onPress={() => setUpiModal({ bookingId: event.userBooking._id, amount: event.userBooking.amount })}
                 style={{ backgroundColor: '#1F2937', borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
                 activeOpacity={0.85}
               >
                 <Text style={{ color: '#94A3B8', fontWeight: '600', fontSize: 14 }}>Resubmit / Update Proof</Text>
               </TouchableOpacity>
             </View>
-          ) : isPrivate && !event.userBookingStatus ? (
+          ) : needsApproval && !event.userBooking?.status ? (
             <TouchableOpacity
               onPress={handleRequest}
               style={{ backgroundColor: '#F59E0B', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
@@ -442,7 +468,7 @@ export default function EventDetailScreen() {
               {booking
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={{ color: isFull ? '#6B7280' : '#fff', fontWeight: '700', fontSize: 15 }}>
-                    {isFull ? 'Sold Out' : event.price > 0 ? `Book · ₹${event.price}` : 'Get Free Pass'}
+                    {isFull ? 'Sold Out' : effectivePrice > 0 ? `Book · ₹${effectivePrice}` : 'Get Free Pass'}
                   </Text>
               }
             </TouchableOpacity>
