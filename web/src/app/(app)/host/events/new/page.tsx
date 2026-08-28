@@ -499,9 +499,9 @@ function EventFormContent() {
 
               <Field label="PRIVACY">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  <Pill on={form.privacy === 'public'}  onClick={() => set('privacy', 'public')}>Public</Pill>
-                  <Pill on={form.privacy === 'private'} onClick={() => set('privacy', 'private')}>Invite Only · approval needed</Pill>
-                  <Pill on={form.privacy === 'secret'}  onClick={() => set('privacy', 'secret')}>Secret · hidden from search</Pill>
+                  <Pill on={form.privacy === 'public'}  onClick={() => { set('privacy', 'public'); set('approvalRequired', false); }}>Public</Pill>
+                  <Pill on={form.privacy === 'private'} onClick={() => { set('privacy', 'private'); set('approvalRequired', true); }}>Invite Only · approval needed</Pill>
+                  <Pill on={form.privacy === 'secret'}  onClick={() => { set('privacy', 'secret'); set('approvalRequired', false); }}>Secret · hidden from search</Pill>
                 </div>
               </Field>
 

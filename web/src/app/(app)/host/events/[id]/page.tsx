@@ -190,7 +190,7 @@ function EventHeader({ event, onRefresh }: { event: Event; onRefresh: () => void
           { label: 'ON THE LIST', value: `${event.bookedCount}/${event.capacity}` },
           { label: 'CHECKED IN', value: event.checkedInCount ?? 0 },
           { label: 'PRICE', value: formatPrice(event.price) },
-          { label: 'PRIVACY', value: event.privacy === 'private' ? 'Private' : 'Public' },
+          { label: 'PRIVACY', value: event.privacy === 'private' ? 'Private' : event.privacy === 'secret' ? 'Secret' : 'Public' },
         ].map(({ label, value }) => (
           <div key={label} className="flex items-baseline gap-2.5">
             <span className="font-display text-lg font-bold text-paper">{value}</span>

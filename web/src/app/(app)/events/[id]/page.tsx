@@ -585,8 +585,8 @@ export default function EventDetailPage() {
                     The host hasn&apos;t opened the next phase yet.
                   </div>
                 </div>
-              ) : event.privacy !== 'private' ? (
-                /* public + secret: direct booking */
+              ) : !event.approvalRequired ? (
+                /* public + secret + private-without-approval: direct booking */
                 <button
                   onClick={handleBook}
                   disabled={isFull || bookLoading || event.status !== 'published'}
