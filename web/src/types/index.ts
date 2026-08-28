@@ -62,7 +62,7 @@ export interface Event {
   capacity: number;
   bookedCount: number;
   checkedInCount?: number;
-  privacy: 'public' | 'private';
+  privacy: 'public' | 'private' | 'secret';
   approvalRequired?: boolean;
   requiresSocials?: boolean;
   requiredSocials?: string[];
