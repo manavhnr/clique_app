@@ -323,7 +323,15 @@ export default function EventDetailPage() {
       }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Booking failed');
+      const status = (e as { response?: { status?: number } }).response?.status;
+      // 409 means the user already has an active booking — refresh so the UI shows
+      // the correct state (payment_pending → "Complete Payment", confirmed → "On the list")
+      // instead of leaving a stale Book button with an error message underneath.
+      if (status === 409) {
+        await refreshEvent();
+      } else {
+        setError(e.response?.data?.message ?? 'Booking failed');
+      }
     } finally { setBookLoading(false); }
   };
 
