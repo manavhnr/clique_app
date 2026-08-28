@@ -52,10 +52,12 @@ export default function HostEventPage() {
       api.get(`/bookings/event/${id}`).catch(() => null),
       api.get(`/requests/host?eventId=${id}`).catch(() => null),
       api.get(`/squads/event/${id}/all`).catch(() => null),
-    ]).then(([bRes, rRes, sRes]) => {
+      api.get(`/events/${id}`).catch(() => null),
+    ]).then(([bRes, rRes, sRes, evtRes]) => {
       if (bRes?.data?.data?.bookings) setBookings(bRes.data.data.bookings);
       if (rRes?.data?.data?.requests) setRequests(rRes.data.data.requests);
       if (sRes?.data?.data?.squads) setSquads(sRes.data.data.squads);
+      if (evtRes?.data?.data?.event) setEvent(evtRes.data.data.event);
     });
   };
 
@@ -355,6 +357,7 @@ function BookingStatusBadge({ status }: { status: string }) {
     confirmed: { label: 'Confirmed', variant: 'lime' },
     checked_in: { label: 'Checked in', variant: 'sky' },
     payment_pending: { label: 'Payment pending', variant: 'gold' },
+    utr_submitted: { label: 'UPI submitted', variant: 'gold' },
     cancelled: { label: 'Cancelled', variant: 'hot' },
   };
   const { label, variant } = map[status] ?? { label: status, variant: 'neutral' as const };
