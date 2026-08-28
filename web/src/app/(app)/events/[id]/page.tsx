@@ -239,8 +239,12 @@ export default function EventDetailPage() {
   const isFull       = event ? event.bookedCount >= event.capacity : false;
   const spotsLeft    = event ? event.capacity - event.bookedCount : 0;
   const filled       = event ? Math.min(100, (event.bookedCount / event.capacity) * 100) : 0;
-  const activeTier   = (event as unknown as { activeTier?: { label: string; commonPrice: number; capacity?: number; soldCount: number } | null })?.activeTier ?? null;
-  const hasPhases    = !!((event as unknown as { pricingTiers?: unknown[] })?.pricingTiers?.length);
+  const ev           = event as unknown as { activeTier?: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number; soldCount: number } | null; pricingTiers?: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number; soldCount: number; isOpen: boolean }[]; pricingMode?: string; groupPricing?: { label: string; size: number; price: number }[] };
+  const activeTier   = ev.activeTier ?? null;
+  const allTiers     = ev.pricingTiers ?? [];
+  const pricingMode  = ev.pricingMode ?? 'common';
+  const groupPricing = ev.groupPricing ?? [];
+  const hasPhases    = allTiers.length > 0;
   const ticketsAvailable = !hasPhases || !!activeTier;
 
   const userRequest  = event?.userRequest as JoinRequest | null;
@@ -256,6 +260,19 @@ export default function EventDetailPage() {
   const isRegistered        = !!(isPending || requestApproved || bookingConfirmed);
   const paymentPending      = !!(userBooking?.status === 'payment_pending');
   const paymentUnderReview  = !!(userBooking?.status === 'utr_submitted');
+
+  // Effective price for the current user (gender-aware for split pricing)
+  const effectivePrice = (() => {
+    if (!event) return 0;
+    if (activeTier) {
+      if (pricingMode === 'split') {
+        if (user?.gender === 'male') return activeTier.malePrice;
+        if (user?.gender === 'female') return activeTier.femalePrice;
+      }
+      return activeTier.commonPrice;
+    }
+    return event.price;
+  })();
 
   // Social gate: check if user has required socials
   const missingSocials = (event?.requiresSocials && (event?.requiredSocials?.length ?? 0) > 0)
@@ -450,6 +467,23 @@ export default function EventDetailPage() {
             </div>
           )}
 
+          {groupPricing.length > 0 && (
+            <div>
+              <div className="clique-label" style={{ marginBottom: 12 }}>GROUP OFFERS</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {groupPricing.map((g, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid var(--line-2)', borderRadius: 4 }}>
+                    <div>
+                      <span style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 600 }}>{g.label || `Group of ${g.size}`}</span>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginLeft: 10 }}>{g.size} PEOPLE</span>
+                    </div>
+                    <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--lime)' }}>₹{g.price.toLocaleString('en-IN')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Squad section — shown once registered */}
           {isRegistered && !isOwnEvent && user && (
             <div>
@@ -466,20 +500,58 @@ export default function EventDetailPage() {
         <aside style={{ position: isMobile ? 'static' : 'sticky', top: 36 }}>
           <div style={{ background: '#100D0A', border: '1px solid var(--line-2)', borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
             {/* Stub head */}
-            <div style={{ padding: '18px 22px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-              <div>
-                <span className="clique-label">ADMIT ONE</span>
-                {activeTier && (
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--lime)', marginTop: 4, textTransform: 'uppercase' }}>
-                    {activeTier.label}
+            <div style={{ padding: '18px 22px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                <div>
+                  <span className="clique-label">ADMIT ONE</span>
+                  {activeTier && (
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--lime)', marginTop: 4, textTransform: 'uppercase' }}>
+                      {activeTier.label}
+                    </div>
+                  )}
+                </div>
+                {pricingMode === 'split' && activeTier ? (
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>
+                      ♂ <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--paper)' }}>
+                        {activeTier.malePrice === 0 ? 'Free' : `₹${activeTier.malePrice.toLocaleString('en-IN')}`}
+                      </span>
+                    </span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>
+                      ♀ <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--paper)' }}>
+                        {activeTier.femalePrice === 0 ? 'Free' : `₹${activeTier.femalePrice.toLocaleString('en-IN')}`}
+                      </span>
+                    </span>
                   </div>
+                ) : (
+                  <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
+                    {activeTier
+                      ? (activeTier.commonPrice === 0 ? 'Free' : `₹${activeTier.commonPrice.toLocaleString('en-IN')}`)
+                      : (event.price === 0 ? 'Free' : `₹${event.price.toLocaleString('en-IN')}`)}
+                  </span>
                 )}
               </div>
-              <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
-                {activeTier
-                  ? (activeTier.commonPrice === 0 ? 'Free' : `₹${activeTier.commonPrice.toLocaleString('en-IN')}`)
-                  : (event.price === 0 ? 'Free' : `₹${event.price.toLocaleString('en-IN')}`)}
-              </span>
+              {/* All phases */}
+              {allTiers.length > 1 && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {allTiers.map((t, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: t.isOpen ? 1 : 0.4 }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.1em', color: t.isOpen ? 'var(--lime)' : 'var(--dim)', textTransform: 'uppercase' }}>
+                        {t.label}{!t.isOpen && ' · CLOSED'}
+                      </span>
+                      {pricingMode === 'split' ? (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream)', letterSpacing: '.06em' }}>
+                          ♂ ₹{t.malePrice} · ♀ ₹{t.femalePrice}
+                        </span>
+                      ) : (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream)', letterSpacing: '.06em' }}>
+                          ₹{t.commonPrice}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Perforation */}
@@ -592,7 +664,7 @@ export default function EventDetailPage() {
                   disabled={isFull || bookLoading || event.status !== 'published'}
                   style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: (isFull || bookLoading || event.status !== 'published') ? 'not-allowed' : 'pointer', opacity: (isFull || bookLoading || event.status !== 'published') ? 0.45 : 1 }}
                 >
-                  {isFull ? 'SOLD OUT' : bookLoading ? '…' : (activeTier?.commonPrice === 0 || (!activeTier && event.price === 0)) ? 'GET FREE PASS →' : 'BOOK NOW →'}
+                  {isFull ? 'SOLD OUT' : bookLoading ? '…' : effectivePrice === 0 ? 'GET FREE PASS →' : `BOOK · ₹${effectivePrice.toLocaleString('en-IN')} →`}
                 </button>
               ) : (
                 /* private: request approval first */
