@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -61,6 +61,14 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 export default function SetupPage() {
+  return (
+    <Suspense>
+      <SetupPageInner />
+    </Suspense>
+  );
+}
+
+function SetupPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') ?? '/events';
