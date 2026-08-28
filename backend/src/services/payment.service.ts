@@ -220,7 +220,7 @@ export async function submitUPIPayment(
   const event = await Event.findById(booking.eventId).select('title price platformFee status');
   if (!event || event.status === 'cancelled') throw createError('Event no longer available', 400);
 
-  const totalAmount = Math.round((event.price + (event.platformFee ?? 0)) * 100);
+  const totalAmount = Math.round(booking.amount * 100);
 
   // Resubmission: booking already in utr_submitted — just update the UTR on existing payment
   if (booking.status === 'utr_submitted') {

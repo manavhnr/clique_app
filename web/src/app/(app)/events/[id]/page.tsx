@@ -357,7 +357,14 @@ export default function EventDetailPage() {
       await refreshEvent();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Submission failed');
+      const msg = e.response?.data?.message ?? 'Submission failed';
+      if (msg === 'Booking does not require payment') {
+        // Booking was already confirmed externally — close modal and show current state
+        setUpiModal(null);
+        await refreshEvent();
+      } else {
+        setError(msg);
+      }
     } finally { setUpiSubmitting(false); }
   };
 
