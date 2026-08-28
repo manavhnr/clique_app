@@ -240,10 +240,10 @@ export default function EventDetailPage() {
   const spotsLeft    = event ? event.capacity - event.bookedCount : 0;
   const filled       = event ? Math.min(100, (event.bookedCount / event.capacity) * 100) : 0;
   const ev           = event as unknown as { activeTier?: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number; soldCount: number } | null; pricingTiers?: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number; soldCount: number; isOpen: boolean }[]; pricingMode?: string; groupPricing?: { label: string; size: number; price: number }[] };
-  const activeTier   = ev.activeTier ?? null;
-  const allTiers     = ev.pricingTiers ?? [];
-  const pricingMode  = ev.pricingMode ?? 'common';
-  const groupPricing = ev.groupPricing ?? [];
+  const activeTier   = ev?.activeTier ?? null;
+  const allTiers     = ev?.pricingTiers ?? [];
+  const pricingMode  = ev?.pricingMode ?? 'common';
+  const groupPricing = ev?.groupPricing ?? [];
   const hasPhases    = allTiers.length > 0;
   const ticketsAvailable = !hasPhases || !!activeTier;
 
