@@ -223,6 +223,7 @@ export default function EventDetailPage() {
   const [utr, setUtr] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [upiSubmitting, setUpiSubmitting] = useState(false);
+  const [selectedGroupIdx, setSelectedGroupIdx] = useState<number | null>(null);
 
   useEffect(() => {
     api.get(`/events/${id}`)
@@ -244,6 +245,7 @@ export default function EventDetailPage() {
   const allTiers     = ev?.pricingTiers ?? [];
   const pricingMode  = ev?.pricingMode ?? 'common';
   const groupPricing = ev?.groupPricing ?? [];
+  const selectedGroup = selectedGroupIdx !== null ? (groupPricing[selectedGroupIdx] ?? null) : null;
   const hasPhases    = allTiers.length > 0;
   const ticketsAvailable = !hasPhases || !!activeTier;
 
@@ -264,6 +266,7 @@ export default function EventDetailPage() {
   // Effective price for the current user (gender-aware for split pricing)
   const effectivePrice = (() => {
     if (!event) return 0;
+    if (selectedGroup) return selectedGroup.price;
     if (activeTier) {
       if (pricingMode === 'split') {
         if (user?.gender === 'male') return activeTier.malePrice;
@@ -307,7 +310,9 @@ export default function EventDetailPage() {
     if (!event) return;
     setError(''); setBookLoading(true);
     try {
-      const { data: bookRes } = await api.post('/bookings', { eventId: id });
+      const payload: Record<string, unknown> = { eventId: id };
+      if (selectedGroupIdx !== null) payload.groupPricingIndex = selectedGroupIdx;
+      const { data: bookRes } = await api.post('/bookings', payload);
       const createdBooking = bookRes.data?.booking;
       if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
         setUtr('');
@@ -471,16 +476,32 @@ export default function EventDetailPage() {
             <div>
               <div className="clique-label" style={{ marginBottom: 12 }}>GROUP OFFERS</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {groupPricing.map((g, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid var(--line-2)', borderRadius: 4 }}>
-                    <div>
-                      <span style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 600 }}>{g.label || `Group of ${g.size}`}</span>
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginLeft: 10 }}>{g.size} PEOPLE</span>
-                    </div>
-                    <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--lime)' }}>₹{g.price.toLocaleString('en-IN')}</span>
-                  </div>
-                ))}
+                {groupPricing.map((g, i) => {
+                  const isSelected = selectedGroupIdx === i;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedGroupIdx(isSelected ? null : i)}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: `1px solid ${isSelected ? 'var(--lime)' : 'var(--line-2)'}`, borderRadius: 4, background: isSelected ? 'rgba(201,243,110,0.07)' : 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all .15s ease' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {isSelected && <span style={{ color: 'var(--lime)', fontSize: 12 }}>✓</span>}
+                        <div>
+                          <span style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 600, color: isSelected ? 'var(--lime)' : 'var(--paper)' }}>{g.label || `Group of ${g.size}`}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginLeft: 10 }}>{g.size} PEOPLE</span>
+                        </div>
+                      </div>
+                      <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--lime)' }}>₹{g.price.toLocaleString('en-IN')}</span>
+                    </button>
+                  );
+                })}
               </div>
+              {selectedGroupIdx !== null && (
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginTop: 8 }}>
+                  Group offer selected — click again to switch back to individual
+                </div>
+              )}
             </div>
           )}
 
@@ -503,14 +524,14 @@ export default function EventDetailPage() {
             <div style={{ padding: '18px 22px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
                 <div>
-                  <span className="clique-label">ADMIT ONE</span>
-                  {activeTier && (
+                  <span className="clique-label">{selectedGroup ? `GROUP · ${selectedGroup.size} PEOPLE` : 'ADMIT ONE'}</span>
+                  {(selectedGroup || activeTier) && (
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.14em', color: 'var(--lime)', marginTop: 4, textTransform: 'uppercase' }}>
-                      {activeTier.label}
+                      {selectedGroup ? (selectedGroup.label || `Group of ${selectedGroup.size}`) : activeTier!.label}
                     </div>
                   )}
                 </div>
-                {pricingMode === 'split' && activeTier ? (
+                {!selectedGroup && pricingMode === 'split' && activeTier ? (
                   <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>
                       ♂ <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--paper)' }}>
@@ -525,9 +546,11 @@ export default function EventDetailPage() {
                   </div>
                 ) : (
                   <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
-                    {activeTier
-                      ? (activeTier.commonPrice === 0 ? 'Free' : `₹${activeTier.commonPrice.toLocaleString('en-IN')}`)
-                      : (event.price === 0 ? 'Free' : `₹${event.price.toLocaleString('en-IN')}`)}
+                    {selectedGroup
+                      ? (selectedGroup.price === 0 ? 'Free' : `₹${selectedGroup.price.toLocaleString('en-IN')}`)
+                      : activeTier
+                        ? (activeTier.commonPrice === 0 ? 'Free' : `₹${activeTier.commonPrice.toLocaleString('en-IN')}`)
+                        : (event.price === 0 ? 'Free' : `₹${event.price.toLocaleString('en-IN')}`)}
                   </span>
                 )}
               </div>
@@ -664,7 +687,7 @@ export default function EventDetailPage() {
                   disabled={isFull || bookLoading || event.status !== 'published'}
                   style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: (isFull || bookLoading || event.status !== 'published') ? 'not-allowed' : 'pointer', opacity: (isFull || bookLoading || event.status !== 'published') ? 0.45 : 1 }}
                 >
-                  {isFull ? 'SOLD OUT' : bookLoading ? '…' : effectivePrice === 0 ? 'GET FREE PASS →' : `BOOK · ₹${effectivePrice.toLocaleString('en-IN')} →`}
+                  {isFull ? 'SOLD OUT' : bookLoading ? '…' : effectivePrice === 0 ? 'GET FREE PASS →' : selectedGroup ? `GROUP BOOK · ₹${effectivePrice.toLocaleString('en-IN')} →` : `BOOK · ₹${effectivePrice.toLocaleString('en-IN')} →`}
                 </button>
               ) : (
                 /* private: request approval first */

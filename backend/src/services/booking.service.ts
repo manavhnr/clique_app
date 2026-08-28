@@ -40,7 +40,7 @@ export async function generatePass(bookingId: string, userId: string, eventId: s
 
 // ─── Create Booking ───────────────────────────────────────────────────────────
 
-export async function createBooking(userId: string, eventId: string, tierLabel?: string) {
+export async function createBooking(userId: string, eventId: string, tierLabel?: string, groupPricingIndex?: number) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
   if (event.status !== 'published') throw createError('Event is not available for booking', 400);
@@ -66,16 +66,30 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     throw createError('No tickets available right now — the host hasn\'t opened the next phase yet', 400);
   }
 
+  // Group pricing override
+  let groupOffer: { label: string; size: number; price: number } | null = null;
+  if (groupPricingIndex !== undefined && groupPricingIndex !== null) {
+    const gp = event.groupPricing ?? [];
+    if (groupPricingIndex < 0 || groupPricingIndex >= gp.length) {
+      throw createError('Invalid group pricing selection', 400);
+    }
+    groupOffer = gp[groupPricingIndex] as { label: string; size: number; price: number };
+  }
+
   const bookingUser = await import('../models/User').then(m => m.User.findById(userId).select('gender').lean());
   const gender = bookingUser?.gender as string | undefined;
-  const ticketPrice = activeTier
-    ? event.pricingMode === 'split'
-      ? gender === 'male' ? activeTier.malePrice
-        : gender === 'female' ? activeTier.femalePrice
+  const ticketPrice = groupOffer
+    ? groupOffer.price
+    : activeTier
+      ? event.pricingMode === 'split'
+        ? gender === 'male' ? activeTier.malePrice
+          : gender === 'female' ? activeTier.femalePrice
+          : activeTier.commonPrice
         : activeTier.commonPrice
-      : activeTier.commonPrice
-    : event.price;
-  const resolvedTierLabel = activeTier?.label || tierLabel || 'General';
+      : event.price;
+  const resolvedTierLabel = groupOffer
+    ? (groupOffer.label || `Group of ${groupOffer.size}`)
+    : activeTier?.label || tierLabel || 'General';
   const tierId = (activeTier as (typeof activeTier & { _id?: unknown }) | null)?._id;
 
   // Atomic global capacity check + tier soldCount increment
