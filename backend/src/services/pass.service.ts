@@ -39,7 +39,10 @@ export async function getMyPasses(userId: string) {
   });
   const past = passes.filter((p) => {
     const event = p.eventId as { date?: Date };
-    return p.status === 'used' || (p.status === 'active' && event?.date && new Date(event.date) < now);
+    // pending_verification passes that missed admin sign-off before the event still belong in past
+    return p.status === 'used'
+      || (p.status === 'active' && event?.date && new Date(event.date) < now)
+      || (p.status === 'pending_verification' && event?.date && new Date(event.date) < now);
   });
   const cancelled = passes.filter((p) => p.status === 'cancelled' || p.status === 'expired');
 

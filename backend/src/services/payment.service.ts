@@ -238,6 +238,29 @@ export async function submitUPIPayment(
     }
   }
 
+  // Idempotency for payment_pending: if a previous attempt created a payment but crashed
+  // before updating the booking status, reuse the orphaned payment record instead of
+  // creating a duplicate.
+  if (booking.status === 'payment_pending') {
+    const orphaned = await Payment.findOne({ bookingId, status: 'pending_verification' });
+    if (orphaned) {
+      await Payment.findByIdAndUpdate(orphaned._id, { utrNumber, transactionProofUrl });
+      // Re-generate pass if none exists
+      if (!booking.passId) {
+        const pass = await generatePass(bookingId, userId, booking.eventId.toString());
+        await Pass.findByIdAndUpdate(pass._id, { status: 'pending_verification' });
+        await Booking.findByIdAndUpdate(bookingId, {
+          status: 'utr_submitted',
+          passId: pass._id,
+          paymentId: orphaned._id,
+        });
+        return { paymentId: orphaned._id, passId: pass._id, status: 'pending_verification' };
+      }
+      await Booking.findByIdAndUpdate(bookingId, { status: 'utr_submitted', paymentId: orphaned._id });
+      return { paymentId: orphaned._id, passId: booking.passId, status: 'pending_verification' };
+    }
+  }
+
   const payment = await Payment.create({
     bookingId,
     userId,

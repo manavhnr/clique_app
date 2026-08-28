@@ -433,7 +433,7 @@ export default function EventDetailScreen() {
               <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
               <Text style={{ color: '#22c55e', fontWeight: '700', fontSize: 15 }}>You're going!</Text>
             </View>
-          ) : (isPaymentPending || isUtrSubmitted) ? (
+          ) : isUtrSubmitted ? (
             <View style={{ gap: 10 }}>
               <View style={{ backgroundColor: '#1C1600', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="time-outline" size={16} color="#F59E0B" />
@@ -447,6 +447,14 @@ export default function EventDetailScreen() {
                 <Text style={{ color: '#94A3B8', fontWeight: '600', fontSize: 14 }}>Resubmit / Update Proof</Text>
               </TouchableOpacity>
             </View>
+          ) : isPaymentPending ? (
+            <TouchableOpacity
+              onPress={() => setUpiModal({ bookingId: event.userBooking._id, amount: event.userBooking.amount })}
+              style={{ backgroundColor: '#2563EB', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Complete Payment · ₹{event.userBooking.amount}</Text>
+            </TouchableOpacity>
           ) : needsApproval && !event.userBooking?.status ? (
             <TouchableOpacity
               onPress={handleRequest}

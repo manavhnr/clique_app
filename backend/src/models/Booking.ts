@@ -38,7 +38,7 @@ bookingSchema.index(
   {
     unique: true,
     partialFilterExpression: {
-      status: { $in: ['pending', 'payment_pending', 'confirmed', 'checked_in'] },
+      status: { $in: ['pending', 'payment_pending', 'utr_submitted', 'confirmed', 'checked_in'] },
     },
   }
 );
