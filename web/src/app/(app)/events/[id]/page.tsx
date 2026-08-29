@@ -440,7 +440,7 @@ export default function EventDetailPage() {
           {/* Flyer art */}
           <div style={{ width: isMobile ? '100%' : 300, flexShrink: 0 }}>
             {imageUrl ? (
-              <img src={imageUrl} alt={event.title} style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', borderRadius: 4, border: '1px solid var(--line-2)', display: 'block' }} />
+              <img src={imageUrl} alt={event.title} style={{ width: '100%', height: 'auto', borderRadius: 4, border: '1px solid var(--line-2)', display: 'block' }} />
             ) : (
               <div aria-hidden style={{ width: '100%', aspectRatio: '4/3', borderRadius: 4, background: artColor, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', padding: 16 }}>
                 <svg viewBox="0 0 100 75" preserveAspectRatio="none" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
