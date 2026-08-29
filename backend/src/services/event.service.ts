@@ -353,15 +353,32 @@ export async function setTierOpen(eventId: string, hostId: string, tierId: strin
 }
 
 export async function recalculateBookedCount(eventId: string, hostId: string) {
-  const event = await Event.findById(eventId).select('hostId');
+  const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
   if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
 
-  const liveCount = await Booking.countDocuments({
-    eventId,
-    status: { $nin: ['cancelled', 'refunded', 'rejected'] },
+  const activeStatus = { $nin: ['cancelled', 'refunded', 'rejected'] };
+
+  // Overall booked count
+  const liveCount = await Booking.countDocuments({ eventId, status: activeStatus });
+
+  // Per-tier sold counts
+  const tierUpdates: Promise<unknown>[] = event.pricingTiers.map(async (tier) => {
+    const soldCount = await Booking.countDocuments({
+      eventId,
+      tierLabel: tier.label,
+      status: activeStatus,
+    });
+    return Event.updateOne(
+      { _id: eventId, 'pricingTiers._id': tier._id },
+      { $set: { 'pricingTiers.$.soldCount': soldCount } }
+    );
   });
 
-  await Event.findByIdAndUpdate(eventId, { bookedCount: liveCount });
+  await Promise.all([
+    Event.findByIdAndUpdate(eventId, { bookedCount: liveCount }),
+    ...tierUpdates,
+  ]);
+
   return { bookedCount: liveCount };
 }
