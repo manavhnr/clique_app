@@ -24,9 +24,7 @@ interface EventCardProps {
 export default function EventCard({ event }: EventCardProps) {
   const host      = typeof event.hostId === 'object' ? event.hostId : null;
   const imageUrl  = event.images?.[0] ? getImageUrl(event.images[0]) : null;
-  const spotsLeft = event.capacity - event.bookedCount;
-  const isFull    = spotsLeft <= 0;
-  const filled    = Math.min(100, (event.bookedCount / event.capacity) * 100);
+  const isFull = event.bookedCount >= event.capacity;
   const color     = catColor(event.category);
 
   return (
@@ -79,16 +77,7 @@ export default function EventCard({ event }: EventCardProps) {
         <div className="font-display text-lg font-bold tracking-[-0.02em] text-paper sm:text-xl">
           {formatPrice(event.price)}
         </div>
-        <div className="flex items-center gap-2 sm:mt-1.5 sm:justify-end">
-          <span className={`font-mono text-[10px] tracking-[.1em] ${isFull ? 'text-hot' : 'text-dim'}`}>
-            {isFull ? '00 LEFT' : `${String(spotsLeft).padStart(2, '0')} LEFT`}
-          </span>
-          <span className="inline-block h-[3px] w-12 overflow-hidden rounded-sm bg-line" aria-hidden>
-            <span
-              className="block h-full"
-              style={{ width: `${filled}%`, background: filled > 85 || isFull ? 'var(--hot)' : 'var(--lime)' }}
-            />
-          </span>
+        <div className="flex items-center justify-end sm:mt-1.5">
           <span aria-hidden className="font-mono text-xs text-dim opacity-0 transition-opacity group-hover:opacity-100">→</span>
         </div>
       </div>
