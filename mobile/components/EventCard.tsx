@@ -14,9 +14,11 @@ export default function EventCard({ event, onPress }: Props) {
       className="bg-dark-card border border-dark-border rounded-2xl mb-3 overflow-hidden"
     >
       {event.images?.[0] ? (
-        <Image source={{ uri: event.images[0] }} className="w-full h-44" resizeMode="cover" />
+        <View className="w-full h-56 bg-[#111827] items-center justify-center">
+          <Image source={{ uri: event.images[0] }} className="w-full h-56" resizeMode="contain" />
+        </View>
       ) : (
-        <View className="w-full h-44 bg-primary/20 items-center justify-center">
+        <View className="w-full h-56 bg-primary/20 items-center justify-center">
           <Ionicons name="calendar" size={48} color="#7C3AED" />
         </View>
       )}

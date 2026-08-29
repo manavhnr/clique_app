@@ -21,7 +21,7 @@ import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 const { width } = Dimensions.get('window');
-const COVER_H = Math.round(width * 0.56);
+const COVER_H = Math.round(width * 1.25);
 
 // ─── UPI Payment Modal ────────────────────────────────────────────────────────
 
@@ -305,7 +305,7 @@ export default function EventDetailScreen() {
         {/* Cover image */}
         <View style={{ width, height: COVER_H, backgroundColor: '#111827' }}>
           {event.images?.[0]
-            ? <Image source={{ uri: event.images[0] }} style={{ width, height: COVER_H }} resizeMode="cover" />
+            ? <Image source={{ uri: event.images[0] }} style={{ width, height: COVER_H }} resizeMode="contain" />
             : <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="calendar" size={56} color="#374151" />
               </View>
