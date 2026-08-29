@@ -95,6 +95,11 @@ export async function getEventById(eventId: string, requesterId: string) {
   // Fire-and-forget view increment — never block or fail the read on it
   void Event.findByIdAndUpdate(eventId, { $inc: { viewCount: 1 } }).catch(() => {});
 
+  // If this is a secret event, record that the requester has unlocked it
+  if (event.privacy === 'secret') {
+    void User.findByIdAndUpdate(requesterId, { $addToSet: { unlockedSecretEvents: eventId } }).catch(() => {});
+  }
+
   const activeTier = event.pricingTiers?.find(
     (t) => t.isOpen && (!t.capacity || t.soldCount < t.capacity)
   ) ?? null;

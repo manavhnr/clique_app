@@ -399,8 +399,7 @@ export default function EventDetailPage() {
   const detailRows: { label: string; big: string; sub?: string }[] = [
     { label: 'WHEN', big: `${formatTime(event.startTime)} → ${formatTime(event.endTime)}`, sub: formatDate(event.date) },
     { label: 'WHERE', big: event.locationName, sub: event.exactAddressHiddenBeforeBooking ? 'Address after acceptance' : event.address },
-    { label: 'CAPACITY', big: `${event.capacity} heads`, sub: `${event.bookedCount} on the list · ${spotsLeft} left` },
-    ...(event.musicTags?.length ? [{ label: 'MUSIC', big: event.musicTags.join(' / ') }] : []),
+...(event.musicTags?.length ? [{ label: 'MUSIC', big: event.musicTags.join(' / ') }] : []),
     ...(event.vibeTags?.length ? [{ label: 'VIBES', big: event.vibeTags.join(' · ') }] : []),
   ];
 
@@ -483,7 +482,11 @@ export default function EventDetailPage() {
           {event.rules && (
             <div>
               <div className="clique-label" style={{ marginBottom: 12 }}>HOUSE RULES</div>
-              <p style={{ fontFamily: 'var(--display)', fontSize: 15, lineHeight: 1.5, color: 'var(--cream)', margin: 0, maxWidth: '62ch' }}>{event.rules}</p>
+              <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {event.rules.split(/\n|•|-/).map((r) => r.trim()).filter(Boolean).map((rule, i) => (
+                  <li key={i} style={{ fontFamily: 'var(--display)', fontSize: 15, lineHeight: 1.5, color: 'var(--cream)' }}>{rule}</li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -520,16 +523,13 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Squad section — shown once registered */}
-          {isRegistered && !isOwnEvent && user && (
+          {event.refundPolicy && (
             <div>
-              <div className="clique-label" style={{ marginBottom: 4 }}>SQUADS</div>
-              <div style={{ fontFamily: 'var(--display)', fontSize: 13, color: 'var(--cream)' }}>
-                Group up with friends — the host will see your squad on their guest list.
-              </div>
-              <SquadSection eventId={id} userId={user._id} />
+              <div className="clique-label" style={{ marginBottom: 8 }}>REFUND POLICY</div>
+              <p style={{ fontFamily: 'var(--display)', fontSize: 14, lineHeight: 1.6, color: 'var(--dim)', margin: 0, maxWidth: '62ch' }}>{event.refundPolicy}</p>
             </div>
           )}
+
         </div>
 
         {/* Registration rail: the ticket stub */}
@@ -600,17 +600,6 @@ export default function EventDetailPage() {
             </div>
 
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Capacity line */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.06em' }}>{event.bookedCount} / {event.capacity} ON THE LIST</span>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: spotsLeft < 10 ? 'var(--hot)' : 'var(--cream)', letterSpacing: '.06em' }}>{spotsLeft} LEFT</span>
-                </div>
-                <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${filled}%`, background: filled > 85 ? 'var(--hot)' : 'var(--lime)', transition: 'width .4s ease' }} />
-                </div>
-              </div>
-
               {/* CTA */}
               {event.status === 'cancelled' ? (
                 <div style={{ textAlign: 'center', padding: '18px 0 10px' }}>

@@ -92,10 +92,13 @@ export interface EventSearchFilters {
 export async function searchEvents(filters: EventSearchFilters, requesterId: string) {
   const { q, date, category, minPrice, maxPrice, page = 1, limit = 20 } = filters;
 
+  const requester = await User.findById(requesterId).select('unlockedSecretEvents').lean();
+  const unlockedIds = requester?.unlockedSecretEvents ?? [];
+
   const query: Record<string, unknown> = {
     status: 'published',
     date: { $gte: new Date() },
-    privacy: { $ne: 'secret' },
+    $or: [{ privacy: { $ne: 'secret' } }, { _id: { $in: unlockedIds } }],
   };
 
   if (q) {

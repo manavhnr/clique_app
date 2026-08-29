@@ -9,6 +9,7 @@ export interface IConnectedSocials {
 }
 
 export interface IUser extends Document {
+  unlockedSecretEvents: mongoose.Types.ObjectId[];
   name: string;        // set during profile setup, empty string at signup
   username: string;
   password?: string;   // bcrypt hash, select:false — set during profile setup
@@ -94,6 +95,7 @@ const userSchema = new Schema<IUser>(
       default: 'not_started',
     },
     isBanned: { type: Boolean, default: false },
+    unlockedSecretEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event', default: [] }],
   },
   { timestamps: true }
 );
