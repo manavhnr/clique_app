@@ -21,7 +21,6 @@ import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 const { width } = Dimensions.get('window');
-const COVER_H = Math.round(width * 1.25);
 
 // ─── UPI Payment Modal ────────────────────────────────────────────────────────
 
@@ -172,14 +171,21 @@ export default function EventDetailScreen() {
   const [booking, setBooking] = useState(false);
   const [saved, setSaved] = useState(false);
   const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
+  const [coverHeight, setCoverHeight] = useState<number>(width * 1.25);
   const router = useRouter();
   const { user } = useAuth();
 
   const refreshEvent = () =>
     api.get(`/events/${id}`)
       .then(({ data }) => {
-        setEvent(data.data?.event);
-        setSaved(data.data?.event?.isSaved ?? false);
+        const ev = data.data?.event;
+        setEvent(ev);
+        setSaved(ev?.isSaved ?? false);
+        if (ev?.images?.[0]) {
+          Image.getSize(ev.images[0], (imgW, imgH) => {
+            if (imgW > 0) setCoverHeight(Math.round(width * imgH / imgW));
+          });
+        }
       })
       .catch(() => {});
 
@@ -302,10 +308,10 @@ export default function EventDetailScreen() {
       )}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Cover image */}
-        <View style={{ width, height: COVER_H, backgroundColor: '#111827' }}>
+        {/* Cover image — sized to the image's natural aspect ratio so nothing is cropped */}
+        <View style={{ width, height: coverHeight, backgroundColor: '#111827' }}>
           {event.images?.[0]
-            ? <Image source={{ uri: event.images[0] }} style={{ width, height: COVER_H }} resizeMode="contain" />
+            ? <Image source={{ uri: event.images[0] }} style={{ width, height: coverHeight }} resizeMode="cover" />
             : <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="calendar" size={56} color="#374151" />
               </View>
