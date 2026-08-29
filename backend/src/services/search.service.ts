@@ -1,6 +1,7 @@
 import { Event } from '../models/Event';
 import { User } from '../models/User';
 import { SavedEvent } from '../models/SavedEvent';
+import { Booking } from '../models/Booking';
 import { escapeRegex } from '../utils/regex';
 
 const RESULT_LIMIT = 20;
@@ -92,8 +93,14 @@ export interface EventSearchFilters {
 export async function searchEvents(filters: EventSearchFilters, requesterId: string) {
   const { q, date, category, minPrice, maxPrice, page = 1, limit = 20 } = filters;
 
-  const requester = await User.findById(requesterId).select('unlockedSecretEvents').lean();
-  const unlockedIds = requester?.unlockedSecretEvents ?? [];
+  const [requester, bookedEvents] = await Promise.all([
+    User.findById(requesterId).select('unlockedSecretEvents').lean(),
+    Booking.find({ userId: requesterId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } }).select('eventId').lean(),
+  ]);
+  const unlockedIds = [
+    ...(requester?.unlockedSecretEvents ?? []),
+    ...bookedEvents.map((b) => b.eventId),
+  ];
 
   const query: Record<string, unknown> = {
     status: 'published',
