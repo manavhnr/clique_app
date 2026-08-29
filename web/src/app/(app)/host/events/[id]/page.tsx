@@ -131,12 +131,9 @@ export default function HostEventPage() {
 
 function getDisplayPrice(event: Event): string {
   const tiers: PricingTier[] = event.pricingTiers ?? [];
-  const openTiers = tiers.filter((t) => t.isOpen);
-  if (openTiers.length === 0) return formatPrice(event.price);
-  const prices = openTiers.map((t) => t.commonPrice);
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  return min === max ? formatPrice(min) : `${formatPrice(min)}–${formatPrice(max)}`;
+  if (tiers.length === 0) return formatPrice(event.price);
+  const min = Math.min(...tiers.map((t) => t.commonPrice));
+  return `${formatPrice(min)} onwards`;
 }
 
 function EventHeader({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
