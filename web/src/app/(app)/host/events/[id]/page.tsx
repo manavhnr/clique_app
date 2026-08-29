@@ -9,7 +9,7 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import { PageSpinner } from '@/components/ui/Spinner';
 import ScannerModal from '@/components/ScannerModal';
-import { Event, EventMember, Squad } from '@/types';
+import { Event, EventMember, PricingTier, Squad } from '@/types';
 import { formatDate, formatTime, formatPrice, getImageUrl } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -129,10 +129,31 @@ export default function HostEventPage() {
 
 // ── Header ───────────────────────────────────────────────────────────────────
 
+function getDisplayPrice(event: Event): string {
+  const tiers: PricingTier[] = event.pricingTiers ?? [];
+  const openTiers = tiers.filter((t) => t.isOpen);
+  if (openTiers.length === 0) return formatPrice(event.price);
+  const prices = openTiers.map((t) => t.commonPrice);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  return min === max ? formatPrice(min) : `${formatPrice(min)}–${formatPrice(max)}`;
+}
+
 function EventHeader({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
   const router = useRouter();
   const [publishError, setPublishError] = useState('');
+  const [recalculating, setRecalculating] = useState(false);
   const imageUrl = event.images?.[0] ? getImageUrl(event.images[0]) : null;
+
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      await api.patch(`/events/${event._id}/recalculate-count`);
+      await onRefresh();
+    } finally {
+      setRecalculating(false);
+    }
+  };
 
   const statusMap: Record<string, { label: string; variant: 'lime' | 'gold' | 'hot' | 'sky' | 'neutral' }> = {
     published: { label: 'Live', variant: 'lime' },
@@ -188,10 +209,21 @@ function EventHeader({ event, onRefresh }: { event: Event; onRefresh: () => void
       {publishError && <p className="mt-3 font-mono text-xs text-hot">{publishError}</p>}
 
       <div className="mt-5 flex flex-wrap items-baseline gap-x-8 gap-y-3 border-t border-dashed border-line pt-4">
+        <div className="flex items-baseline gap-2.5">
+          <span className="font-display text-lg font-bold text-paper">{event.bookedCount}/{event.capacity}</span>
+          <span className="clique-label !text-[9px]">ON THE LIST</span>
+          <button
+            onClick={handleRecalculate}
+            disabled={recalculating}
+            title="Recalculate from live bookings"
+            className="ml-0.5 font-mono text-[9px] uppercase tracking-[.08em] text-dim transition-colors hover:text-lime disabled:opacity-40"
+          >
+            {recalculating ? '…' : '↺'}
+          </button>
+        </div>
         {[
-          { label: 'ON THE LIST', value: `${event.bookedCount}/${event.capacity}` },
           { label: 'CHECKED IN', value: event.checkedInCount ?? 0 },
-          { label: 'PRICE', value: formatPrice(event.price) },
+          { label: 'PRICE', value: getDisplayPrice(event) },
           { label: 'PRIVACY', value: event.privacy === 'private' ? 'Private' : event.privacy === 'secret' ? 'Secret' : 'Public' },
         ].map(({ label, value }) => (
           <div key={label} className="flex items-baseline gap-2.5">
@@ -735,17 +767,6 @@ function GuestsTab({ eventTitle, bookings, requests, squads, onRefresh }: {
 }
 
 // ── Phases tab ───────────────────────────────────────────────────────────────
-
-interface PricingTier {
-  _id: string;
-  label: string;
-  commonPrice: number;
-  malePrice: number;
-  femalePrice: number;
-  capacity?: number;
-  soldCount: number;
-  isOpen: boolean;
-}
 
 function PhasesTab({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
   const tiers: PricingTier[] = (event as unknown as { pricingTiers?: PricingTier[] }).pricingTiers ?? [];

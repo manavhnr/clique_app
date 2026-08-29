@@ -351,3 +351,17 @@ export async function setTierOpen(eventId: string, hostId: string, tierId: strin
   await event.save();
   return event;
 }
+
+export async function recalculateBookedCount(eventId: string, hostId: string) {
+  const event = await Event.findById(eventId).select('hostId');
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+
+  const liveCount = await Booking.countDocuments({
+    eventId,
+    status: { $nin: ['cancelled', 'refunded', 'rejected'] },
+  });
+
+  await Event.findByIdAndUpdate(eventId, { bookedCount: liveCount });
+  return { bookedCount: liveCount };
+}

@@ -41,6 +41,17 @@ export interface EventMember {
   addedAt: string;
 }
 
+export interface PricingTier {
+  _id: string;
+  label: string;
+  commonPrice: number;
+  malePrice: number;
+  femalePrice: number;
+  capacity?: number;
+  soldCount: number;
+  isOpen: boolean;
+}
+
 export interface Event {
   _id: string;
   hostId: string | User;
@@ -58,6 +69,7 @@ export interface Event {
   address: string;
   exactAddressHiddenBeforeBooking?: boolean;
   price: number;
+  pricingTiers?: PricingTier[];
   platformFee?: number;
   capacity: number;
   bookedCount: number;

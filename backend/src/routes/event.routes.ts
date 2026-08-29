@@ -23,6 +23,7 @@ import {
   addTierHandler,
   openTierHandler,
   closeTierHandler,
+  recalculateCountHandler,
 } from '../controllers/event.controller';
 import { nearMe, eventSearch } from './search.routes';
 
@@ -60,6 +61,7 @@ router.post('/:eventId/scanners', requireVerifiedHost, addScannerHandler);
 router.delete('/:eventId/scanners/:userId', requireVerifiedHost, removeScannerHandler);
 
 // Ticket phase management (host only)
+router.patch('/:eventId/recalculate-count', requireVerifiedHost, recalculateCountHandler);
 router.post('/:eventId/tiers', requireVerifiedHost, validate(addTierSchema), addTierHandler);
 router.patch('/:eventId/tiers/:tierId/open', requireVerifiedHost, openTierHandler);
 router.patch('/:eventId/tiers/:tierId/close', requireVerifiedHost, closeTierHandler);

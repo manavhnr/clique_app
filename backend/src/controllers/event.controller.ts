@@ -19,6 +19,7 @@ import {
   removeScanner,
   addTier,
   setTierOpen,
+  recalculateBookedCount,
 } from '../services/event.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
@@ -159,5 +160,12 @@ export async function closeTierHandler(req: AuthRequest, res: Response, next: Ne
   try {
     const event = await setTierOpen(req.params.eventId, req.user!.userId, req.params.tierId, false);
     sendSuccess(res, { pricingTiers: event.pricingTiers }, 'Phase closed');
+  } catch (err) { next(err); }
+}
+
+export async function recalculateCountHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await recalculateBookedCount(req.params.eventId, req.user!.userId);
+    sendSuccess(res, result, 'Count recalculated');
   } catch (err) { next(err); }
 }
