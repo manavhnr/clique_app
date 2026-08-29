@@ -132,7 +132,7 @@ export default function HostEventPage() {
 function getDisplayPrice(event: Event): string {
   const tiers: PricingTier[] = event.pricingTiers ?? [];
   if (tiers.length === 0) return formatPrice(event.price);
-  const min = Math.min(...tiers.map((t) => t.commonPrice));
+  const min = Math.min(...tiers.flatMap((t) => [t.commonPrice, t.malePrice, t.femalePrice].filter((p) => p > 0)));
   return `${formatPrice(min)} onwards`;
 }
 
