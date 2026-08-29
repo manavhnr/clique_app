@@ -437,21 +437,6 @@ export default function EventDetailPage() {
             )}
           </div>
 
-          {/* Flyer art */}
-          <div style={{ width: isMobile ? '100%' : 300, flexShrink: 0 }}>
-            {imageUrl ? (
-              <img src={imageUrl} alt={event.title} style={{ width: '100%', height: 'auto', borderRadius: 4, border: '1px solid var(--line-2)', display: 'block' }} />
-            ) : (
-              <div aria-hidden style={{ width: '100%', aspectRatio: '4/3', borderRadius: 4, background: artColor, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', padding: 16 }}>
-                <svg viewBox="0 0 100 75" preserveAspectRatio="none" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
-                  {Array.from({ length: 20 }).map((_, i) => <line key={i} x1={i * 6} y1="0" x2={i * 6 - 24} y2="75" stroke="rgba(11,9,7,0.16)" strokeWidth="0.6" />)}
-                </svg>
-                <span style={{ position: 'relative', fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.16em', color: 'rgba(11,9,7,0.75)' }}>
-                  {formatDate(event.date).toUpperCase()}
-                </span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -724,6 +709,10 @@ export default function EventDetailPage() {
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.12em', textAlign: 'center', marginTop: 14 }}>
               ※ HOST REVIEWS AND ACCEPTS REGISTRATIONS MANUALLY
             </div>
+          )}
+
+          {imageUrl && (
+            <img src={imageUrl} alt={event.title} style={{ width: '100%', height: 'auto', borderRadius: 4, border: '1px solid var(--line-2)', display: 'block', marginTop: 20 }} />
           )}
         </aside>
       </div>
