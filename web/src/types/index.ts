@@ -74,6 +74,7 @@ export interface Event {
   capacity: number;
   bookedCount: number;
   checkedInCount?: number;
+  revenue?: number;
   privacy: 'public' | 'private' | 'secret';
   approvalRequired?: boolean;
   requiresSocials?: boolean;

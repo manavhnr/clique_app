@@ -224,7 +224,7 @@ export async function getHostEvents(hostId: string, page: number, limit: number)
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
-    .select('title images date startTime status capacity bookedCount checkedInCount privacy price');
+    .select('title images date startTime status capacity bookedCount checkedInCount privacy price revenue');
 
   const total = await Event.countDocuments({ hostId, status: { $ne: 'blocked' } });
   return { events, total, page, limit };

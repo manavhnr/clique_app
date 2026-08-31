@@ -49,6 +49,7 @@ export interface IEvent extends Document {
   capacity: number;
   bookedCount: number;
   checkedInCount: number;
+  revenue: number;
   privacy: 'public' | 'private' | 'secret';
   approvalRequired: boolean;
   ageLimit?: number;
@@ -119,6 +120,7 @@ const eventSchema = new Schema<IEvent>(
     capacity: { type: Number, required: true, min: 1 },
     bookedCount: { type: Number, default: 0 },
     checkedInCount: { type: Number, default: 0 },
+    revenue: { type: Number, default: 0 },
     privacy: { type: String, enum: ['public', 'private', 'secret'], default: 'public' },
     approvalRequired: { type: Boolean, default: false },
     ageLimit: { type: Number },

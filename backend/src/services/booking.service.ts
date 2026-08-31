@@ -162,6 +162,7 @@ export async function confirmBookingAfterPayment(bookingId: string, paymentId: s
     passId: pass._id,
   });
 
+  await Event.findByIdAndUpdate(booking.eventId, { $inc: { revenue: booking.amount } });
   await incrementEventAttendance(booking.userId.toString());
   void notifyBookingConfirmed(booking.userId.toString(), event?.title || 'the event', pass._id.toString());
 
@@ -209,8 +210,9 @@ export async function cancelBooking(bookingId: string, userId: string) {
     await Pass.findByIdAndUpdate(booking.passId, { status: 'cancelled' });
   }
 
-  // Release capacity slot
-  await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -1 } });
+  // Release capacity slot and revenue (only deduct revenue if the booking was already confirmed)
+  const revenueDecrement = booking.status === 'confirmed' ? -booking.amount : 0;
+  await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -1, revenue: revenueDecrement } });
 
   await writeAuditLog({
     actorId: userId,
