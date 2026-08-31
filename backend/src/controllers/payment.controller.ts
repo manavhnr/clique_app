@@ -37,8 +37,8 @@ export async function uploadProofHandler(req: AuthRequest, res: Response, next: 
 
 export async function submitUPIHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { bookingId, utrNumber, transactionProofUrl } = req.body;
-    const result = await submitUPIPayment(bookingId, req.user!.userId, utrNumber, transactionProofUrl);
+    const { bookingId, utrNumber, upiId, transactionProofUrl } = req.body;
+    const result = await submitUPIPayment(bookingId, req.user!.userId, utrNumber, upiId, transactionProofUrl);
     sendSuccess(res, result, 'Payment proof submitted. Awaiting verification.');
   } catch (err) { next(err); }
 }

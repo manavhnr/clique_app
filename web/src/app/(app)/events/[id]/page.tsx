@@ -221,6 +221,7 @@ export default function EventDetailPage() {
   const [bookLoading, setBookLoading] = useState(false);
   const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
   const [utr, setUtr] = useState('');
+  const [upiId, setUpiId] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [upiSubmitting, setUpiSubmitting] = useState(false);
   const [selectedGroupIdx, setSelectedGroupIdx] = useState<number | null>(null);
@@ -316,6 +317,7 @@ export default function EventDetailPage() {
       const createdBooking = bookRes.data?.booking;
       if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
         setUtr('');
+        setUpiId('');
         setProofFile(null);
         setUpiModal({ bookingId: createdBooking._id, amount: createdBooking.amount });
       } else {
@@ -338,13 +340,14 @@ export default function EventDetailPage() {
   const handleCompletePayment = () => {
     if (!userBooking || !event) return;
     setUtr('');
+    setUpiId('');
     setProofFile(null);
     setUpiModal({ bookingId: userBooking._id, amount: userBooking.amount });
   };
 
   const handleUPISubmit = async () => {
     if (!upiModal) return;
-    if (!utr.trim()) { setError('Enter the UTR / transaction ID.'); return; }
+    if (!utr.trim() && !upiId.trim()) { setError('Enter your UTR number or the UPI ID you paid from.'); return; }
     setError(''); setUpiSubmitting(true);
     try {
       let proofUrl: string | undefined;
@@ -358,7 +361,8 @@ export default function EventDetailPage() {
       }
       await api.post('/payments/upi-submit', {
         bookingId: upiModal.bookingId,
-        utrNumber: utr.trim(),
+        utrNumber: utr.trim() || undefined,
+        upiId: upiId.trim() || undefined,
         transactionProofUrl: proofUrl,
       });
       setUpiModal(null);
@@ -738,9 +742,9 @@ export default function EventDetailPage() {
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.1em' }}>SCAN & PAY ₹{upiModal.amount}</span>
               </div>
 
-              {/* UTR input */}
+              {/* UTR or UPI ID — at least one required */}
               <div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>UTR / TRANSACTION ID *</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>UTR NUMBER</div>
                 <input
                   className="clique-input"
                   style={{ width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 6, boxSizing: 'border-box' }}
@@ -748,6 +752,17 @@ export default function EventDetailPage() {
                   value={utr}
                   onChange={(e) => setUtr(e.target.value)}
                 />
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>OR UPI ID YOU PAID FROM</div>
+                <input
+                  className="clique-input"
+                  style={{ width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 6, boxSizing: 'border-box' }}
+                  placeholder="e.g. yourname@upi"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                />
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.06em', marginTop: 6 }}>Enter either your UTR number or the UPI ID you paid from.</div>
               </div>
 
               {/* Proof upload */}

@@ -13,6 +13,10 @@ export const verifyPaymentSchema = z.object({
 
 export const submitUPISchema = z.object({
   bookingId: z.string().min(1),
-  utrNumber: z.string().min(6, 'Enter a valid UTR number'),
+  utrNumber: z.string().min(6, 'Enter a valid UTR number').optional(),
+  upiId: z.string().min(3, 'Enter a valid UPI ID').optional(),
   transactionProofUrl: z.string().url().optional(),
+}).refine(data => data.utrNumber || data.upiId, {
+  message: 'Enter either your UTR number or the UPI ID you paid from',
+  path: ['utrNumber'],
 });

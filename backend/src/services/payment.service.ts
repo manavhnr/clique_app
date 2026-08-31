@@ -207,7 +207,8 @@ export async function handleWebhook(rawBody: Buffer, signature: string) {
 export async function submitUPIPayment(
   bookingId: string,
   userId: string,
-  utrNumber: string,
+  utrNumber: string | undefined,
+  upiId: string | undefined,
   transactionProofUrl?: string
 ) {
   const booking = await Booking.findById(bookingId);
@@ -226,7 +227,7 @@ export async function submitUPIPayment(
   if (booking.status === 'utr_submitted') {
     const existingPayment = await Payment.findOne({ bookingId, status: 'pending_verification' });
     if (existingPayment) {
-      await Payment.findByIdAndUpdate(existingPayment._id, { utrNumber, transactionProofUrl });
+      await Payment.findByIdAndUpdate(existingPayment._id, { utrNumber, upiId, transactionProofUrl });
       await writeAuditLog({
         actorId: userId,
         action: 'UPI_PAYMENT_UTR_UPDATED',
@@ -244,7 +245,7 @@ export async function submitUPIPayment(
   if (booking.status === 'payment_pending') {
     const orphaned = await Payment.findOne({ bookingId, status: 'pending_verification' });
     if (orphaned) {
-      await Payment.findByIdAndUpdate(orphaned._id, { utrNumber, transactionProofUrl });
+      await Payment.findByIdAndUpdate(orphaned._id, { utrNumber, upiId, transactionProofUrl });
       // Re-generate pass if none exists
       if (!booking.passId) {
         const pass = await generatePass(bookingId, userId, booking.eventId.toString());
@@ -267,6 +268,7 @@ export async function submitUPIPayment(
     eventId: booking.eventId,
     paymentMethod: 'upi',
     utrNumber,
+    upiId,
     transactionProofUrl,
     amount: totalAmount,
     currency: 'INR',
@@ -288,7 +290,7 @@ export async function submitUPIPayment(
     action: 'UPI_PAYMENT_SUBMITTED',
     targetType: 'Payment',
     targetId: payment._id.toString(),
-    metadata: { bookingId, utrNumber, amount: totalAmount },
+    metadata: { bookingId, utrNumber, upiId, amount: totalAmount },
   });
 
   return { paymentId: payment._id, passId: pass._id, status: 'pending_verification' };

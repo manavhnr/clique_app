@@ -24,6 +24,7 @@ interface PendingPayment {
   eventId: PaymentEvent;
   amount: number;        // paise
   utrNumber?: string;
+  upiId?: string;
   transactionProofUrl?: string;
   status: string;
   createdAt: string;
@@ -143,6 +144,7 @@ function PaymentRow({
               { label: 'DATE',    value: payment.eventId?.date ? dateFmt(payment.eventId.date) : '—' },
               { label: 'AMOUNT',  value: formatAmount(payment.amount)               },
               { label: 'UTR',     value: payment.utrNumber ?? '—'                  },
+              { label: 'UPI ID',  value: payment.upiId ?? '—'                      },
               { label: 'SUBMITTED', value: dateFmt(payment.createdAt)              },
             ].map(({ label, value }) => (
               <div key={label}>

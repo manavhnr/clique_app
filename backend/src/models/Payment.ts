@@ -9,6 +9,7 @@ export interface IPayment extends Document {
   razorpayPaymentId?: string;
   razorpaySignature?: string;
   utrNumber?: string;
+  upiId?: string;
   transactionProofUrl?: string;
   amount: number;
   currency: string;
@@ -29,6 +30,7 @@ const paymentSchema = new Schema<IPayment>(
     razorpayPaymentId: { type: String },
     razorpaySignature: { type: String },
     utrNumber: { type: String },
+    upiId: { type: String },
     transactionProofUrl: { type: String },
     amount: { type: Number, required: true },
     currency: { type: String, default: 'INR' },

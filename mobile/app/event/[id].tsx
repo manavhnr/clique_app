@@ -38,6 +38,7 @@ function UPIPaymentModal({
   onSuccess: () => void;
 }) {
   const [utr, setUtr] = useState('');
+  const [upiId, setUpiId] = useState('');
   const [proofUri, setProofUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +51,7 @@ function UPIPaymentModal({
   };
 
   const handleSubmit = async () => {
-    if (!utr.trim()) { Alert.alert('Required', 'Enter the UTR / transaction ID.'); return; }
+    if (!utr.trim() && !upiId.trim()) { Alert.alert('Required', 'Enter your UTR number or the UPI ID you paid from.'); return; }
     setSubmitting(true);
     try {
       let proofUrl: string | undefined;
@@ -66,7 +67,8 @@ function UPIPaymentModal({
       }
       await api.post('/payments/upi-submit', {
         bookingId,
-        utrNumber: utr.trim(),
+        utrNumber: utr.trim() || undefined,
+        upiId: upiId.trim() || undefined,
         transactionProofUrl: proofUrl,
       });
       onSuccess();
@@ -101,8 +103,8 @@ function UPIPaymentModal({
             <Text style={{ color: '#64748B', fontSize: 11, marginTop: 8 }}>Pay ₹{amount} to Clique</Text>
           </View>
 
-          {/* UTR */}
-          <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.5 }}>UTR / TRANSACTION ID *</Text>
+          {/* UTR or UPI ID — at least one required */}
+          <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.5 }}>UTR NUMBER</Text>
           <TextInput
             style={{
               backgroundColor: '#1E293B', color: '#fff', borderRadius: 10,
@@ -115,6 +117,21 @@ function UPIPaymentModal({
             keyboardType="default"
             autoCapitalize="characters"
           />
+
+          <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.5 }}>OR UPI ID YOU PAID FROM</Text>
+          <TextInput
+            style={{
+              backgroundColor: '#1E293B', color: '#fff', borderRadius: 10,
+              padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#334155', marginBottom: 14,
+            }}
+            placeholder="e.g. yourname@upi"
+            placeholderTextColor="#475569"
+            value={upiId}
+            onChangeText={setUpiId}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <Text style={{ color: '#475569', fontSize: 11, marginBottom: 14, marginTop: -8 }}>Enter either your UTR number or the UPI ID you paid from.</Text>
 
           {/* Proof upload */}
           <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.5 }}>TRANSACTION SCREENSHOT</Text>
