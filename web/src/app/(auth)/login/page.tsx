@@ -89,7 +89,12 @@ function LoginForm() {
         </label>
 
         <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>02 — PASSWORD</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.14em', color: 'var(--dim)', textTransform: 'uppercase' }}>02 — PASSWORD</span>
+            <Link href="/forgot-password" style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.08em', color: 'var(--lime)', textDecoration: 'none' }}>
+              Forgot?
+            </Link>
+          </div>
           <input
             type="password"
             className="clique-input"
