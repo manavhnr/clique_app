@@ -175,8 +175,12 @@ export async function scanPass(qrToken: string, scannerId: string, scannerEventI
   if (pass.passType === 'group' && pass.memberIds && pass.memberIds.length > 0) {
     const memberIds = pass.memberIds.map((m) => m.toString());
 
-    // Mark group pass as used
-    await Pass.findByIdAndUpdate(passId, { status: 'used', checkedInAt: now, scannedBy: scannerId });
+    // Atomically claim the group pass — concurrent scan gets null and is rejected
+    const claimed = await Pass.findOneAndUpdate(
+      { _id: passId, status: 'active' },
+      { status: 'used', checkedInAt: now, scannedBy: scannerId },
+    );
+    if (!claimed) throw createError('Pass already used', 409);
 
     // Mark all individual passes for these members on this event as used
     await Pass.updateMany(
@@ -223,7 +227,12 @@ export async function scanPass(qrToken: string, scannerId: string, scannerEventI
   }
 
   // ─── INDIVIDUAL PASS ─────────────────────────────────────────────────────
-  await Pass.findByIdAndUpdate(passId, { status: 'used', checkedInAt: now, scannedBy: scannerId });
+  // Atomically claim the pass — concurrent scan gets null and is rejected
+  const claimed = await Pass.findOneAndUpdate(
+    { _id: passId, status: 'active' },
+    { status: 'used', checkedInAt: now, scannedBy: scannerId },
+  );
+  if (!claimed) throw createError('Pass already used', 409);
   await Booking.findByIdAndUpdate(pass.bookingId, { status: 'checked_in' });
   await Event.findByIdAndUpdate(eventId, { $inc: { checkedInCount: 1 } });
 
