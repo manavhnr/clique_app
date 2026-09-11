@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { sendOTP, verifyOTP, register, login, getMe, refresh, logout } from '../controllers/auth.controller';
+import { sendOTP, verifyOTP, register, login, getMe, refresh, logout, forgotPasswordHandler, resetPasswordHandler } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
-import { sendOTPSchema, verifyOTPSchema, loginSchema, registerSchema } from '../validators/auth.validator';
+import { sendOTPSchema, verifyOTPSchema, loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from '../validators/auth.validator';
 
 const router = Router();
 
@@ -17,6 +17,8 @@ router.post('/register', validate(registerSchema), register);
 router.post('/login', validate(loginSchema), login);
 router.post('/send-otp', otpLimiter, validate(sendOTPSchema), sendOTP);
 router.post('/verify-otp', otpLimiter, validate(verifyOTPSchema), verifyOTP);
+router.post('/forgot-password', otpLimiter, validate(forgotPasswordSchema), forgotPasswordHandler);
+router.post('/reset-password', otpLimiter, validate(resetPasswordSchema), resetPasswordHandler);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 router.get('/me', authenticate, getMe);

@@ -30,3 +30,21 @@ export const registerSchema = z.object({
     .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
+
+export const forgotPasswordSchema = z.object({
+  phone: z
+    .string()
+    .min(10)
+    .max(15)
+    .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number'),
+});
+
+export const resetPasswordSchema = z.object({
+  phone: z
+    .string()
+    .min(10)
+    .max(15)
+    .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number'),
+  otp: z.string().length(6, 'OTP must be 6 digits').regex(/^\d{6}$/, 'OTP must be numeric'),
+  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+});

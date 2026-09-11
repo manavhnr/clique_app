@@ -144,6 +144,38 @@ export async function getCurrentUser(userId: string): Promise<IUser> {
   return user;
 }
 
+export async function forgotPassword(phone: string): Promise<void> {
+  const normalizedPhone = normalizePhone(phone);
+  const user = await User.findOne({ phone: normalizedPhone });
+  if (!user) throw createError('No account found with this phone number', 404);
+  if (user.isBanned) throw createError('Account banned', 403);
+  await sendOTP(normalizedPhone);
+}
+
+export async function resetPassword(
+  phone: string,
+  otp: string,
+  newPassword: string
+): Promise<{ token: string; refreshToken: string; user: IUser }> {
+  const normalizedPhone = normalizePhone(phone);
+  await consumeOTP(normalizedPhone, otp);
+
+  const user = await User.findOne({ phone: normalizedPhone });
+  if (!user) throw createError('Account not found', 404);
+  if (user.isBanned) throw createError('Account banned', 403);
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await User.updateOne({ _id: user._id }, { password: passwordHash });
+
+  const token = signAccessToken(user._id.toString(), user.role);
+  const refreshToken = await issueRefreshToken(user._id.toString());
+
+  const userObj = user.toObject() as IUser & { password?: string };
+  delete userObj.password;
+
+  return { token, refreshToken, user: userObj as IUser };
+}
+
 export async function registerWithPassword(
   phone: string,
   password: string

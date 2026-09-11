@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { initiateOTP, verifyOTPAndLogin, loginWithPassword, registerWithPassword, refreshAccessToken, revokeRefreshToken, getCurrentUser, signAccessToken } from '../services/auth.service';
+import { initiateOTP, verifyOTPAndLogin, loginWithPassword, registerWithPassword, refreshAccessToken, revokeRefreshToken, getCurrentUser, signAccessToken, forgotPassword, resetPassword } from '../services/auth.service';
 import { sendSuccess } from '../utils/response';
 import { AuthRequest } from '../middleware/auth.middleware';
 
@@ -56,6 +56,21 @@ export async function logout(req: Request, res: Response, next: NextFunction): P
     const { refreshToken } = req.body;
     if (refreshToken) await revokeRefreshToken(refreshToken);
     sendSuccess(res, null, 'Logged out');
+  } catch (err) { next(err); }
+}
+
+export async function forgotPasswordHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await forgotPassword(req.body.phone);
+    sendSuccess(res, null, 'OTP sent successfully');
+  } catch (err) { next(err); }
+}
+
+export async function resetPasswordHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { phone, otp, newPassword } = req.body;
+    const { token, refreshToken, user } = await resetPassword(phone, otp, newPassword);
+    sendSuccess(res, { token, refreshToken, user }, 'Password reset successful');
   } catch (err) { next(err); }
 }
 

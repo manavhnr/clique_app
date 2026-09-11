@@ -80,10 +80,17 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        {error ? <Text className="text-red-400 text-sm mt-1 mb-3">{error}</Text> : null}
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { prefill: identifier.trim() } })}
+          className="self-end mb-4"
+        >
+          <Text className="text-primary text-sm">Forgot password?</Text>
+        </TouchableOpacity>
+
+        {error ? <Text className="text-red-400 text-sm mb-3">{error}</Text> : null}
 
         <TouchableOpacity
-          className={`rounded-xl py-4 items-center mt-4 ${loading ? 'bg-primary/60' : 'bg-primary'}`}
+          className={`rounded-xl py-4 items-center ${loading ? 'bg-primary/60' : 'bg-primary'}`}
           onPress={handleLogin}
           disabled={loading}
           activeOpacity={0.85}
