@@ -4,12 +4,20 @@ import { createError } from './error.middleware';
 import { User } from '../models/User';
 import { Event } from '../models/Event';
 
+// DB-verified check — role may change after JWT was issued (e.g. admin demotion)
 export function requireRole(...roles: string[]) {
-  return (req: AuthRequest, _res: Response, next: NextFunction): void => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      return next(createError('Forbidden', 403));
+  return async (req: AuthRequest, _res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) return next(createError('Unauthorized', 401));
+      const user = await User.findById(req.user.userId).select('role isBanned');
+      if (!user || user.isBanned || !roles.includes(user.role)) {
+        return next(createError('Forbidden', 403));
+      }
+      req.user.role = user.role;
+      next();
+    } catch (err) {
+      next(err);
     }
-    next();
   };
 }
 

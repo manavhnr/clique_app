@@ -73,13 +73,29 @@ export async function getPassById(passId: string, userId: string) {
   }
 
   // Generate a fresh scannable JWT token so the frontend can render a real QR code.
-  const eventId = (pass.eventId as { _id?: unknown })?._id?.toString() ?? pass.eventId.toString();
+  const eventPopulated = pass.eventId as { _id?: unknown; date?: Date; endTime?: string };
+  const eventId = eventPopulated?._id?.toString() ?? pass.eventId.toString();
   const ownerId = (pass.userId as { _id?: unknown })?._id?.toString() ?? pass.userId.toString();
+
+  // Expire 6 hours after the event ends; never less than 1 hour from now.
+  let expiresInSeconds = 60 * 60; // fallback: 1 hour
+  if (eventPopulated?.date) {
+    const end = new Date(eventPopulated.date);
+    if (eventPopulated.endTime) {
+      const [h, m] = eventPopulated.endTime.split(':').map(Number);
+      end.setHours(h, m, 0, 0);
+      // If end time is before the event date start (crosses midnight), push to next day
+      if (end <= new Date(eventPopulated.date)) end.setDate(end.getDate() + 1);
+    }
+    end.setHours(end.getHours() + 6);
+    const secondsUntilExpiry = Math.floor((end.getTime() - Date.now()) / 1000);
+    expiresInSeconds = Math.max(secondsUntilExpiry, 60 * 60);
+  }
 
   const qrToken = jwt.sign(
     { passId: pass._id.toString(), eventId, userId: ownerId },
     process.env.JWT_SECRET as string,
-    { expiresIn: '365d' },
+    { expiresIn: expiresInSeconds },
   );
 
   return { ...pass.toObject(), qrToken };
