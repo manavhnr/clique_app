@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import {
   stats, users, ban, unban,
-  events, blockEv, unblockEv,
+  events, eventDetail, blockEv, unblockEv,
   reports, resolveRep,
   pendingHosts, allHosts, approveHost, rejectHost,
   getConfig, setConfig,
@@ -18,6 +18,7 @@ router.get('/users', users);
 router.patch('/users/:userId/ban', ban);
 router.patch('/users/:userId/unban', unban);
 router.get('/events', events);
+router.get('/events/:eventId', eventDetail);
 router.patch('/events/:eventId/block', blockEv);
 router.patch('/events/:eventId/unblock', unblockEv);
 router.get('/reports', reports);

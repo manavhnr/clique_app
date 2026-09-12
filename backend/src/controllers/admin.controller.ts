@@ -3,7 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { sendSuccess } from '../utils/response';
 import {
   listUsers, banUser, unbanUser,
-  listEvents, blockEvent, unblockEvent,
+  listEvents, blockEvent, unblockEvent, getEventDetail,
   listReports, resolveReport,
   getDashboardStats,
   listPendingHosts, listAllHosts, approveHostAdmin, rejectHostAdmin,
@@ -44,6 +44,13 @@ export async function unban(req: AuthRequest, res: Response, next: NextFunction)
 export async function events(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await listEvents(parsePage(req.query.page), parseLimit(req.query.limit), req.query.status as string);
+    sendSuccess(res, result);
+  } catch (err) { next(err); }
+}
+
+export async function eventDetail(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await getEventDetail(req.params.eventId);
     sendSuccess(res, result);
   } catch (err) { next(err); }
 }

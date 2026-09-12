@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 
@@ -40,6 +41,7 @@ function statusColor(s: string) {
 const STATUS_OPTIONS = ['', 'published', 'draft', 'cancelled', 'blocked', 'completed'];
 
 export default function AdminEventsPage() {
+  const router = useRouter();
   const [events, setEvents]     = useState<AdminEvent[]>([]);
   const [total, setTotal]       = useState(0);
   const [page, setPage]         = useState(1);
@@ -159,11 +161,19 @@ export default function AdminEventsPage() {
               <div
                 key={ev._id}
                 className="ledger-row"
-                style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px 16px', padding: '14px 6px', alignItems: 'start' }}
+                style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px 16px', padding: '14px 6px', alignItems: 'start', cursor: 'pointer' }}
+                onClick={(e) => {
+                  // Don't navigate when clicking the action buttons
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  router.push(`/admin/events/${ev._id}`);
+                }}
               >
                 <div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                    <span style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 600, color: 'var(--paper)' }}>
+                    <span style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 600, color: 'var(--paper)', textDecoration: 'underline', textDecorationColor: 'transparent', textUnderlineOffset: 3, transition: 'text-decoration-color .15s' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = 'var(--lime)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.textDecorationColor = 'transparent')}
+                    >
                       {ev.title}
                     </span>
                     <span style={{

@@ -118,14 +118,25 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
   const isFree = ticketPrice === 0;
   const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
 
-  const booking = await Booking.create({
-    userId,
-    eventId,
-    hostId: event.hostId,
-    status: bookingStatus,
-    amount: ticketPrice,
-    tierLabel: resolvedTierLabel,
-  });
+  let booking;
+  try {
+    booking = await Booking.create({
+      userId,
+      eventId,
+      hostId: event.hostId,
+      status: bookingStatus,
+      amount: ticketPrice,
+      tierLabel: resolvedTierLabel,
+    });
+  } catch (err: unknown) {
+    // E11000 here means a duplicate slipped past the explicit check (race condition
+    // or stale full unique index covering cancelled bookings). Roll back capacity.
+    if ((err as { code?: number }).code === 11000) {
+      await Event.findByIdAndUpdate(eventId, { $inc: { bookedCount: -1 } });
+      throw createError('Already booked this event', 409);
+    }
+    throw err;
+  }
 
   // Free event — generate pass immediately
   let pass = null;

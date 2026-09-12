@@ -6,6 +6,7 @@ import { Booking } from '../models/Booking';
 import { Payment } from '../models/Payment';
 import { HostVerification } from '../models/HostVerification';
 import { AdminConfig } from '../models/AdminConfig';
+import { JoinRequest } from '../models/JoinRequest';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
 import { escapeRegex } from '../utils/regex';
@@ -66,6 +67,23 @@ export async function blockEvent(eventId: string, adminId: string) {
 export async function unblockEvent(eventId: string, adminId: string) {
   await Event.findByIdAndUpdate(eventId, { status: 'published' });
   await writeAuditLog({ actorId: adminId, action: 'EVENT_UNBLOCKED', targetType: 'Event', targetId: eventId });
+}
+
+export async function getEventDetail(eventId: string) {
+  const event = await Event.findById(eventId).populate('hostId', 'name username profileImage isVerifiedHost');
+  if (!event) throw createError('Event not found', 404);
+
+  const [bookings, requests] = await Promise.all([
+    Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
+      .populate({ path: 'userId', select: 'name username profileImage gender age phone city cliquescore connectedSocials' })
+      .select('userId status amount tierLabel passId createdAt')
+      .sort({ createdAt: -1 }),
+    JoinRequest.find({ eventId })
+      .populate({ path: 'userId', select: 'name username profileImage gender age phone city cliquescore connectedSocials' })
+      .sort({ createdAt: -1 }),
+  ]);
+
+  return { event, bookings, requests };
 }
 
 // ─── Reports ──────────────────────────────────────────────────────────────────

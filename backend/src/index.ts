@@ -17,6 +17,14 @@ process.on('uncaughtException', (err) => {
 async function start(): Promise<void> {
   validateEnv();
   await connectDB();
+
+  // Force-reconcile the Booking index so the partial unique index (excluding
+  // cancelled/refunded/rejected) is correct. autoIndex only creates missing
+  // indexes — it never rebuilds ones whose definition changed. syncIndexes()
+  // drops stale indexes and recreates them from the current schema.
+  const { Booking } = await import('./models/Booking');
+  await Booking.syncIndexes();
+
   startSchedulers();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
