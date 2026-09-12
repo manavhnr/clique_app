@@ -339,6 +339,10 @@ export async function adminVerifyUPIPayment(paymentId: string, adminId: string) 
     passId: pass?._id,
   });
 
+  await Event.findByIdAndUpdate(payment.eventId, {
+    $inc: { revenue: booking.amount },
+  });
+
   const { incrementEventAttendance } = await import('./cliquescore.service');
   await incrementEventAttendance(payment.userId.toString());
 
