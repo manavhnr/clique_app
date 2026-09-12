@@ -379,9 +379,13 @@ export default function EventDetailPage() {
       setUpiModal(null);
       await refreshEvent();
     } catch (err: unknown) {
-      const e = err as { code?: string; response?: { data?: { message?: string } } };
+      const e = err as { code?: string; response?: { status?: number; data?: { message?: string } } };
       if (e.code === 'ECONNABORTED') {
         setError('Upload timed out — check your connection or try a smaller image.');
+      } else if (e.response?.status === 409) {
+        // 409 means the booking/payment already exists — close and show the current state
+        setUpiModal(null);
+        await refreshEvent();
       } else {
         const msg = e.response?.data?.message ?? 'Submission failed. Please try again.';
         if (msg === 'Booking does not require payment') {

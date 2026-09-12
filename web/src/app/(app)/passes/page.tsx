@@ -260,8 +260,14 @@ export default function PassesPage() {
       setLoading(true);
       fetchData();
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setUpiError(e.response?.data?.message ?? 'Submission failed');
+      const e = err as { response?: { status?: number; data?: { message?: string } } };
+      if (e.response?.status === 409) {
+        setUpiModal(null);
+        setLoading(true);
+        fetchData();
+      } else {
+        setUpiError(e.response?.data?.message ?? 'Submission failed');
+      }
     } finally { setUpiSubmitting(false); }
   };
 
