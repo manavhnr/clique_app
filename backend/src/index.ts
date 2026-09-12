@@ -25,6 +25,9 @@ async function start(): Promise<void> {
   const { Booking } = await import('./models/Booking');
   await Booking.syncIndexes();
 
+  const { Payment } = await import('./models/Payment');
+  await Payment.syncIndexes();
+
   startSchedulers();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
