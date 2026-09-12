@@ -13,6 +13,8 @@ const VIDEO_MIMES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
 /**
  * Upload a raw Buffer to Cloudinary and return the secure CDN URL.
  */
+const UPLOAD_TIMEOUT_MS = 120_000; // 2 minutes
+
 export async function uploadBuffer(
   buffer: Buffer,
   publicId: string,
@@ -20,6 +22,12 @@ export async function uploadBuffer(
   resourceType: 'image' | 'video' | 'raw' | 'auto' = 'image'
 ): Promise<string> {
   return new Promise((resolve, reject) => {
+    // Guard: if the Cloudinary SDK stalls, reject after 2 minutes instead of hanging forever.
+    const timer = setTimeout(
+      () => reject(new Error('Cloudinary upload timed out after 2 minutes')),
+      UPLOAD_TIMEOUT_MS
+    );
+
     const stream = cloudinary.uploader.upload_stream(
       {
         public_id:     publicId,
@@ -27,8 +35,10 @@ export async function uploadBuffer(
         resource_type: resourceType,
         overwrite:     true,
         invalidate:    true,
+        timeout:       UPLOAD_TIMEOUT_MS,
       },
       (error, result) => {
+        clearTimeout(timer);
         if (error || !result) return reject(error ?? new Error('Cloudinary upload returned no result'));
         resolve(result.secure_url);
       }
