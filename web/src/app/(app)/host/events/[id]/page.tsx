@@ -42,6 +42,7 @@ export default function HostEventPage() {
   const { id } = useParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [droppedOff, setDroppedOff] = useState<Booking[]>([]);
   const [requests, setRequests] = useState<PendingRequest[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,7 @@ export default function HostEventPage() {
       api.get(`/events/${id}`).catch(() => null),
     ]).then(([bRes, rRes, sRes, evtRes]) => {
       if (bRes?.data?.data?.bookings) setBookings(bRes.data.data.bookings);
+      if (bRes?.data?.data?.droppedOff) setDroppedOff(bRes.data.data.droppedOff);
       if (rRes?.data?.data?.requests) setRequests(rRes.data.data.requests);
       if (sRes?.data?.data?.squads) setSquads(sRes.data.data.squads);
       if (evtRes?.data?.data?.event) setEvent(evtRes.data.data.event);
@@ -118,7 +120,7 @@ export default function HostEventPage() {
 
       {activeTab === 'overview' && <OverviewTab event={event} />}
       {activeTab === 'guests' && (
-        <GuestsTab eventTitle={event.title} bookings={bookings} requests={requests} squads={squads} onRefresh={fetchGuests} />
+        <GuestsTab eventTitle={event.title} bookings={bookings} droppedOff={droppedOff} requests={requests} squads={squads} onRefresh={fetchGuests} />
       )}
       {activeTab === 'phases' && <PhasesTab event={event} onRefresh={refreshEvent} />}
       {activeTab === 'team' && <TeamTab event={event} onRefresh={refreshEvent} />}
@@ -494,9 +496,10 @@ function SectionHead({ label, count, variant = 'neutral', action }: { label: str
   );
 }
 
-function GuestsTab({ eventTitle, bookings, requests, squads, onRefresh }: {
+function GuestsTab({ eventTitle, bookings, droppedOff, requests, squads, onRefresh }: {
   eventTitle: string;
   bookings: Booking[];
+  droppedOff: Booking[];
   requests: PendingRequest[];
   squads: Squad[];
   onRefresh: () => void;
@@ -756,6 +759,40 @@ function GuestsTab({ eventTitle, bookings, requests, squads, onRefresh }: {
                 />
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Dropped off — cancelled / refunded / abandoned payment */}
+      {droppedOff.length > 0 && (
+        <div>
+          <SectionHead label="DROPPED OFF" count={droppedOff.length} variant="neutral" />
+          <p className="mb-3 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
+            Cancelled, refunded, or abandoned payment. These people showed interest — consider following up.
+          </p>
+          <div className="flex flex-col gap-2.5">
+            {droppedOff.map((b) => (
+              <AttendeeCard
+                key={b._id}
+                name={b.userId?.name ?? 'User'}
+                username={b.userId?.username ?? '—'}
+                profileImage={b.userId?.profileImage}
+                gender={b.userId?.gender}
+                age={b.userId?.age}
+                phone={b.userId?.phone}
+                connectedSocials={b.userId?.connectedSocials}
+                city={b.userId?.city}
+                requestStatus={null}
+                right={
+                  <div className="flex flex-col items-end gap-1.5">
+                    <BookingStatusBadge status={b.status} />
+                    {b.tierLabel && (
+                      <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
+                    )}
+                  </div>
+                }
+              />
+            ))}
           </div>
         </div>
       )}

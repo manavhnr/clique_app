@@ -254,10 +254,15 @@ export async function getEventBookings(hostId: string, eventId: string) {
   if (!event) throw createError('Event not found', 404);
   if (event.hostId.toString() !== hostId) throw createError('Access denied', 403);
 
-  const bookings = await Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
-    .populate({ path: 'userId', select: 'name username profileImage connectedSocials gender age city cliquescore' })
-    .select('userId status amount tierLabel passId createdAt')
-    .sort({ createdAt: -1 });
+  const populate = { path: 'userId', select: 'name username profileImage connectedSocials gender age city cliquescore phone' };
+  const select   = 'userId status amount tierLabel passId createdAt';
 
-  return { bookings };
+  const [bookings, droppedOff] = await Promise.all([
+    Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
+      .populate(populate).select(select).sort({ createdAt: -1 }),
+    Booking.find({ eventId, status: { $in: ['cancelled', 'refunded', 'payment_pending'] } })
+      .populate(populate).select(select).sort({ createdAt: -1 }),
+  ]);
+
+  return { bookings, droppedOff };
 }

@@ -46,11 +46,12 @@ function Alert({ type, children, href }: { type: 'warn' | 'info'; children: Reac
 }
 
 const SECTIONS = [
-  { num: '01', label: 'Host Applications',  sub: 'Verify and approve host requests',     href: '/admin/hosts'      },
-  { num: '02', label: 'Payment Review',      sub: 'Verify UPI proof screenshots',         href: '/admin/payments'   },
-  { num: '03', label: 'Events',              sub: 'View, block, and unblock events',       href: '/admin/events'     },
-  { num: '04', label: 'Users',               sub: 'Search, ban, and manage accounts',      href: '/admin/users'      },
-  { num: '05', label: 'Compliance',          sub: 'About, flow of funds, test credentials', href: '/admin/compliance' },
+  { num: '01', label: 'Host Applications',  sub: 'Verify and approve host requests',        href: '/admin/hosts'      },
+  { num: '02', label: 'Hosts',              sub: 'View all verified hosts and their events', href: '/admin/hosts/all'  },
+  { num: '03', label: 'Payment Review',     sub: 'Verify UPI proof screenshots',             href: '/admin/payments'   },
+  { num: '04', label: 'Events',             sub: 'View, block, and unblock events',          href: '/admin/events'     },
+  { num: '05', label: 'Users',              sub: 'Search, ban, and manage accounts',         href: '/admin/users'      },
+  { num: '06', label: 'Compliance',         sub: 'About, flow of funds, test credentials',   href: '/admin/compliance' },
 ];
 
 export default function AdminDashboardPage() {

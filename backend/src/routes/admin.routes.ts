@@ -5,7 +5,7 @@ import {
   stats, users, ban, unban,
   events, eventDetail, blockEv, unblockEv,
   reports, resolveRep,
-  pendingHosts, allHosts, approveHost, rejectHost,
+  pendingHosts, allHosts, verifiedHosts, approveHost, rejectHost, hostDashboard,
   getConfig, setConfig,
 } from '../controllers/admin.controller';
 
@@ -24,9 +24,11 @@ router.patch('/events/:eventId/unblock', unblockEv);
 router.get('/reports', reports);
 router.patch('/reports/:reportId/resolve', resolveRep);
 router.get('/hosts/pending', pendingHosts);
+router.get('/hosts/verified', verifiedHosts);
 router.get('/hosts', allHosts);
 router.patch('/hosts/:userId/approve', approveHost);
 router.patch('/hosts/:userId/reject', rejectHost);
+router.get('/hosts/:userId/dashboard', hostDashboard);
 
 router.get('/config', getConfig);
 router.put('/config', setConfig);

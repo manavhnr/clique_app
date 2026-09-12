@@ -157,6 +157,32 @@ export async function listAllHosts(page: number, limit: number, status?: string)
   return { verifications, total, page, limit };
 }
 
+export async function listVerifiedHosts(page: number, limit: number, q?: string) {
+  const rx = q ? new RegExp(escapeRegex(q), 'i') : null;
+  const query: Record<string, unknown> = { isVerifiedHost: true };
+  if (rx) query.$or = [{ name: rx }, { username: rx }];
+
+  const hosts = await User.find(query)
+    .select('name username profileImage city cliquescore followerCount postCount createdAt')
+    .sort({ followerCount: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
+  const total = await User.countDocuments(query);
+  return { hosts, total, page, limit };
+}
+
+export async function getHostDashboard(hostUserId: string) {
+  const host = await User.findById(hostUserId)
+    .select('name username profileImage bio city cliquescore followerCount followingCount postCount isVerifiedHost upiId payoutStatus createdAt');
+  if (!host || !host.isVerifiedHost) throw createError('Verified host not found', 404);
+
+  const events = await Event.find({ hostId: hostUserId })
+    .select('title images date startTime status capacity bookedCount checkedInCount revenue price category locationName privacy')
+    .sort({ createdAt: -1 });
+
+  return { host, events };
+}
+
 export async function approveHostAdmin(targetUserId: string, adminId: string) {
   const verification = await HostVerification.findOne({ userId: targetUserId });
   if (!verification) throw createError('Verification application not found', 404);

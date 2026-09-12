@@ -6,7 +6,7 @@ import {
   listEvents, blockEvent, unblockEvent, getEventDetail,
   listReports, resolveReport,
   getDashboardStats,
-  listPendingHosts, listAllHosts, approveHostAdmin, rejectHostAdmin,
+  listPendingHosts, listAllHosts, listVerifiedHosts, approveHostAdmin, rejectHostAdmin, getHostDashboard,
   getAdminConfigs, setAdminConfig,
 } from '../services/admin.service';
 
@@ -98,6 +98,20 @@ export async function pendingHosts(req: AuthRequest, res: Response, next: NextFu
 export async function allHosts(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await listAllHosts(parsePage(req.query.page), parseLimit(req.query.limit), req.query.status as string);
+    sendSuccess(res, result);
+  } catch (err) { next(err); }
+}
+
+export async function verifiedHosts(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await listVerifiedHosts(parsePage(req.query.page), parseLimit(req.query.limit), req.query.q as string);
+    sendSuccess(res, result);
+  } catch (err) { next(err); }
+}
+
+export async function hostDashboard(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await getHostDashboard(req.params.userId);
     sendSuccess(res, result);
   } catch (err) { next(err); }
 }
