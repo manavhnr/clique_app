@@ -315,7 +315,9 @@ export async function adminVerifyUPIPayment(paymentId: string, adminId: string) 
 
   const eventDoc = await Event.findById(payment.eventId).select('title');
 
-  // Activate the pre-generated pass (created during UTR submission)
+  // Activate the pre-generated pass if it exists; otherwise generate one now.
+  // The latter happens when a booking was manually restored for a user who paid
+  // before the UTR submission bug was fixed.
   let pass = null;
   if (booking.passId) {
     pass = await Pass.findByIdAndUpdate(
@@ -323,9 +325,19 @@ export async function adminVerifyUPIPayment(paymentId: string, adminId: string) 
       { status: 'active' },
       { new: true }
     );
+  } else {
+    const { generatePass } = await import('./booking.service');
+    pass = await generatePass(
+      payment.bookingId.toString(),
+      payment.userId.toString(),
+      payment.eventId.toString()
+    );
   }
 
-  await Booking.findByIdAndUpdate(payment.bookingId, { status: 'confirmed' });
+  await Booking.findByIdAndUpdate(payment.bookingId, {
+    status: 'confirmed',
+    passId: pass?._id,
+  });
 
   const { incrementEventAttendance } = await import('./cliquescore.service');
   await incrementEventAttendance(payment.userId.toString());
