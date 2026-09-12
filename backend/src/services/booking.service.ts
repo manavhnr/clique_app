@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import QRCode from 'qrcode';
-import { Booking } from '../models/Booking';
+import { Booking, IBooking } from '../models/Booking';
 import { Event } from '../models/Event';
 import { Pass } from '../models/Pass';
 import { JoinRequest } from '../models/JoinRequest';
@@ -92,20 +92,57 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     : activeTier?.label || tierLabel || 'General';
   const tierId = (activeTier as (typeof activeTier & { _id?: unknown }) | null)?._id;
 
-  // Atomic global capacity check + tier soldCount increment
-  const capacityQuery = { _id: eventId, status: 'published', $expr: { $lt: ['$bookedCount', '$capacity'] } };
-  const updated = tierId
-    ? await Event.findOneAndUpdate(
-        capacityQuery,
-        { $inc: { bookedCount: 1, 'pricingTiers.$[tier].soldCount': 1 } },
-        { new: true, arrayFilters: [{ 'tier._id': tierId }] }
-      )
-    : await Event.findOneAndUpdate(capacityQuery, { $inc: { bookedCount: 1 } }, { new: true });
-  if (!updated) throw createError('Event is fully booked', 409);
+  const isFree = ticketPrice === 0;
+  const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
 
-  // Auto-close this tier if it just sold out
-  if (activeTier?.capacity && tierId) {
-    const updatedTier = updated.pricingTiers.find((t) => t._id?.toString() === tierId.toString());
+  // Wrap the capacity claim and booking creation in a transaction.
+  // If Booking.create() fails for any reason the $inc is rolled back automatically —
+  // no manual counter surgery needed.
+  const session = await mongoose.startSession();
+  let booking: IBooking | null = null;
+  let updatedEvent: typeof event | null = null;
+  try {
+    await session.withTransaction(async () => {
+      // Re-check for duplicates under the session to close the race window between
+      // the earlier guard and the actual insert.
+      const dup = await Booking.findOne(
+        { userId, eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } },
+        null,
+        { session }
+      );
+      if (dup) throw createError('Already booked this event', 409);
+
+      // Atomically claim a slot.
+      const capacityQuery = { _id: eventId, status: 'published', $expr: { $lt: ['$bookedCount', '$capacity'] } };
+      const ev = tierId
+        ? await Event.findOneAndUpdate(
+            capacityQuery,
+            { $inc: { bookedCount: 1, 'pricingTiers.$[tier].soldCount': 1 } },
+            { new: true, arrayFilters: [{ 'tier._id': tierId }], session }
+          )
+        : await Event.findOneAndUpdate(capacityQuery, { $inc: { bookedCount: 1 } }, { new: true, session });
+      if (!ev) throw createError('Event is fully booked', 409);
+      updatedEvent = ev;
+
+      // Create the booking — any failure here aborts the transaction and rolls back the $inc.
+      const [created] = await Booking.create(
+        [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: ticketPrice, tierLabel: resolvedTierLabel }],
+        { session }
+      );
+      booking = created as unknown as IBooking;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  if (!booking) throw createError('Booking creation failed', 500);
+  const confirmedBooking = booking as IBooking;
+
+  // Auto-close this tier if it just sold out (best-effort, outside the transaction).
+  if (activeTier?.capacity && tierId && updatedEvent) {
+    const updatedTier = (updatedEvent as typeof event).pricingTiers.find(
+      (t) => t._id?.toString() === tierId.toString()
+    );
     if (updatedTier && updatedTier.soldCount >= (updatedTier.capacity ?? Infinity)) {
       await Event.updateOne(
         { _id: eventId, 'pricingTiers._id': tierId },
@@ -114,35 +151,11 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     }
   }
 
-  // Determine initial booking status
-  const isFree = ticketPrice === 0;
-  const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
-
-  let booking;
-  try {
-    booking = await Booking.create({
-      userId,
-      eventId,
-      hostId: event.hostId,
-      status: bookingStatus,
-      amount: ticketPrice,
-      tierLabel: resolvedTierLabel,
-    });
-  } catch (err: unknown) {
-    // E11000 here means a duplicate slipped past the explicit check (race condition
-    // or stale full unique index covering cancelled bookings). Roll back capacity.
-    if ((err as { code?: number }).code === 11000) {
-      await Event.findByIdAndUpdate(eventId, { $inc: { bookedCount: -1 } });
-      throw createError('Already booked this event', 409);
-    }
-    throw err;
-  }
-
   // Free event — generate pass immediately
   let pass = null;
   if (isFree) {
-    pass = await generatePass(booking._id.toString(), userId, eventId);
-    await Booking.findByIdAndUpdate(booking._id, { passId: pass._id });
+    pass = await generatePass(confirmedBooking._id.toString(), userId, eventId);
+    await Booking.findByIdAndUpdate(confirmedBooking._id, { passId: pass._id });
     await incrementEventAttendance(userId);
     void notifyBookingConfirmed(userId, event.title, pass._id.toString());
 
@@ -150,11 +163,11 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
       actorId: userId,
       action: 'FREE_BOOKING_CONFIRMED',
       targetType: 'Booking',
-      targetId: booking._id.toString(),
+      targetId: confirmedBooking._id.toString(),
     });
   }
 
-  return { booking, pass };
+  return { booking: confirmedBooking, pass };
 }
 
 // ─── Confirm Booking (called after payment verified) ─────────────────────────
