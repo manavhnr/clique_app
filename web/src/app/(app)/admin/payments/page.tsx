@@ -25,7 +25,6 @@ interface PendingPayment {
   amount: number;        // paise
   utrNumber?: string;
   upiId?: string;
-  transactionProofUrl?: string;
   status: string;
   createdAt: string;
 }
@@ -46,62 +45,6 @@ function formatAmount(paise: number) {
   return `₹${(paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
 }
 
-function ProofImage({ url }: { url: string }) {
-  const [enlarged, setEnlarged] = useState(false);
-  return (
-    <>
-      <button
-        onClick={() => setEnlarged(true)}
-        style={{
-          background: 'transparent', border: '1px solid var(--line-2)',
-          borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
-          padding: 0, display: 'block', width: 80, height: 80, flexShrink: 0,
-        }}
-        title="View proof image"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt="Payment proof"
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
-      </button>
-
-      {enlarged && (
-        <div
-          onClick={() => setEnlarged(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 100,
-            background: 'rgba(11,9,7,0.9)', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'zoom-out',
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt="Payment proof"
-            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8 }}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            onClick={() => setEnlarged(false)}
-            style={{
-              position: 'fixed', top: 20, right: 20,
-              background: 'var(--line-2)', border: '1px solid var(--line)',
-              borderRadius: 4, color: 'var(--paper)', width: 32, height: 32,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 16,
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-    </>
-  );
-}
-
 function PaymentRow({
   payment,
   onVerify,
@@ -116,11 +59,6 @@ function PaymentRow({
   return (
     <div style={{ borderBottom: '1px solid var(--line)', padding: '20px 4px' }}>
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-
-        {/* Proof image */}
-        {payment.transactionProofUrl && (
-          <ProofImage url={payment.transactionProofUrl} />
-        )}
 
         {/* Details */}
         <div style={{ flex: 1, minWidth: 240 }}>

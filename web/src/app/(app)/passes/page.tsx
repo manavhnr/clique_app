@@ -198,7 +198,6 @@ export default function PassesPage() {
   // UPI modal state (for pending_payment bookings without a pass, and UTR resubmit)
   const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number; isResubmit?: boolean } | null>(null);
   const [utr, setUtr] = useState('');
-  const [proofFile, setProofFile] = useState<File | null>(null);
   const [upiSubmitting, setUpiSubmitting] = useState(false);
   const [upiError, setUpiError] = useState('');
 
@@ -233,13 +232,13 @@ export default function PassesPage() {
   };
 
   const handleCompletePayment = (booking: Booking) => {
-    setUtr(''); setProofFile(null); setUpiError('');
+    setUtr(''); setUpiError('');
     setUpiModal({ bookingId: booking._id, amount: booking.amount / 100 });
   };
 
   const handleUTRResubmit = (_passId: string, bookingId: string, amount: number) => {
     setOpenPass(null); setPassDetail(null);
-    setUtr(''); setProofFile(null); setUpiError('');
+    setUtr(''); setUpiError('');
     setUpiModal({ bookingId, amount, isResubmit: true });
   };
 
@@ -248,14 +247,7 @@ export default function PassesPage() {
     if (!utr.trim()) { setUpiError('Enter the UTR / transaction ID.'); return; }
     setUpiError(''); setUpiSubmitting(true);
     try {
-      let proofUrl: string | undefined;
-      if (proofFile) {
-        const form = new FormData();
-        form.append('proof', proofFile);
-        const { data: uploadRes } = await api.post('/payments/upload-proof', form, { headers: { 'Content-Type': 'multipart/form-data' } });
-        proofUrl = uploadRes.data.url;
-      }
-      await api.post('/payments/upi-submit', { bookingId: upiModal.bookingId, utrNumber: utr.trim(), transactionProofUrl: proofUrl });
+      await api.post('/payments/upi-submit', { bookingId: upiModal.bookingId, utrNumber: utr.trim() });
       setUpiModal(null);
       setLoading(true);
       fetchData();
@@ -406,15 +398,6 @@ export default function PassesPage() {
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>UTR / TRANSACTION ID *</div>
                 <input className="clique-input" style={{ width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 6, boxSizing: 'border-box' }} placeholder="Enter UTR number" value={utr} onChange={(e) => setUtr(e.target.value)} />
               </div>
-              {!upiModal.isResubmit && (
-                <div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>TRANSACTION SCREENSHOT (OPTIONAL)</div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px dashed #334155', borderRadius: 6, padding: 12, cursor: 'pointer', color: proofFile ? '#60A5FA' : '#64748B', fontFamily: 'var(--display)', fontSize: 13 }}>
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setProofFile(e.target.files?.[0] ?? null)} />
-                    {proofFile ? `✓ ${proofFile.name}` : '+ Upload payment screenshot'}
-                  </label>
-                </div>
-              )}
               {upiError && <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.06em' }}>{upiError}</div>}
               <button onClick={handleUPISubmit} disabled={upiSubmitting} style={{ width: '100%', background: upiModal.isResubmit ? '#F59E0B' : 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '16px', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: upiSubmitting ? 'not-allowed' : 'pointer', opacity: upiSubmitting ? 0.6 : 1 }}>
                 {upiSubmitting ? 'SUBMITTING…' : upiModal.isResubmit ? 'UPDATE UTR →' : 'SUBMIT PAYMENT PROOF →'}

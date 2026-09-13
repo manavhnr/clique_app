@@ -16,7 +16,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
@@ -39,44 +38,22 @@ function UPIPaymentModal({
 }) {
   const [utr, setUtr] = useState('');
   const [upiId, setUpiId] = useState('');
-  const [proofUri, setProofUri] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  const pickProof = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access to upload proof.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
-    if (!result.canceled && result.assets[0]) setProofUri(result.assets[0].uri);
-  };
 
   const handleSubmit = async () => {
     if (!utr.trim() && !upiId.trim()) { Alert.alert('Required', 'Enter your UTR number or the UPI ID you paid from.'); return; }
     setSubmitting(true);
     try {
-      let proofUrl: string | undefined;
-      if (proofUri) {
-        setUploading(true);
-        const form = new FormData();
-        form.append('proof', { uri: proofUri, name: 'proof.jpg', type: 'image/jpeg' } as any);
-        const { data: uploadRes } = await api.post('/payments/upload-proof', form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        proofUrl = uploadRes.data.url;
-        setUploading(false);
-      }
       await api.post('/payments/upi-submit', {
         bookingId,
         utrNumber: utr.trim() || undefined,
         upiId: upiId.trim() || undefined,
-        transactionProofUrl: proofUrl,
       });
       onSuccess();
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message ?? 'Submission failed');
     } finally {
       setSubmitting(false);
-      setUploading(false);
     }
   };
 
@@ -133,29 +110,6 @@ function UPIPaymentModal({
           />
           <Text style={{ color: '#475569', fontSize: 11, marginBottom: 14, marginTop: -8 }}>Enter either your UTR number or the UPI ID you paid from.</Text>
 
-          {/* Proof upload */}
-          <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.5 }}>TRANSACTION SCREENSHOT</Text>
-          <TouchableOpacity
-            onPress={pickProof}
-            style={{
-              backgroundColor: '#1E293B', borderRadius: 10, borderWidth: 1,
-              borderColor: proofUri ? '#2563EB' : '#334155', borderStyle: 'dashed',
-              padding: 14, alignItems: 'center', marginBottom: 20, flexDirection: 'row', gap: 10,
-            }}
-          >
-            {proofUri ? (
-              <>
-                <Image source={{ uri: proofUri }} style={{ width: 40, height: 40, borderRadius: 6 }} />
-                <Text style={{ color: '#60A5FA', fontSize: 13, flex: 1 }}>Screenshot selected — tap to change</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="image-outline" size={20} color="#475569" />
-                <Text style={{ color: '#64748B', fontSize: 13 }}>Upload payment screenshot (optional)</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
           {/* Submit */}
           <TouchableOpacity
             onPress={handleSubmit}
@@ -168,9 +122,7 @@ function UPIPaymentModal({
           >
             {submitting
               ? <ActivityIndicator color="#fff" />
-              : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
-                  {uploading ? 'Uploading…' : 'Submit Payment Proof'}
-                </Text>
+              : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Submit Payment Details</Text>
             }
           </TouchableOpacity>
         </View>

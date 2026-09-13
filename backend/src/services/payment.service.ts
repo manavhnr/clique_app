@@ -209,7 +209,6 @@ export async function submitUPIPayment(
   userId: string,
   utrNumber: string | undefined,
   upiId: string | undefined,
-  transactionProofUrl?: string
 ) {
   const booking = await Booking.findById(bookingId);
   if (!booking) throw createError('Booking not found', 404);
@@ -227,7 +226,7 @@ export async function submitUPIPayment(
   if (booking.status === 'utr_submitted') {
     const existingPayment = await Payment.findOne({ bookingId, status: 'pending_verification' });
     if (existingPayment) {
-      await Payment.findByIdAndUpdate(existingPayment._id, { utrNumber, upiId, transactionProofUrl });
+      await Payment.findByIdAndUpdate(existingPayment._id, { utrNumber, upiId });
       await writeAuditLog({
         actorId: userId,
         action: 'UPI_PAYMENT_UTR_UPDATED',
@@ -245,7 +244,7 @@ export async function submitUPIPayment(
   if (booking.status === 'payment_pending') {
     const orphaned = await Payment.findOne({ bookingId, status: 'pending_verification' });
     if (orphaned) {
-      await Payment.findByIdAndUpdate(orphaned._id, { utrNumber, upiId, transactionProofUrl });
+      await Payment.findByIdAndUpdate(orphaned._id, { utrNumber, upiId });
       // Re-generate pass if none exists
       if (!booking.passId) {
         const pass = await generatePass(bookingId, userId, booking.eventId.toString());
@@ -269,7 +268,6 @@ export async function submitUPIPayment(
     paymentMethod: 'upi',
     utrNumber,
     upiId,
-    transactionProofUrl,
     amount: totalAmount,
     currency: 'INR',
     status: 'pending_verification',

@@ -7,9 +7,7 @@ import { createOrderSchema, verifyPaymentSchema, submitUPISchema } from '../vali
 import {
   createPaymentOrder, verifyPaymentHandler, webhookHandler,
   submitUPIHandler, adminVerifyPaymentHandler, adminRejectPaymentHandler, listPendingPaymentsHandler,
-  uploadProofHandler,
 } from '../controllers/payment.controller';
-import { uploadImage } from '../middleware/upload.middleware';
 
 const router = Router();
 
@@ -24,7 +22,6 @@ router.use(authenticate);
 
 router.post('/create-order', validate(createOrderSchema), createPaymentOrder);
 router.post('/verify', validate(verifyPaymentSchema), verifyPaymentHandler);
-router.post('/upload-proof', uploadImage.single('proof'), uploadProofHandler);
 router.post('/upi-submit', validate(submitUPISchema), submitUPIHandler);
 
 // Admin: list and verify UPI payments
