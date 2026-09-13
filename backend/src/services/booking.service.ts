@@ -92,6 +92,7 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     : activeTier?.label || tierLabel || 'General';
   const tierId = (activeTier as (typeof activeTier & { _id?: unknown }) | null)?._id;
 
+  const groupSize = groupOffer?.size ?? 1;
   const isFree = ticketPrice === 0;
   const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
 
@@ -112,21 +113,25 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
       );
       if (dup) throw createError('Already booked this event', 409);
 
-      // Atomically claim a slot.
-      const capacityQuery = { _id: eventId, status: 'published', $expr: { $lt: ['$bookedCount', '$capacity'] } };
+      // Atomically claim slots (group bookings claim groupSize slots at once).
+      const capacityQuery = {
+        _id: eventId,
+        status: 'published',
+        $expr: { $lte: [{ $add: ['$bookedCount', groupSize] }, '$capacity'] },
+      };
       const ev = tierId
         ? await Event.findOneAndUpdate(
             capacityQuery,
-            { $inc: { bookedCount: 1, 'pricingTiers.$[tier].soldCount': 1 } },
+            { $inc: { bookedCount: groupSize, 'pricingTiers.$[tier].soldCount': 1 } },
             { new: true, arrayFilters: [{ 'tier._id': tierId }], session }
           )
-        : await Event.findOneAndUpdate(capacityQuery, { $inc: { bookedCount: 1 } }, { new: true, session });
+        : await Event.findOneAndUpdate(capacityQuery, { $inc: { bookedCount: groupSize } }, { new: true, session });
       if (!ev) throw createError('Event is fully booked', 409);
       updatedEvent = ev;
 
       // Create the booking — any failure here aborts the transaction and rolls back the $inc.
       const [created] = await Booking.create(
-        [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: ticketPrice, tierLabel: resolvedTierLabel }],
+        [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: ticketPrice, tierLabel: resolvedTierLabel, groupSize }],
         { session }
       );
       booking = created as unknown as IBooking;
@@ -234,9 +239,10 @@ export async function cancelBooking(bookingId: string, userId: string) {
     await Pass.findByIdAndUpdate(booking.passId, { status: 'cancelled' });
   }
 
-  // Release capacity slot and revenue (only deduct revenue if the booking was already confirmed)
+  // Release capacity slots — group bookings occupy multiple slots.
+  const slotsToRelease = booking.groupSize ?? 1;
   const revenueDecrement = booking.status === 'confirmed' ? -booking.amount : 0;
-  await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -1, revenue: revenueDecrement } });
+  await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -slotsToRelease, revenue: revenueDecrement } });
 
   await writeAuditLog({
     actorId: userId,

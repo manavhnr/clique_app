@@ -2,7 +2,7 @@ import { User } from '../models/User';
 import { Event } from '../models/Event';
 import { Report } from '../models/Report';
 import { Pass } from '../models/Pass';
-import { Booking } from '../models/Booking';
+import { Booking, IBooking } from '../models/Booking';
 import { Payment } from '../models/Payment';
 import { HostVerification } from '../models/HostVerification';
 import { AdminConfig } from '../models/AdminConfig';
@@ -236,13 +236,15 @@ export async function removeGuestFromEvent(eventId: string, bookingId: string, a
     await Pass.findByIdAndUpdate(booking.passId, { status: 'cancelled' });
   }
 
-  // Decrement revenue only if the booking was confirmed (money was counted)
+  // Decrement revenue only if the booking was confirmed (money was counted).
+  // Release groupSize slots — group bookings occupy multiple capacity slots.
   const wasConfirmed = ['confirmed', 'checked_in'].includes(booking.status);
   const revenueDecrement = wasConfirmed ? -booking.amount : 0;
+  const slotsToRelease = booking.groupSize ?? 1;
 
   await Promise.all([
     Booking.findByIdAndUpdate(bookingId, { status: 'cancelled' }),
-    Event.findByIdAndUpdate(eventId, { $inc: { bookedCount: -1, revenue: revenueDecrement } }),
+    Event.findByIdAndUpdate(eventId, { $inc: { bookedCount: -slotsToRelease, revenue: revenueDecrement } }),
   ]);
 
   await writeAuditLog({
@@ -250,7 +252,7 @@ export async function removeGuestFromEvent(eventId: string, bookingId: string, a
     action: 'ADMIN_GUEST_REMOVED',
     targetType: 'Booking',
     targetId: bookingId,
-    metadata: { eventId, userId: booking.userId.toString(), amountDeducted: wasConfirmed ? booking.amount : 0 },
+    metadata: { eventId, userId: booking.userId.toString(), slotsReleased: slotsToRelease, amountDeducted: wasConfirmed ? booking.amount : 0 },
   });
 }
 

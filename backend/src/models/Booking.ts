@@ -7,6 +7,7 @@ export interface IBooking extends Document {
   status: 'pending' | 'payment_pending' | 'utr_submitted' | 'confirmed' | 'checked_in' | 'cancelled' | 'refunded' | 'rejected';
   amount: number;
   tierLabel?: string;
+  groupSize: number;
   paymentId?: mongoose.Types.ObjectId;
   passId?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -25,6 +26,7 @@ const bookingSchema = new Schema<IBooking>(
     },
     amount: { type: Number, required: true, min: 0 },
     tierLabel: { type: String },
+    groupSize: { type: Number, default: 1, min: 1 },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
     passId: { type: Schema.Types.ObjectId, ref: 'Pass' },
   },
