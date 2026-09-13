@@ -3,7 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { sendSuccess } from '../utils/response';
 import {
   listUsers, banUser, unbanUser,
-  listEvents, blockEvent, unblockEvent, getEventDetail,
+  listEvents, blockEvent, unblockEvent, getEventDetail, removeGuestFromEvent,
   listReports, resolveReport,
   getDashboardStats,
   listPendingHosts, listAllHosts, listVerifiedHosts, approveHostAdmin, rejectHostAdmin, getHostDashboard,
@@ -66,6 +66,13 @@ export async function unblockEv(req: AuthRequest, res: Response, next: NextFunct
   try {
     await unblockEvent(req.params.eventId, req.user!.userId);
     sendSuccess(res, null, 'Event unblocked');
+  } catch (err) { next(err); }
+}
+
+export async function removeGuest(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await removeGuestFromEvent(req.params.eventId, req.params.bookingId, req.user!.userId);
+    sendSuccess(res, null, 'Guest removed from event');
   } catch (err) { next(err); }
 }
 

@@ -310,8 +310,32 @@ function OverviewTab({ detail, onStatusChange }: {
 
 // ─── Guests tab ───────────────────────────────────────────────────────────────
 
-function GuestsTab({ detail }: { detail: AdminEventDetail }) {
-  const { bookings, requests } = detail;
+function GuestsTab({ detail, eventId }: { detail: AdminEventDetail; eventId: string }) {
+  const [bookings, setBookings] = useState(detail.bookings);
+  const { requests }            = detail;
+  const [removingId, setRemovingId]     = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<AdminBooking | null>(null);
+  const [toast, setToast]               = useState('');
+  const [toastType, setToastType]       = useState<'ok' | 'err'>('ok');
+
+  function showToast(msg: string, type: 'ok' | 'err' = 'ok') {
+    setToast(msg); setToastType(type);
+    setTimeout(() => setToast(''), 3500);
+  }
+
+  const handleRemove = async (booking: AdminBooking) => {
+    setRemovingId(booking._id);
+    try {
+      await api.delete(`/admin/events/${eventId}/bookings/${booking._id}`);
+      setBookings((prev) => prev.filter((b) => b._id !== booking._id));
+      showToast(`@${booking.userId.username} removed from guest list.`, 'ok');
+    } catch {
+      showToast('Failed to remove guest.', 'err');
+    } finally {
+      setRemovingId(null);
+      setConfirmRemove(null);
+    }
+  };
 
   const confirmedCount  = bookings.filter((b) => ['confirmed', 'checked_in'].includes(b.status)).length;
   const checkedInCount  = bookings.filter((b) => b.status === 'checked_in').length;
@@ -330,6 +354,16 @@ function GuestsTab({ detail }: { detail: AdminEventDetail }) {
 
   return (
     <div className="flex flex-col gap-8">
+
+      {toast && (
+        <div style={{
+          background: toastType === 'ok' ? 'color-mix(in srgb, var(--lime) 8%, transparent)' : 'color-mix(in srgb, var(--hot) 8%, transparent)',
+          border: `1px solid ${toastType === 'ok' ? 'color-mix(in srgb, var(--lime) 25%, transparent)' : 'color-mix(in srgb, var(--hot) 25%, transparent)'}`,
+          borderRadius: 6, padding: '10px 14px',
+        }}>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: toastType === 'ok' ? 'var(--lime)' : 'var(--hot)', letterSpacing: '.06em' }}>{toast}</span>
+        </div>
+      )}
 
       {/* Summary strip */}
       <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-xl border border-line-2 bg-card px-5 py-4">
@@ -378,6 +412,13 @@ function GuestsTab({ detail }: { detail: AdminEventDetail }) {
                     {b.amount > 0 && (
                       <span className="font-mono text-[10px] tracking-[.04em] text-cream">{formatPrice(b.amount)}</span>
                     )}
+                    <button
+                      onClick={() => setConfirmRemove(b)}
+                      disabled={removingId === b._id}
+                      className="mt-1 rounded border border-hot/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-hot transition-colors hover:border-hot/60 hover:bg-hot/10 disabled:opacity-40"
+                    >
+                      {removingId === b._id ? '…' : 'Remove'}
+                    </button>
                   </div>
                 }
               />
@@ -397,6 +438,21 @@ function GuestsTab({ detail }: { detail: AdminEventDetail }) {
           </div>
         </div>
       )}
+
+      {/* Confirm remove modal */}
+      <Modal open={!!confirmRemove} onClose={() => setConfirmRemove(null)} title="Remove guest?" size="sm">
+        {confirmRemove && (
+          <div className="flex flex-col gap-4">
+            <p className="m-0 rounded-xl border border-hot/25 bg-hot/[.08] p-3.5 font-display text-sm leading-relaxed text-cream">
+              Remove <strong>@{confirmRemove.userId.username}</strong> from the guest list? Their pass will be cancelled and the booking count and revenue will be decremented.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setConfirmRemove(null)}>Cancel</Button>
+              <Button variant="danger" className="flex-1" loading={removingId === confirmRemove._id} onClick={() => handleRemove(confirmRemove)}>Remove guest</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -612,7 +668,7 @@ export default function AdminEventDetailPage() {
       </div>
 
       {activeTab === 'overview' && <OverviewTab detail={detail} onStatusChange={handleStatusChange} />}
-      {activeTab === 'guests'   && <GuestsTab detail={detail} />}
+      {activeTab === 'guests'   && <GuestsTab detail={detail} eventId={id} />}
       {activeTab === 'phases'   && <PhasesTab event={event} />}
       {activeTab === 'team'     && <TeamTab event={event} />}
     </div>

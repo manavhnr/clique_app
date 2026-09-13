@@ -219,6 +219,41 @@ export async function rejectHostAdmin(targetUserId: string, adminId: string, rej
   });
 }
 
+// ─── Remove Guest ─────────────────────────────────────────────────────────────
+
+export async function removeGuestFromEvent(eventId: string, bookingId: string, adminId: string) {
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw createError('Booking not found', 404);
+  if (booking.eventId.toString() !== eventId) throw createError('Booking does not belong to this event', 400);
+
+  const removable = ['confirmed', 'checked_in', 'payment_pending', 'utr_submitted', 'pending'];
+  if (!removable.includes(booking.status)) {
+    throw createError(`Cannot remove a guest with booking status: ${booking.status}`, 400);
+  }
+
+  // Cancel pass if one was issued
+  if (booking.passId) {
+    await Pass.findByIdAndUpdate(booking.passId, { status: 'cancelled' });
+  }
+
+  // Decrement revenue only if the booking was confirmed (money was counted)
+  const wasConfirmed = ['confirmed', 'checked_in'].includes(booking.status);
+  const revenueDecrement = wasConfirmed ? -booking.amount : 0;
+
+  await Promise.all([
+    Booking.findByIdAndUpdate(bookingId, { status: 'cancelled' }),
+    Event.findByIdAndUpdate(eventId, { $inc: { bookedCount: -1, revenue: revenueDecrement } }),
+  ]);
+
+  await writeAuditLog({
+    actorId: adminId,
+    action: 'ADMIN_GUEST_REMOVED',
+    targetType: 'Booking',
+    targetId: bookingId,
+    metadata: { eventId, userId: booking.userId.toString(), amountDeducted: wasConfirmed ? booking.amount : 0 },
+  });
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export async function getDashboardStats() {
