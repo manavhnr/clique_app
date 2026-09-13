@@ -120,7 +120,7 @@ export default function HostEventPage() {
 
       {activeTab === 'overview' && <OverviewTab event={event} />}
       {activeTab === 'guests' && (
-        <GuestsTab eventTitle={event.title} bookings={bookings} droppedOff={droppedOff} requests={requests} squads={squads} onRefresh={fetchGuests} />
+        <GuestsTab eventTitle={event.title} eventId={id} bookings={bookings} droppedOff={droppedOff} requests={requests} squads={squads} onRefresh={fetchGuests} />
       )}
       {activeTab === 'phases' && <PhasesTab event={event} onRefresh={refreshEvent} />}
       {activeTab === 'team' && <TeamTab event={event} onRefresh={refreshEvent} />}
@@ -496,8 +496,57 @@ function SectionHead({ label, count, variant = 'neutral', action }: { label: str
   );
 }
 
-function GuestsTab({ eventTitle, bookings, droppedOff, requests, squads, onRefresh }: {
+function AddToGuestlistForm({ eventId, onSuccess }: { eventId: string; onSuccess: () => void }) {
+  const [username, setUsername] = useState('');
+  const [adding, setAdding]     = useState(false);
+  const [error, setError]       = useState('');
+  const [toast, setToast]       = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim()) return;
+    setError(''); setAdding(true);
+    try {
+      await api.post(`/events/${eventId}/guestlist`, { username: username.trim().replace(/^@/, '') });
+      setUsername('');
+      setToast(`Added to guestlist — pass generated.`);
+      setTimeout(() => setToast(''), 3500);
+      onSuccess();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? 'Failed to add to guestlist');
+    } finally { setAdding(false); }
+  };
+
+  return (
+    <div className="rounded-card border border-dashed border-lime/30 bg-card p-5">
+      <div className="clique-label mb-1">ADD TO GUESTLIST</div>
+      <p className="m-0 mb-4 font-display text-[13px] leading-relaxed text-cream">
+        Grant a complimentary pass to someone by their username. A pass is generated instantly — no payment required.
+      </p>
+      <form onSubmit={handleSubmit} className="flex items-start gap-2">
+        <div className="flex-1">
+          <Input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="@username"
+            error={error || undefined}
+          />
+        </div>
+        <Button type="submit" loading={adding} className="shrink-0 py-3.5">
+          Add
+        </Button>
+      </form>
+      {toast && (
+        <p className="m-0 mt-3 font-mono text-[11px] tracking-[.06em] text-lime">{toast}</p>
+      )}
+    </div>
+  );
+}
+
+function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads, onRefresh }: {
   eventTitle: string;
+  eventId: string;
   bookings: Booking[];
   droppedOff: Booking[];
   requests: PendingRequest[];
@@ -555,12 +604,15 @@ function GuestsTab({ eventTitle, bookings, droppedOff, requests, squads, onRefre
 
   if (isEmpty) {
     return (
-      <div className="ledger px-1 py-12">
-        <div className="clique-label mb-3.5 !text-[10px] !tracking-[.16em]">№ 000 — EMPTY LIST</div>
-        <p className="m-0 font-display text-2xl font-bold tracking-[-0.02em] text-paper">No registrations yet.</p>
-        <p className="m-0 mt-2 max-w-[42ch] font-display text-sm leading-relaxed text-cream">
-          Share the event link — pending and confirmed guests land on this list.
-        </p>
+      <div className="flex flex-col gap-6">
+        <AddToGuestlistForm eventId={eventId} onSuccess={onRefresh} />
+        <div className="ledger px-1 py-12">
+          <div className="clique-label mb-3.5 !text-[10px] !tracking-[.16em]">№ 000 — EMPTY LIST</div>
+          <p className="m-0 font-display text-2xl font-bold tracking-[-0.02em] text-paper">No registrations yet.</p>
+          <p className="m-0 mt-2 max-w-[42ch] font-display text-sm leading-relaxed text-cream">
+            Share the event link — pending and confirmed guests land on this list.
+          </p>
+        </div>
       </div>
     );
   }
@@ -574,6 +626,8 @@ function GuestsTab({ eventTitle, bookings, droppedOff, requests, squads, onRefre
 
   return (
     <div className="flex flex-col gap-8">
+      <AddToGuestlistForm eventId={eventId} onSuccess={onRefresh} />
+
       {actionError && (
         <div className="flex items-start justify-between gap-3 rounded-xl border border-hot/20 bg-hot/[.08] px-4 py-3">
           <span className="font-mono text-[11px] leading-relaxed tracking-[.06em] text-hot">{actionError}</span>
@@ -752,7 +806,9 @@ function GuestsTab({ eventTitle, bookings, droppedOff, requests, squads, onRefre
                         )}
                       </div>
                       {b.tierLabel && (
-                        <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
+                        b.tierLabel === 'Guestlist'
+                          ? <span className="rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">Guestlist</span>
+                          : <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
                       )}
                     </div>
                   }

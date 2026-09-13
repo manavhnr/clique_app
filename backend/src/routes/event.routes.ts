@@ -25,6 +25,7 @@ import {
   closeTierHandler,
   recalculateCountHandler,
 } from '../controllers/event.controller';
+import { guestlistAdd } from '../controllers/booking.controller';
 import { nearMe, eventSearch } from './search.routes';
 
 const router = Router();
@@ -59,6 +60,9 @@ router.delete('/:eventId/co-hosts/:userId', requireVerifiedHost, removeCoHostHan
 // Scanner permission management (host only)
 router.post('/:eventId/scanners', requireVerifiedHost, addScannerHandler);
 router.delete('/:eventId/scanners/:userId', requireVerifiedHost, removeScannerHandler);
+
+// Guestlist management (host only)
+router.post('/:eventId/guestlist', requireVerifiedHost, guestlistAdd);
 
 // Ticket phase management (host only)
 router.patch('/:eventId/recalculate-count', requireVerifiedHost, recalculateCountHandler);

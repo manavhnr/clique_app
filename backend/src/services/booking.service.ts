@@ -6,6 +6,7 @@ import { Booking, IBooking } from '../models/Booking';
 import { Event } from '../models/Event';
 import { Pass } from '../models/Pass';
 import { JoinRequest } from '../models/JoinRequest';
+import { User } from '../models/User';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
 import { uploadBuffer } from '../utils/cloudinary';
@@ -264,6 +265,60 @@ export async function getMyBookings(userId: string, page: number, limit: number)
 
   const total = await Booking.countDocuments({ userId });
   return { bookings, total, page, limit };
+}
+
+// ─── Add to Guestlist (host grants complimentary pass) ───────────────────────
+
+export async function addToGuestlist(hostId: string, eventId: string, username: string) {
+  const event = await Event.findById(eventId).select('hostId title status capacity bookedCount');
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Access denied', 403);
+  if (!['draft', 'published'].includes(event.status)) throw createError('Cannot add guests to a cancelled or completed event', 400);
+
+  const user = await User.findOne({ username: username.toLowerCase().trim() }).select('_id name username');
+  if (!user) throw createError(`No user found with username @${username}`, 404);
+  if (user._id.toString() === hostId) throw createError('Host cannot add themselves to the guestlist', 400);
+
+  const existing = await Booking.findOne({ userId: user._id, eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } });
+  if (existing) throw createError(`@${username} already has a booking for this event`, 409);
+
+  const session = await mongoose.startSession();
+  let booking: IBooking | null = null;
+  try {
+    await session.withTransaction(async () => {
+      const ev = await Event.findOneAndUpdate(
+        { _id: eventId, $expr: { $lte: [{ $add: ['$bookedCount', 1] }, '$capacity'] } },
+        { $inc: { bookedCount: 1 } },
+        { new: true, session }
+      );
+      if (!ev) throw createError('Event is at full capacity', 409);
+
+      const [created] = await Booking.create(
+        [{ userId: user._id, eventId, hostId: event.hostId, status: 'confirmed', amount: 0, tierLabel: 'Guestlist', groupSize: 1 }],
+        { session }
+      );
+      booking = created as unknown as IBooking;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  if (!booking) throw createError('Failed to create guestlist entry', 500);
+  const confirmedBooking = booking as IBooking;
+
+  const pass = await generatePass(confirmedBooking._id.toString(), user._id.toString(), eventId);
+  await Booking.findByIdAndUpdate(confirmedBooking._id, { passId: pass._id });
+  void notifyBookingConfirmed(user._id.toString(), event.title, pass._id.toString());
+
+  await writeAuditLog({
+    actorId: hostId,
+    action: 'GUESTLIST_ADD',
+    targetType: 'Booking',
+    targetId: confirmedBooking._id.toString(),
+    metadata: { addedUserId: user._id.toString(), username },
+  });
+
+  return { booking: confirmedBooking, pass, user: { _id: user._id, name: user.name, username: user.username } };
 }
 
 // ─── Get Event Bookings (host view) ──────────────────────────────────────────
