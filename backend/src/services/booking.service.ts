@@ -245,6 +245,14 @@ export async function cancelBooking(bookingId: string, userId: string) {
   const revenueDecrement = booking.status === 'confirmed' ? -booking.amount : 0;
   await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -slotsToRelease, revenue: revenueDecrement } });
 
+  // Decrement soldCount on the pricing tier that was booked.
+  if (booking.tierLabel) {
+    await Event.updateOne(
+      { _id: booking.eventId, 'pricingTiers.label': booking.tierLabel },
+      { $inc: { 'pricingTiers.$.soldCount': -1 } }
+    );
+  }
+
   await writeAuditLog({
     actorId: userId,
     action: refunded ? 'BOOKING_REFUNDED' : 'BOOKING_CANCELLED',
