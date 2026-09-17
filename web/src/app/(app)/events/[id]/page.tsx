@@ -222,9 +222,9 @@ export default function EventDetailPage() {
   const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
   const [utr, setUtr] = useState('');
   const [upiId, setUpiId] = useState('');
-  const [proofFile, setProofFile] = useState<File | null>(null);
+
   const [upiSubmitting, setUpiSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+
   const [selectedGroupIdx, setSelectedGroupIdx] = useState<number | null>(null);
 
   useEffect(() => {
@@ -319,7 +319,6 @@ export default function EventDetailPage() {
       if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
         setUtr('');
         setUpiId('');
-        setProofFile(null);
         setUpiModal({ bookingId: createdBooking._id, amount: createdBooking.amount });
       } else {
         await refreshEvent();
@@ -342,47 +341,24 @@ export default function EventDetailPage() {
     if (!userBooking || !event) return;
     setUtr('');
     setUpiId('');
-    setProofFile(null);
     setUpiModal({ bookingId: userBooking._id, amount: userBooking.amount });
   };
-
-  const MAX_PROOF_SIZE = 5 * 1024 * 1024; // 5 MB
 
   const handleUPISubmit = async () => {
     if (!upiModal) return;
     if (!utr.trim() && !upiId.trim()) { setError('Enter your UTR number or the UPI ID you paid from.'); return; }
-    if (proofFile && proofFile.size > MAX_PROOF_SIZE) {
-      setError('Screenshot is too large — please use an image under 5 MB.');
-      return;
-    }
-    setError(''); setUpiSubmitting(true); setUploadProgress(0);
+    setError(''); setUpiSubmitting(true);
     try {
-      let proofUrl: string | undefined;
-      if (proofFile) {
-        const form = new FormData();
-        form.append('proof', proofFile);
-        const { data: uploadRes } = await api.post('/payments/upload-proof', form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 120000,
-          onUploadProgress: (e) => {
-            if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
-          },
-        });
-        proofUrl = uploadRes.data.url;
-      }
       await api.post('/payments/upi-submit', {
         bookingId: upiModal.bookingId,
         utrNumber: utr.trim() || undefined,
         upiId: upiId.trim() || undefined,
-        transactionProofUrl: proofUrl,
       });
       setUpiModal(null);
       await refreshEvent();
     } catch (err: unknown) {
       const e = err as { code?: string; response?: { status?: number; data?: { message?: string } } };
-      if (e.code === 'ECONNABORTED') {
-        setError('Upload timed out — check your connection or try a smaller image.');
-      } else if (e.response?.status === 409) {
+      if (e.response?.status === 409) {
         // 409 means the booking/payment already exists — close and show the current state
         setUpiModal(null);
         await refreshEvent();
@@ -395,7 +371,7 @@ export default function EventDetailPage() {
           setError(msg);
         }
       }
-    } finally { setUpiSubmitting(false); setUploadProgress(0); }
+    } finally { setUpiSubmitting(false); }
   };
 
   if (loading) return (
@@ -783,28 +759,6 @@ export default function EventDetailPage() {
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.06em', marginTop: 6 }}>Enter either your UTR number or the UPI ID you paid from.</div>
               </div>
 
-              {/* Proof upload */}
-              <div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.12em', marginBottom: 8 }}>TRANSACTION SCREENSHOT (OPTIONAL)</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px dashed #334155', borderRadius: 6, padding: 12, cursor: upiSubmitting ? 'not-allowed' : 'pointer', color: proofFile ? '#60A5FA' : '#64748B', fontFamily: 'var(--display)', fontSize: 13 }}>
-                  <input type="file" accept="image/*" style={{ display: 'none' }} disabled={upiSubmitting} onChange={(e) => {
-                    const f = e.target.files?.[0] ?? null;
-                    if (f && f.size > 5 * 1024 * 1024) { setError('Screenshot is too large — please use an image under 5 MB.'); return; }
-                    setError(''); setProofFile(f);
-                  }} />
-                  {proofFile ? `✓ ${proofFile.name}` : '+ Upload payment screenshot'}
-                </label>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#475569', letterSpacing: '.06em', marginTop: 4 }}>Max 5 MB · JPEG, PNG, or WebP</div>
-              </div>
-
-              {upiSubmitting && proofFile && uploadProgress > 0 && uploadProgress < 100 && (
-                <div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#94A3B8', letterSpacing: '.08em', marginBottom: 6 }}>UPLOADING SCREENSHOT… {uploadProgress}%</div>
-                  <div style={{ height: 3, background: '#1E293B', borderRadius: 2 }}>
-                    <div style={{ height: 3, background: 'var(--lime)', borderRadius: 2, width: `${uploadProgress}%`, transition: 'width .2s ease' }} />
-                  </div>
-                </div>
-              )}
 
               {error && <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--hot)', letterSpacing: '.06em' }}>{error}</div>}
 
@@ -813,11 +767,7 @@ export default function EventDetailPage() {
                 disabled={upiSubmitting}
                 style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: '1px solid var(--lime)', padding: '16px', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', cursor: upiSubmitting ? 'not-allowed' : 'pointer', opacity: upiSubmitting ? 0.6 : 1 }}
               >
-                {upiSubmitting
-                  ? proofFile && uploadProgress > 0 && uploadProgress < 100
-                    ? `UPLOADING… ${uploadProgress}%`
-                    : 'SUBMITTING…'
-                  : 'SUBMIT PAYMENT PROOF →'}
+                {upiSubmitting ? 'SUBMITTING…' : 'SUBMIT PAYMENT PROOF →'}
               </button>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#64748B', letterSpacing: '.08em', textAlign: 'center' }}>
                 YOUR PASS WILL BE ISSUED AFTER VERIFICATION
