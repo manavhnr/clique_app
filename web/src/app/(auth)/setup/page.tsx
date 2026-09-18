@@ -68,26 +68,50 @@ export default function SetupPage() {
   );
 }
 
+const DRAFT_KEY = 'clique_setup_draft';
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveDraft(draft: Record<string, unknown>) {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* ignore */ }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+}
+
 function SetupPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') ?? '/events';
   const { user, updateUser, token } = useAuth();
-  const [name, setName]           = useState(user?.name ?? '');
-  const [username, setUsername]   = useState('');
+
+  const draft = typeof window !== 'undefined' ? loadDraft() : null;
+
+  const [name, setName]           = useState(draft?.name ?? user?.name ?? '');
+  const [username, setUsername]   = useState(draft?.username ?? '');
   const [usernameError, setUsernameError] = useState('');
   const [checkingUsername, setCheckingUsername] = useState(false);
   const usernameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [bio, setBio]             = useState('');
-  const [city, setCity]           = useState('');
-  const [dob, setDob]             = useState('');
-  const [gender, setGender]       = useState('');
-  const [scene, setScene]         = useState<string[]>([]);
-  const [instagram, setInstagram] = useState('');
+  const [bio, setBio]             = useState(draft?.bio ?? '');
+  const [city, setCity]           = useState(draft?.city ?? '');
+  const [dob, setDob]             = useState(draft?.dob ?? '');
+  const [gender, setGender]       = useState(draft?.gender ?? '');
+  const [scene, setScene]         = useState<string[]>(draft?.scene ?? []);
+  const [instagram, setInstagram] = useState(draft?.instagram ?? '');
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
 
   useEffect(() => { if (!token) router.replace('/login'); }, [token, router]);
+
+  useEffect(() => {
+    saveDraft({ name, username, bio, city, dob, gender, scene, instagram });
+  }, [name, username, bio, city, dob, gender, scene, instagram]);
 
   function toggle(tag: string, list: string[], setList: (l: string[]) => void, max?: number) {
     if (list.includes(tag)) { setList(list.filter((t) => t !== tag)); return; }
@@ -136,6 +160,7 @@ function SetupPageInner() {
         hasCompletedSetup: true,
         connectedSocials: { instagram: instagram.trim().replace(/^@/, '') },
       });
+      clearDraft();
       updateUser(data.data.user);
       router.push(redirect);
     } catch (err: unknown) {
