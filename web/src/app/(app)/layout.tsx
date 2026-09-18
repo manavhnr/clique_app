@@ -247,9 +247,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (isLoading) return;
+    if (!user) {
       const dest = pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : '';
       router.replace(`/login${dest}`);
+      return;
+    }
+    if (!user.hasCompletedSetup) {
+      const dest = `?redirect=${encodeURIComponent(pathname)}`;
+      router.replace(`/setup${dest}`);
     }
   }, [isLoading, user, router, pathname]);
 
