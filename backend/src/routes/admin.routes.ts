@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import {
-  stats, users, ban, unban,
+  stats, users, ban, unban, userDetail,
   events, eventDetail, blockEv, unblockEv, removeGuest,
   reports, resolveRep,
   pendingHosts, allHosts, verifiedHosts, approveHost, rejectHost, hostDashboard,
@@ -15,6 +15,7 @@ router.use(authenticate, requireRole('admin'));
 
 router.get('/stats', stats);
 router.get('/users', users);
+router.get('/users/:userId', userDetail);
 router.patch('/users/:userId/ban', ban);
 router.patch('/users/:userId/unban', unban);
 router.get('/events', events);

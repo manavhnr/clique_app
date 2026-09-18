@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 
@@ -169,7 +170,10 @@ export default function AdminUsersPage() {
                 opacity: u.isBanned ? 0.5 : 1,
               }}
             >
-              <div>
+              <Link
+                href={`/admin/users/${u._id}`}
+                style={{ textDecoration: 'none', minWidth: 0 }}
+              >
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                   <span style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 600, color: 'var(--paper)' }}>
                     {u.name}
@@ -197,7 +201,7 @@ export default function AdminUsersPage() {
                   {u.phone ?? '—'}
                   {u.cliquescore != null && ` · Score: ${u.cliquescore}`}
                 </div>
-              </div>
+              </Link>
               <div>
                 {u.role !== 'admin' && (
                   u.isBanned ? (

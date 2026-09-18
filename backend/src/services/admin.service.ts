@@ -7,6 +7,7 @@ import { Payment } from '../models/Payment';
 import { HostVerification } from '../models/HostVerification';
 import { AdminConfig } from '../models/AdminConfig';
 import { JoinRequest } from '../models/JoinRequest';
+import { Post } from '../models/Post';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
 import { escapeRegex } from '../utils/regex';
@@ -40,6 +41,31 @@ export async function banUser(targetId: string, adminId: string) {
 export async function unbanUser(targetId: string, adminId: string) {
   await User.findByIdAndUpdate(targetId, { isBanned: false });
   await writeAuditLog({ actorId: adminId, action: 'USER_UNBANNED', targetType: 'User', targetId });
+}
+
+export async function getUserDetail(userId: string) {
+  const user = await User.findById(userId).select(
+    'name username phone email profileImage bio city gender dob age interests vibeTags cliquescore followerCount followingCount postCount role isVerifiedHost hostVerificationStatus isBanned createdAt'
+  );
+  if (!user) throw createError('User not found', 404);
+
+  const [bookings, posts, reports] = await Promise.all([
+    Booking.find({ userId })
+      .populate('eventId', 'title date startTime locationName images status')
+      .select('status amount tierLabel groupSize createdAt eventId')
+      .sort({ createdAt: -1 })
+      .limit(20),
+    Post.find({ userId })
+      .select('text mediaUrls mediaType likeCount commentCount status visibility createdAt')
+      .sort({ createdAt: -1 })
+      .limit(20),
+    Report.find({ targetType: 'user', targetId: userId })
+      .select('reason description status createdAt')
+      .sort({ createdAt: -1 })
+      .limit(10),
+  ]);
+
+  return { user, bookings, posts, reports };
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────

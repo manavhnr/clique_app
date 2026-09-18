@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendSuccess } from '../utils/response';
 import {
-  listUsers, banUser, unbanUser,
+  listUsers, banUser, unbanUser, getUserDetail,
   listEvents, blockEvent, unblockEvent, getEventDetail, removeGuestFromEvent,
   listReports, resolveReport,
   getDashboardStats,
@@ -38,6 +38,13 @@ export async function unban(req: AuthRequest, res: Response, next: NextFunction)
   try {
     await unbanUser(req.params.userId, req.user!.userId);
     sendSuccess(res, null, 'User unbanned');
+  } catch (err) { next(err); }
+}
+
+export async function userDetail(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await getUserDetail(req.params.userId);
+    sendSuccess(res, result);
   } catch (err) { next(err); }
 }
 
