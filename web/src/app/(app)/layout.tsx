@@ -276,6 +276,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (isLoading) return <Spinner />;
   if (!user) return null;
+  if (!user.hasCompletedSetup) return null;
 
   const handleLogout = () => { logout(); router.push('/'); };
   const sidebarW = collapsed ? 64 : 240;

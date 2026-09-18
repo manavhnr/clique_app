@@ -184,9 +184,20 @@ function MiniFooter() {
 }
 
 export default function LandingPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) return;
+    if (!user.hasCompletedSetup) {
+      router.replace('/setup');
+    } else {
+      router.replace('/events');
+    }
+  }, [isLoading, user, router]);
+
+  if (isLoading || user) return null;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--ink)', color: 'var(--paper)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
