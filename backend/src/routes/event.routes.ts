@@ -26,6 +26,8 @@ import {
   recalculateCountHandler,
 } from '../controllers/event.controller';
 import { guestlistAdd } from '../controllers/booking.controller';
+import { addDiscountsHandler, getDiscountsHandler, updateDiscountHandler, revokeDiscountHandler } from '../controllers/discount.controller';
+import { addDiscountsSchema, updateDiscountSchema } from '../validators/discount.validator';
 import { nearMe, eventSearch } from './search.routes';
 
 const router = Router();
@@ -63,6 +65,12 @@ router.delete('/:eventId/scanners/:userId', requireVerifiedHost, removeScannerHa
 
 // Guestlist management (host only)
 router.post('/:eventId/guestlist', requireVerifiedHost, guestlistAdd);
+
+// Discount management (host only)
+router.post('/:eventId/discounts', requireVerifiedHost, validate(addDiscountsSchema), addDiscountsHandler);
+router.get('/:eventId/discounts', requireVerifiedHost, getDiscountsHandler);
+router.patch('/:eventId/discounts/:discountId', requireVerifiedHost, validate(updateDiscountSchema), updateDiscountHandler);
+router.delete('/:eventId/discounts/:discountId', requireVerifiedHost, revokeDiscountHandler);
 
 // Ticket phase management (host only)
 router.patch('/:eventId/recalculate-count', requireVerifiedHost, recalculateCountHandler);

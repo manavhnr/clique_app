@@ -5,6 +5,7 @@ import { Booking } from '../models/Booking';
 import { Pass } from '../models/Pass';
 import { JoinRequest } from '../models/JoinRequest';
 import { User } from '../models/User';
+import { EventDiscount } from '../models/EventDiscount';
 import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
 import { incrementEventCreationScore } from './cliquescore.service';
@@ -75,7 +76,7 @@ export async function getEventById(eventId: string, requesterId: string) {
   if (!event || event.status === 'blocked') throw createError('Event not found', 404);
 
   // Fetch the requester's relationship to this event in parallel
-  const [saved, userRequest, userBooking] = await Promise.all([
+  const [saved, userRequest, userBooking, userDiscount] = await Promise.all([
     SavedEvent.findOne({ userId: requesterId, eventId }),
     JoinRequest.findOne({ userId: requesterId, eventId }).select('status rejectionReason createdAt'),
     Booking.findOne({
@@ -83,6 +84,7 @@ export async function getEventById(eventId: string, requesterId: string) {
       eventId,
       status: { $nin: ['cancelled', 'refunded', 'rejected'] },
     }),
+    EventDiscount.findOne({ userId: requesterId, eventId, status: 'active' }).select('discountType discountValue'),
   ]);
 
   // Hide exact address for private events until the user has a confirmed booking
@@ -112,6 +114,9 @@ export async function getEventById(eventId: string, requesterId: string) {
       userBooking: userBooking || null,
       userRequest: userRequest || null,
       activeTier,
+      userDiscount: userDiscount
+        ? { discountType: userDiscount.discountType, discountValue: userDiscount.discountValue }
+        : null,
     },
   };
 }

@@ -12,6 +12,7 @@ import { writeAuditLog } from '../utils/auditLog';
 import { uploadBuffer } from '../utils/cloudinary';
 import { incrementEventAttendance } from './cliquescore.service';
 import { notifyBookingConfirmed } from './notification.service';
+import { getUserActiveDiscount, markDiscountUsed, applyDiscount } from './discount.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -93,8 +94,12 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     : activeTier?.label || tierLabel || 'General';
   const tierId = (activeTier as (typeof activeTier & { _id?: unknown }) | null)?._id;
 
+  // Apply user-specific discount if one exists for this event
+  const activeDiscount = await getUserActiveDiscount(userId, eventId);
+  const finalPrice = activeDiscount ? applyDiscount(ticketPrice, activeDiscount) : ticketPrice;
+
   const groupSize = groupOffer?.size ?? 1;
-  const isFree = ticketPrice === 0;
+  const isFree = finalPrice === 0;
   const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
 
   // Wrap the capacity claim and booking creation in a transaction.
@@ -132,7 +137,7 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
 
       // Create the booking — any failure here aborts the transaction and rolls back the $inc.
       const [created] = await Booking.create(
-        [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: ticketPrice, tierLabel: resolvedTierLabel, groupSize }],
+        [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: finalPrice, tierLabel: resolvedTierLabel, groupSize }],
         { session }
       );
       booking = created as unknown as IBooking;
@@ -143,6 +148,12 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
 
   if (!booking) throw createError('Booking creation failed', 500);
   const confirmedBooking = booking as IBooking;
+
+  // Mark discount consumed — best-effort, outside the transaction (duplicate booking check
+  // prevents the same user from booking again, so a failure here is harmless).
+  if (activeDiscount) {
+    void markDiscountUsed(activeDiscount._id.toString(), confirmedBooking._id.toString());
+  }
 
   // Auto-close this tier if it just sold out (best-effort, outside the transaction).
   if (activeTier?.capacity && tierId && updatedEvent) {
