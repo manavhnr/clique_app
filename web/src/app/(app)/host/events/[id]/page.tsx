@@ -22,6 +22,21 @@ interface Booking {
   createdAt: string;
 }
 
+interface Discount {
+  _id: string;
+  userId: { _id: string; name: string; username: string; profileImage?: string };
+  discountType: 'percentage' | 'absolute';
+  discountValue: number;
+  status: 'active' | 'used' | 'revoked';
+  createdAt: string;
+}
+
+interface AddDiscountResult {
+  added: { username: string }[];
+  updated: { username: string }[];
+  notFound: string[];
+}
+
 interface PendingRequest {
   _id: string;
   userId: { _id: string; name: string; username: string; profileImage?: string; gender?: string; age?: number; phone?: string; connectedSocials?: { instagram?: string }; cliquescore?: number; city?: string };
@@ -35,6 +50,7 @@ const TABS = [
   { key: 'guests', label: 'Guests' },
   { key: 'phases', label: 'Phases' },
   { key: 'team', label: 'Team' },
+  { key: 'discounts', label: 'Discounts' },
   { key: 'scanner', label: 'Scanner' },
 ] as const;
 
@@ -45,8 +61,9 @@ export default function HostEventPage() {
   const [droppedOff, setDroppedOff] = useState<Booking[]>([]);
   const [requests, setRequests] = useState<PendingRequest[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'phases' | 'team' | 'scanner'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'guests' | 'phases' | 'team' | 'discounts' | 'scanner'>('overview');
 
   const fetchGuests = () => {
     Promise.all([
@@ -70,8 +87,15 @@ export default function HostEventPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const fetchDiscounts = () => {
+    api.get(`/events/${id}/discounts`).then((res) => {
+      if (res?.data?.data?.discounts) setDiscounts(res.data.data.discounts);
+    }).catch(() => {});
+  };
+
   useEffect(() => {
     if (activeTab === 'guests') fetchGuests();
+    if (activeTab === 'discounts') fetchDiscounts();
   }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshEvent = async () => {
@@ -124,6 +148,7 @@ export default function HostEventPage() {
       )}
       {activeTab === 'phases' && <PhasesTab event={event} onRefresh={refreshEvent} />}
       {activeTab === 'team' && <TeamTab event={event} onRefresh={refreshEvent} />}
+      {activeTab === 'discounts' && <DiscountsTab eventId={id} discounts={discounts} onRefresh={fetchDiscounts} />}
       {activeTab === 'scanner' && <ScannerTab event={event} />}
     </div>
   );
@@ -1172,6 +1197,359 @@ function TeamSection({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Discounts tab ────────────────────────────────────────────────────────────
+
+function DiscountRow({
+  discount,
+  onEdit,
+  onRevoke,
+  revoking = false,
+}: {
+  discount: Discount;
+  onEdit?: () => void;
+  onRevoke?: () => void;
+  revoking?: boolean;
+}) {
+  const u = discount.userId;
+  const discountLabel =
+    discount.discountType === 'percentage'
+      ? `${discount.discountValue}% off`
+      : `₹${discount.discountValue.toLocaleString('en-IN')} off`;
+
+  const statusVariants: Record<string, 'lime' | 'sky' | 'neutral'> = {
+    active: 'lime',
+    used: 'sky',
+    revoked: 'neutral',
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-line-2 bg-card px-4 py-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-line font-display text-sm font-bold text-cream">
+          {u.profileImage ? (
+            <img src={u.profileImage} alt={u.name} className="h-full w-full object-cover" />
+          ) : (
+            (u.name?.[0] ?? '?').toUpperCase()
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="m-0 truncate font-display text-sm font-bold text-paper">{u.name}</p>
+          <p className="m-0 font-mono text-[11px] tracking-[.04em] text-dim">@{u.username}</p>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <span className="rounded-full border border-line-2 px-2.5 py-0.5 font-mono text-[11px] tracking-[.04em] text-cream">
+          {discountLabel}
+        </span>
+        <Badge variant={statusVariants[discount.status] ?? 'neutral'}>{discount.status}</Badge>
+        {discount.status === 'active' && onEdit && (
+          <button
+            onClick={onEdit}
+            className="rounded border border-transparent px-2.5 py-1 font-mono text-[10px] uppercase tracking-[.08em] text-dim transition-colors hover:border-line-2 hover:text-cream"
+          >
+            Edit
+          </button>
+        )}
+        {discount.status === 'active' && onRevoke && (
+          <button
+            onClick={onRevoke}
+            disabled={revoking}
+            className="rounded border border-transparent px-2.5 py-1 font-mono text-[10px] uppercase tracking-[.08em] text-dim transition-colors hover:border-hot/30 hover:text-hot disabled:opacity-40"
+          >
+            {revoking ? '…' : 'Revoke'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DiscountsTab({ eventId, discounts, onRefresh }: {
+  eventId: string;
+  discounts: Discount[];
+  onRefresh: () => void;
+}) {
+  const [usernamesRaw, setUsernamesRaw] = useState('');
+  const [discountType, setDiscountType] = useState<'percentage' | 'absolute'>('percentage');
+  const [discountValue, setDiscountValue] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addResult, setAddResult] = useState<AddDiscountResult | null>(null);
+  const [addError, setAddError] = useState('');
+
+  const [editDiscount, setEditDiscount] = useState<Discount | null>(null);
+  const [editType, setEditType] = useState<'percentage' | 'absolute'>('percentage');
+  const [editValue, setEditValue] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  const parseUsernames = (raw: string) =>
+    raw
+      .split(/[\n,]+/)
+      .map((u) => u.trim().replace(/^@/, '').toLowerCase())
+      .filter(Boolean);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const usernames = parseUsernames(usernamesRaw);
+    if (!usernames.length || !discountValue) return;
+    setAddError('');
+    setAddResult(null);
+    setAdding(true);
+    try {
+      const { data } = await api.post(`/events/${eventId}/discounts`, {
+        usernames,
+        discountType,
+        discountValue: Number(discountValue),
+      });
+      setAddResult(data.data);
+      setUsernamesRaw('');
+      setDiscountValue('');
+      onRefresh();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setAddError(e.response?.data?.message ?? 'Failed to apply discounts');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const openEdit = (d: Discount) => {
+    setEditDiscount(d);
+    setEditType(d.discountType);
+    setEditValue(String(d.discountValue));
+    setEditError('');
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editDiscount) return;
+    setEditError('');
+    setEditSaving(true);
+    try {
+      await api.patch(`/events/${eventId}/discounts/${editDiscount._id}`, {
+        discountType: editType,
+        discountValue: Number(editValue),
+      });
+      setEditDiscount(null);
+      onRefresh();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setEditError(e.response?.data?.message ?? 'Failed to update discount');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleRevoke = async (discountId: string) => {
+    setRevoking(discountId);
+    try {
+      await api.delete(`/events/${eventId}/discounts/${discountId}`);
+      onRefresh();
+    } catch {
+      // ignore
+    } finally {
+      setRevoking(null);
+    }
+  };
+
+  const activeDiscounts  = discounts.filter((d) => d.status === 'active');
+  const usedDiscounts    = discounts.filter((d) => d.status === 'used');
+  const revokedDiscounts = discounts.filter((d) => d.status === 'revoked');
+
+  const TypeToggle = ({
+    value,
+    onChange,
+  }: {
+    value: 'percentage' | 'absolute';
+    onChange: (v: 'percentage' | 'absolute') => void;
+  }) => (
+    <div className="flex overflow-hidden rounded-md border border-line-2">
+      {(['percentage', 'absolute'] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          onClick={() => onChange(t)}
+          className={`px-4 py-2.5 font-mono text-[10px] uppercase tracking-[.1em] transition-colors ${
+            value === t ? 'bg-lime/10 text-lime' : 'text-dim hover:text-cream'
+          }`}
+        >
+          {t === 'percentage' ? '% Off' : '₹ Off'}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-8">
+
+      {/* Add form */}
+      <div className="rounded-card border border-dashed border-lime/30 bg-card p-5">
+        <div className="clique-label mb-1">GIVE FRIEND DISCOUNTS</div>
+        <p className="m-0 mb-4 font-display text-[13px] leading-relaxed text-cream">
+          Enter usernames and set a discount — each person sees a private price when they open this event.
+        </p>
+        <form onSubmit={handleAdd} className="flex flex-col gap-4">
+          <div>
+            <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[.12em] text-dim">Usernames</span>
+            <textarea
+              className="clique-input min-h-[72px] w-full resize-y"
+              placeholder={"@john\n@jane, @bob"}
+              value={usernamesRaw}
+              onChange={(e) => setUsernamesRaw(e.target.value)}
+              required
+            />
+            <p className="m-0 mt-1 font-mono text-[10px] text-dim">Comma or newline separated · @ is optional</p>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[.12em] text-dim">Type</span>
+              <TypeToggle value={discountType} onChange={setDiscountType} />
+            </div>
+            <div className="min-w-[100px] flex-1">
+              <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[.12em] text-dim">
+                {discountType === 'percentage' ? 'Percentage (1–100)' : 'Amount (₹)'}
+              </span>
+              <input
+                className="clique-input w-full"
+                type="number"
+                min="1"
+                max={discountType === 'percentage' ? 100 : undefined}
+                placeholder={discountType === 'percentage' ? '20' : '150'}
+                value={discountValue}
+                onChange={(e) => setDiscountValue(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" loading={adding} className="shrink-0">
+              Apply →
+            </Button>
+          </div>
+
+          {addError && <p className="m-0 font-mono text-xs text-hot">{addError}</p>}
+        </form>
+
+        {addResult && (
+          <div className="mt-4 rounded-xl border border-line-2 bg-well p-4 font-mono text-[11px] tracking-[.04em]">
+            {addResult.added.length > 0 && (
+              <p className="m-0 text-lime">✓ Added: {addResult.added.map((u) => `@${u.username}`).join(', ')}</p>
+            )}
+            {addResult.updated.length > 0 && (
+              <p className="m-0 mt-1 text-gold">↻ Updated: {addResult.updated.map((u) => `@${u.username}`).join(', ')}</p>
+            )}
+            {addResult.notFound.length > 0 && (
+              <p className="m-0 mt-1 text-hot">✗ Not found: {addResult.notFound.map((u) => `@${u}`).join(', ')}</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {activeDiscounts.length > 0 && (
+        <div>
+          <SectionHead label="ACTIVE DISCOUNTS" count={activeDiscounts.length} variant="lime" />
+          <div className="flex flex-col gap-2.5">
+            {activeDiscounts.map((d) => (
+              <DiscountRow
+                key={d._id}
+                discount={d}
+                onEdit={() => openEdit(d)}
+                onRevoke={() => handleRevoke(d._id)}
+                revoking={revoking === d._id}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {usedDiscounts.length > 0 && (
+        <div>
+          <SectionHead label="USED" count={usedDiscounts.length} variant="neutral" />
+          <p className="mb-3 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
+            These friends booked with their discount.
+          </p>
+          <div className="flex flex-col gap-2.5">
+            {usedDiscounts.map((d) => <DiscountRow key={d._id} discount={d} />)}
+          </div>
+        </div>
+      )}
+
+      {revokedDiscounts.length > 0 && (
+        <div>
+          <SectionHead label="REVOKED" count={revokedDiscounts.length} variant="neutral" />
+          <div className="flex flex-col gap-2.5">
+            {revokedDiscounts.map((d) => <DiscountRow key={d._id} discount={d} />)}
+          </div>
+        </div>
+      )}
+
+      {discounts.length === 0 && (
+        <div className="ledger px-1 py-10">
+          <div className="clique-label mb-3 !text-[10px] !tracking-[.16em]">№ 000 — EMPTY</div>
+          <p className="m-0 font-display text-xl font-bold tracking-[-0.02em] text-paper">No discounts yet.</p>
+          <p className="m-0 mt-2 font-display text-sm leading-relaxed text-cream">
+            Use the form above to give friends a special price on this event.
+          </p>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      <Modal open={!!editDiscount} onClose={() => setEditDiscount(null)} title="Edit discount" size="sm">
+        {editDiscount && (
+          <form onSubmit={handleEdit} className="flex flex-col gap-4">
+            <p className="m-0 font-display text-sm text-cream">
+              Editing discount for <span className="font-bold text-paper">@{editDiscount.userId.username}</span>
+            </p>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[.12em] text-dim">Type</span>
+                <div className="flex overflow-hidden rounded-md border border-line-2">
+                  {(['percentage', 'absolute'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setEditType(t)}
+                      className={`px-4 py-2.5 font-mono text-[10px] uppercase tracking-[.1em] transition-colors ${
+                        editType === t ? 'bg-lime/10 text-lime' : 'text-dim hover:text-cream'
+                      }`}
+                    >
+                      {t === 'percentage' ? '% Off' : '₹ Off'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="min-w-[100px] flex-1">
+                <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[.12em] text-dim">
+                  {editType === 'percentage' ? 'Percentage' : 'Amount (₹)'}
+                </span>
+                <input
+                  className="clique-input w-full"
+                  type="number"
+                  min="1"
+                  max={editType === 'percentage' ? 100 : undefined}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            {editError && <p className="m-0 font-mono text-xs text-hot">{editError}</p>}
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => setEditDiscount(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="flex-1" loading={editSaving}>
+                Save
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }
