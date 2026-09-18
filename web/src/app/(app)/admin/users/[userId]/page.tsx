@@ -25,6 +25,7 @@ interface AdminUserDetail {
   age?: number;
   interests?: string[];
   vibeTags?: string[];
+  connectedSocials?: { instagram?: string; twitter?: string };
   cliquescore?: number;
   followerCount?: number;
   followingCount?: number;
@@ -180,6 +181,37 @@ function ProfileTab({ data, onBan, onUnban, working }: {
         <div>
           <div className="clique-label mb-2">BIO</div>
           <p className="m-0 max-w-[56ch] font-display text-sm leading-relaxed text-paper">{user.bio}</p>
+        </div>
+      )}
+
+      {/* Connected socials */}
+      {(user.connectedSocials?.instagram || user.connectedSocials?.twitter) && (
+        <div>
+          <div className="clique-label mb-2">CONNECTED SOCIALS</div>
+          <div className="flex flex-wrap gap-3">
+            {user.connectedSocials.instagram && (
+              <a
+                href={`https://instagram.com/${user.connectedSocials.instagram}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-md border border-line-2 bg-card px-3 py-2 font-mono text-[11px] tracking-[.04em] text-cream hover:border-lime/40 hover:text-paper transition-colors"
+              >
+                <span className="text-[10px] uppercase tracking-[.08em] text-dim">IG</span>
+                @{user.connectedSocials.instagram}
+              </a>
+            )}
+            {user.connectedSocials.twitter && (
+              <a
+                href={`https://x.com/${user.connectedSocials.twitter}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-md border border-line-2 bg-card px-3 py-2 font-mono text-[11px] tracking-[.04em] text-cream hover:border-lime/40 hover:text-paper transition-colors"
+              >
+                <span className="text-[10px] uppercase tracking-[.08em] text-dim">X</span>
+                @{user.connectedSocials.twitter}
+              </a>
+            )}
+          </div>
         </div>
       )}
 

@@ -45,7 +45,7 @@ export async function unbanUser(targetId: string, adminId: string) {
 
 export async function getUserDetail(userId: string) {
   const user = await User.findById(userId).select(
-    'name username phone email profileImage bio city gender dob age interests vibeTags cliquescore followerCount followingCount postCount role isVerifiedHost hostVerificationStatus isBanned createdAt'
+    'name username phone email profileImage bio city gender dob age interests vibeTags cliquescore followerCount followingCount postCount role isVerifiedHost hostVerificationStatus isBanned connectedSocials createdAt'
   );
   if (!user) throw createError('User not found', 404);
 
