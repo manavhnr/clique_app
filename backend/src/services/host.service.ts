@@ -83,6 +83,20 @@ export async function rejectHost(targetUserId: string, adminId: string, rejectio
   });
 }
 
+export async function acceptHostTerms(userId: string) {
+  const user = await User.findById(userId);
+  if (!user) throw createError('User not found', 404);
+  if (!user.isVerifiedHost) throw createError('Host verification required before accepting terms', 403);
+  if (user.hasAcceptedHostTnC) return user;
+
+  await User.findByIdAndUpdate(userId, {
+    hasAcceptedHostTnC: true,
+    hostTnCAcceptedAt: new Date(),
+  });
+
+  return user;
+}
+
 export async function getPendingVerifications(page: number, limit: number) {
   const verifications = await HostVerification.find({ status: 'pending' })
     .populate('userId', 'name username phone profileImage city createdAt')

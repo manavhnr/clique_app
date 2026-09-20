@@ -34,10 +34,12 @@ export default function HostDashboardPage() {
         const fresh = (meResp.data.data as any)?.user ?? meResp.data.data;
         updateUser(fresh);
         if (!fresh.isVerifiedHost) { router.replace('/become-host'); return; }
+        if (!fresh.hasAcceptedHostTnC) { router.replace('/host/terms'); return; }
         setEvents(eventsResp.data.data?.events ?? []);
       })
       .catch(() => {
         if (user && !user.isVerifiedHost) router.replace('/become-host');
+        else if (user && !user.hasAcceptedHostTnC) router.replace('/host/terms');
         setEvents([]);
       })
       .finally(() => setLoading(false));

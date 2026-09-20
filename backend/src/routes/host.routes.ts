@@ -4,7 +4,7 @@ import { requireRole } from '../middleware/role.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { uploadImage } from '../middleware/upload.middleware';
 import { applyHostSchema, rejectHostSchema } from '../validators/host.validator';
-import { apply, status, approve, reject, pending } from '../controllers/host.controller';
+import { apply, status, approve, reject, pending, acceptTerms } from '../controllers/host.controller';
 
 const router = Router();
 
@@ -13,6 +13,9 @@ router.use(authenticate);
 // Any user — apply to become a host
 router.post('/apply', uploadImage.fields([{ name: 'document', maxCount: 1 }, { name: 'selfie', maxCount: 1 }]), apply);
 router.get('/status', status);
+
+// Verified hosts — accept host T&C (required before accessing dashboard)
+router.post('/accept-tnc', acceptTerms);
 
 // Admin only
 router.get('/pending', requireRole('admin'), pending);

@@ -39,6 +39,17 @@ export default function BecomeHostPage() {
   const isRejected = user?.hostVerificationStatus === 'rejected';
 
   if (user?.isVerifiedHost) {
+    if (!user.hasAcceptedHostTnC) {
+      return (
+        <StatusCard
+          kicker="HOST STATUS"
+          title="One last step."
+          body="Your application was approved. Read and accept the host agreement to unlock your dashboard."
+        >
+          <Button onClick={() => router.push('/host/terms')}>Review &amp; accept →</Button>
+        </StatusCard>
+      );
+    }
     return (
       <StatusCard
         kicker="HOST STATUS"

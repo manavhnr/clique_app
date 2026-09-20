@@ -33,6 +33,7 @@ export interface User {
   pushNotificationsEnabled?: boolean;
   payoutStatus?: 'not_started' | 'active';
   upiId?: string;
+  hasAcceptedHostTnC?: boolean;
 }
 
 export interface EventMember {

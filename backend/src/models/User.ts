@@ -38,6 +38,8 @@ export interface IUser extends Document {
   hasCompletedSetup: boolean;
   upiId?: string;
   payoutStatus: 'not_started' | 'active';
+  hasAcceptedHostTnC: boolean;
+  hostTnCAcceptedAt?: Date;
   isBanned: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -94,6 +96,8 @@ const userSchema = new Schema<IUser>(
       enum: ['not_started', 'active'],
       default: 'not_started',
     },
+    hasAcceptedHostTnC: { type: Boolean, default: false },
+    hostTnCAcceptedAt: { type: Date },
     isBanned: { type: Boolean, default: false },
     unlockedSecretEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event', default: [] }],
   },

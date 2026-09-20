@@ -7,6 +7,7 @@ import {
   approveHost,
   rejectHost,
   getPendingVerifications,
+  acceptHostTerms,
 } from '../services/host.service';
 
 export async function apply(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -40,6 +41,13 @@ export async function reject(req: AuthRequest, res: Response, next: NextFunction
   try {
     await rejectHost(req.params.userId, req.user!.userId, req.body.rejectionReason);
     sendSuccess(res, null, 'Host application rejected');
+  } catch (err) { next(err); }
+}
+
+export async function acceptTerms(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await acceptHostTerms(req.user!.userId);
+    sendSuccess(res, null, 'Host terms accepted');
   } catch (err) { next(err); }
 }
 
