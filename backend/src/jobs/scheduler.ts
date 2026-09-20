@@ -15,7 +15,7 @@ export async function reapAbandonedBookings(): Promise<void> {
   const stale = await Booking.find({
     status: 'payment_pending',
     createdAt: { $lt: cutoff },
-  }).select('_id eventId');
+  }).select('_id eventId tierLabel groupSize');
 
   for (const booking of stale) {
     // Guard against double-decrement: only act if still payment_pending
@@ -24,7 +24,14 @@ export async function reapAbandonedBookings(): Promise<void> {
       { status: 'cancelled' }
     );
     if (!updated) continue;
-    await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -1 } });
+    const slotsToRelease = booking.groupSize ?? 1;
+    await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -slotsToRelease } });
+    if (booking.tierLabel) {
+      await Event.updateOne(
+        { _id: booking.eventId, 'pricingTiers.label': booking.tierLabel },
+        { $inc: { 'pricingTiers.$.soldCount': -1 } }
+      );
+    }
     await writeAuditLog({
       action: 'BOOKING_EXPIRED_UNPAID',
       targetType: 'Booking',

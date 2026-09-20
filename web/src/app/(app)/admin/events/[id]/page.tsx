@@ -30,6 +30,7 @@ interface AdminBooking {
   status: string;
   amount: number;
   tierLabel?: string;
+  groupSize?: number;
   createdAt: string;
 }
 
@@ -310,7 +311,13 @@ function OverviewTab({ detail, onStatusChange }: {
 
 // ─── Guests tab ───────────────────────────────────────────────────────────────
 
-function GuestsTab({ detail, eventId }: { detail: AdminEventDetail; eventId: string }) {
+function GuestsTab({ detail, eventId, confirmedSlots, checkedInSlots, pendingSlots }: {
+  detail: AdminEventDetail;
+  eventId: string;
+  confirmedSlots: number;
+  checkedInSlots: number;
+  pendingSlots: number;
+}) {
   const [bookings, setBookings] = useState(detail.bookings);
   const { requests }            = detail;
   const [removingId, setRemovingId]     = useState<string | null>(null);
@@ -337,9 +344,9 @@ function GuestsTab({ detail, eventId }: { detail: AdminEventDetail; eventId: str
     }
   };
 
-  const confirmedCount  = bookings.filter((b) => ['confirmed', 'checked_in'].includes(b.status)).length;
-  const checkedInCount  = bookings.filter((b) => b.status === 'checked_in').length;
-  const pendingPayCount = bookings.filter((b) => ['payment_pending', 'utr_submitted'].includes(b.status)).length;
+  const confirmedCount  = confirmedSlots;
+  const checkedInCount  = checkedInSlots;
+  const pendingPayCount = pendingSlots;
   const pendingReqs     = requests.filter((r) => r.status === 'requested');
   const otherReqs       = requests.filter((r) => r.status !== 'requested');
 
@@ -587,6 +594,11 @@ export default function AdminEventDetailPage() {
   const host      = event.hostId as AdminEventDetail['event']['hostId'];
   const imageUrl  = event.images?.[0] ? getImageUrl(event.images[0]) : null;
 
+  const slots = (b: AdminBooking) => b.groupSize ?? 1;
+  const liveConfirmedSlots  = detail.bookings.filter((b) => ['confirmed', 'checked_in'].includes(b.status)).reduce((s, b) => s + slots(b), 0);
+  const liveCheckedInSlots  = detail.bookings.filter((b) => b.status === 'checked_in').reduce((s, b) => s + slots(b), 0);
+  const livePendingSlots    = detail.bookings.filter((b) => ['payment_pending', 'utr_submitted'].includes(b.status)).reduce((s, b) => s + slots(b), 0);
+
   const statusMap: Record<string, { label: string; color: string }> = {
     published: { label: 'Live',      color: 'var(--lime)' },
     draft:     { label: 'Draft',     color: 'var(--gold)' },
@@ -639,8 +651,8 @@ export default function AdminEventDetailPage() {
 
         {/* Stats strip */}
         <div className="mt-5 flex flex-wrap items-baseline gap-x-8 gap-y-3 border-t border-dashed border-line pt-4">
-          <Stat label="ON THE LIST" value={`${event.bookedCount}/${event.capacity}`} />
-          <Stat label="CHECKED IN"  value={event.checkedInCount ?? 0} />
+          <Stat label="ON THE LIST" value={`${liveConfirmedSlots}/${event.capacity}`} />
+          <Stat label="CHECKED IN"  value={liveCheckedInSlots} />
           <Stat label="PRICE"       value={getDisplayPrice(event)} />
           <Stat label="PRIVACY"     value={event.privacy === 'private' ? 'Private' : event.privacy === 'secret' ? 'Secret' : 'Public'} />
         </div>
@@ -668,7 +680,7 @@ export default function AdminEventDetailPage() {
       </div>
 
       {activeTab === 'overview' && <OverviewTab detail={detail} onStatusChange={handleStatusChange} />}
-      {activeTab === 'guests'   && <GuestsTab detail={detail} eventId={id} />}
+      {activeTab === 'guests'   && <GuestsTab detail={detail} eventId={id} confirmedSlots={liveConfirmedSlots} checkedInSlots={liveCheckedInSlots} pendingSlots={livePendingSlots} />}
       {activeTab === 'phases'   && <PhasesTab event={event} />}
       {activeTab === 'team'     && <TeamTab event={event} />}
     </div>

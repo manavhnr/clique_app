@@ -102,7 +102,7 @@ export async function getEventDetail(eventId: string) {
   const [bookings, requests] = await Promise.all([
     Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
       .populate({ path: 'userId', select: 'name username profileImage gender age phone city cliquescore connectedSocials' })
-      .select('userId status amount tierLabel passId createdAt')
+      .select('userId status amount tierLabel groupSize passId createdAt')
       .sort({ createdAt: -1 }),
     JoinRequest.find({ eventId })
       .populate({ path: 'userId', select: 'name username profileImage gender age phone city cliquescore connectedSocials' })
@@ -271,6 +271,12 @@ export async function removeGuestFromEvent(eventId: string, bookingId: string, a
   await Promise.all([
     Booking.findByIdAndUpdate(bookingId, { status: 'cancelled' }),
     Event.findByIdAndUpdate(eventId, { $inc: { bookedCount: -slotsToRelease, revenue: revenueDecrement } }),
+    booking.tierLabel
+      ? Event.updateOne(
+          { _id: eventId, 'pricingTiers.label': booking.tierLabel },
+          { $inc: { 'pricingTiers.$.soldCount': -1 } }
+        )
+      : Promise.resolve(),
   ]);
 
   await writeAuditLog({
