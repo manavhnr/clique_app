@@ -11,6 +11,7 @@ import {
   saveEvent,
   unsaveEvent,
   getHostEvents,
+  getScannableEvents,
   getEventsFeed,
   getPublicEvents,
   addCoHost,
@@ -95,6 +96,13 @@ export async function myEvents(req: AuthRequest, res: Response, next: NextFuncti
     const limit = parseLimit(req.query.limit);
     const result = await getHostEvents(req.user!.userId, page, limit);
     sendSuccess(res, result);
+  } catch (err) { next(err); }
+}
+
+export async function scannableEvents(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const events = await getScannableEvents(req.user!.userId);
+    sendSuccess(res, { events });
   } catch (err) { next(err); }
 }
 

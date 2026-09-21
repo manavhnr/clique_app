@@ -26,6 +26,7 @@ import {
   addGroupDealHandler,
   removeGroupDealHandler,
   recalculateCountHandler,
+  scannableEvents,
 } from '../controllers/event.controller';
 import { guestlistAdd } from '../controllers/booking.controller';
 import { addDiscountsHandler, getDiscountsHandler, updateDiscountHandler, revokeDiscountHandler } from '../controllers/discount.controller';
@@ -44,6 +45,7 @@ router.get('/feed', feed);
 router.get('/near-me', nearMe);
 router.get('/search', eventSearch);
 router.get('/mine', myEvents);
+router.get('/scannable', scannableEvents);
 router.get('/:eventId', getEvent);
 
 // Host-only writes

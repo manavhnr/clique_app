@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 const NAV_ITEMS = [
   { to: '/events',         label: 'Tonight',   match: ['/events'],         icon: NavIconEvents  },
   { to: '/passes',         label: 'My passes', match: ['/passes'],         icon: NavIconPasses  },
+  { to: '/scan',           label: 'Scan',      match: ['/scan'],           icon: NavIconScan    },
   { to: '/host/dashboard', label: 'Host',      match: ['/host'],           icon: NavIconHost    },
   { to: '/profile',        label: 'Profile',   match: ['/profile'],        icon: NavIconProfile },
 ];
@@ -29,6 +30,14 @@ function NavIconPasses({ size = 16 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
       <rect x="1" y="4" width="14" height="8" rx="2" />
       <path d="M10 4v8M6 7h-.01M6 9h-.01" />
+    </svg>
+  );
+}
+function NavIconScan({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 5V2h3M12 1h3v3M11 15h4v-3M5 15H1v-3" />
+      <rect x="5" y="5" width="6" height="6" rx="1" />
     </svg>
   );
 }

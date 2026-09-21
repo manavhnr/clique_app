@@ -224,6 +224,15 @@ export async function unsaveEvent(userId: string, eventId: string) {
   await Event.findByIdAndUpdate(eventId, { $inc: { saveCount: -1 } });
 }
 
+export async function getScannableEvents(userId: string) {
+  return Event.find({
+    status: 'published',
+    $or: [{ hostId: userId }, { 'coHosts.userId': userId }, { 'scanners.userId': userId }],
+  })
+    .sort({ date: 1 })
+    .select('title images date startTime endTime locationName status capacity bookedCount checkedInCount category');
+}
+
 export async function getHostEvents(hostId: string, page: number, limit: number) {
   const filter = {
     $or: [{ hostId }, { 'coHosts.userId': hostId }],

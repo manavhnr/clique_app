@@ -15,6 +15,7 @@ interface ScanResult {
 interface ScannerModalProps {
   events: Event[];
   onClose: () => void;
+  preselectedEventId?: string;
 }
 
 /**
@@ -22,10 +23,10 @@ interface ScannerModalProps {
  * event picker → camera with finder frame → full-viewport pass/fail overlay
  * with guest name → running in/denied session stats.
  */
-export default function ScannerModal({ events, onClose }: ScannerModalProps) {
+export default function ScannerModal({ events, onClose, preselectedEventId }: ScannerModalProps) {
   const publishedEvents = events.filter((e) => e.status === 'published');
   const [selectedEventId, setSelectedEventId] = useState(
-    publishedEvents.length === 1 ? publishedEvents[0]._id : ''
+    preselectedEventId ?? (publishedEvents.length === 1 ? publishedEvents[0]._id : '')
   );
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
