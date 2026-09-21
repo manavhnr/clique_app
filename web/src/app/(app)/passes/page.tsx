@@ -434,7 +434,10 @@ function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
   const isPendingVerification = status === 'pending_verification';
   const isActive = status === 'active';
   const stampColor = isPendingVerification ? '#F59E0B' : isActive ? 'var(--lime)' : status === 'used' ? 'var(--dim)' : 'var(--hot)';
-  const stampLabel = isPendingVerification ? 'Under review' : isActive ? 'Admit one' : status === 'used' ? 'Checked in' : status;
+  const isGroup = pass.passType === 'group';
+  const groupSize = isGroup ? (pass.memberIds?.length ?? 0) : 0;
+  const admitLabel = isGroup && groupSize > 0 ? `Admit ${groupSize}` : 'Admit one';
+  const stampLabel = isPendingVerification ? 'Under review' : isActive ? admitLabel : status === 'used' ? 'Checked in' : status;
 
   return (
     <button onClick={onOpen}
