@@ -587,6 +587,7 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [approvingGroup, setApprovingGroup] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+  const [activePage, setActivePage] = useState('add');
 
   const squadByUserId = new Map<string, Squad>();
   for (const sq of squads) {
@@ -664,9 +665,46 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
     <Button size="sm" variant="danger" onClick={onClick} disabled={busy}>{busy ? '…' : 'Decline'}</Button>
   );
 
+  const pendingCount = pendingGroups.length + soloRequests.length;
+
+  const pages = [
+    { key: 'add',       label: 'Add Guest',   count: null as number | null, accent: 'neutral' as const },
+    ...(pendingCount > 0            ? [{ key: 'pending',   label: 'Pending',      count: pendingCount,             accent: 'gold' as const }] : []),
+    ...(approvedGroups.length > 0   ? [{ key: 'groups',    label: 'Groups',       count: approvedGroups.length,    accent: 'lime' as const }] : []),
+    ...(paidBookings.length > 0     ? [{ key: 'paid',      label: 'Paid',         count: paidBookings.length,      accent: 'lime' as const }] : []),
+    ...(guestlistBookings.length > 0? [{ key: 'guestlist', label: 'Guestlist',    count: guestlistBookings.length, accent: 'lime' as const }] : []),
+    ...(inProcess.length > 0        ? [{ key: 'process',   label: 'In Process',   count: inProcess.length,         accent: 'gold' as const }] : []),
+    ...(droppedOff.length > 0       ? [{ key: 'dropped',   label: 'Dropped Off',  count: droppedOff.length,        accent: 'neutral' as const }] : []),
+  ];
+
+  const accentClass: Record<string, string> = { lime: 'text-lime', gold: 'text-gold', neutral: 'text-dim' };
+
   return (
-    <div className="flex flex-col gap-8">
-      <AddToGuestlistForm eventId={eventId} onSuccess={onRefresh} />
+    <div className="flex flex-col gap-6">
+      {/* Sub-navigation */}
+      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist">
+        {pages.map(({ key, label, count, accent }) => {
+          const on = activePage === key;
+          return (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={on}
+              onClick={() => setActivePage(key)}
+              className={`shrink-0 rounded-full border px-3.5 py-1.5 font-mono text-[10px] uppercase tracking-[.1em] transition-colors ${
+                on
+                  ? 'border-lime/40 bg-lime/10 text-lime'
+                  : 'border-line-2 text-dim hover:border-line-1 hover:text-cream'
+              }`}
+            >
+              {label}
+              {count != null && (
+                <span className={`ml-1.5 font-bold ${on ? 'text-lime' : accentClass[accent]}`}>{count}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {actionError && (
         <div className="flex items-start justify-between gap-3 rounded-xl border border-hot/20 bg-hot/[.08] px-4 py-3">
@@ -675,102 +713,110 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
         </div>
       )}
 
-      {/* Pending groups */}
-      {pendingGroups.length > 0 && (
-        <div>
-          <SectionHead label="PENDING GROUPS" count={pendingGroups.length} variant="gold" />
-          <div className="flex flex-col gap-4">
-            {pendingGroups.map((sq) => {
-              const pendingMemberCount = sq.members.filter((m) => m.requestStatus === 'requested').length;
-              const entryType = getEntryType(undefined, sq.name, sq.members);
-              const sqId = sq._id.toString();
-              return (
-                <div key={sqId} className="overflow-hidden rounded-card border border-gold/25 bg-card">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-gold/[.05] px-4 py-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="m-0 font-display text-sm font-bold text-paper">{sq.name}</p>
-                        <EntryTypeBadge type={entryType} />
+      {/* ── Add Guest ── */}
+      {activePage === 'add' && (
+        <AddToGuestlistForm eventId={eventId} onSuccess={onRefresh} />
+      )}
+
+      {/* ── Pending ── */}
+      {activePage === 'pending' && (
+        <div className="flex flex-col gap-6">
+          {pendingGroups.length > 0 && (
+            <div>
+              <SectionHead label="PENDING GROUPS" count={pendingGroups.length} variant="gold" />
+              <div className="flex flex-col gap-4">
+                {pendingGroups.map((sq) => {
+                  const pendingMemberCount = sq.members.filter((m) => m.requestStatus === 'requested').length;
+                  const entryType = getEntryType(undefined, sq.name, sq.members);
+                  const sqId = sq._id.toString();
+                  return (
+                    <div key={sqId} className="overflow-hidden rounded-card border border-gold/25 bg-card">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-gold/[.05] px-4 py-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="m-0 font-display text-sm font-bold text-paper">{sq.name}</p>
+                            <EntryTypeBadge type={entryType} />
+                          </div>
+                          <p className="m-0 mt-0.5 font-mono text-[10px] tracking-[.08em] text-dim">
+                            {sq.members.length} MEMBERS{pendingMemberCount > 0 && ` · ${pendingMemberCount} PENDING`}
+                          </p>
+                        </div>
+                        {pendingMemberCount > 0 && (
+                          <Button size="sm" onClick={() => handleApproveGroup(sqId)} disabled={approvingGroup === sqId}>
+                            {approvingGroup === sqId ? 'Approving…' : 'Approve all'}
+                          </Button>
+                        )}
                       </div>
-                      <p className="m-0 mt-0.5 font-mono text-[10px] tracking-[.08em] text-dim">
-                        {sq.members.length} MEMBERS{pendingMemberCount > 0 && ` · ${pendingMemberCount} PENDING`}
-                      </p>
+                      <div className="divide-y divide-line">
+                        {sq.members.map((m) => (
+                          <div key={m.userId} className="px-4 py-3">
+                            <AttendeeCard
+                              framed={false}
+                              name={m.name} username={m.username} profileImage={m.profileImage}
+                              gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
+                              city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
+                              entryType={getEntryType(m.gender, sq.name, sq.members)}
+                              squadName={sq.name}
+                              right={
+                                m.requestStatus === 'requested' && m.requestId ? (
+                                  <div className="flex gap-2">
+                                    {approveBtn(approving === m.requestId, () => handleApprove(m.requestId!))}
+                                    {rejectBtn(rejecting === m.requestId, () => handleReject(m.requestId!))}
+                                  </div>
+                                ) : undefined
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    {pendingMemberCount > 0 && (
-                      <Button size="sm" onClick={() => handleApproveGroup(sqId)} disabled={approvingGroup === sqId}>
-                        {approvingGroup === sqId ? 'Approving…' : 'Approve all'}
-                      </Button>
-                    )}
-                  </div>
-                  <div className="divide-y divide-line">
-                    {sq.members.map((m) => (
-                      <div key={m.userId} className="px-4 py-3">
-                        <AttendeeCard
-                          framed={false}
-                          name={m.name} username={m.username} profileImage={m.profileImage}
-                          gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
-                          city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
-                          entryType={getEntryType(m.gender, sq.name, sq.members)}
-                          squadName={sq.name}
-                          right={
-                            m.requestStatus === 'requested' && m.requestId ? (
-                              <div className="flex gap-2">
-                                {approveBtn(approving === m.requestId, () => handleApprove(m.requestId!))}
-                                {rejectBtn(rejecting === m.requestId, () => handleReject(m.requestId!))}
-                              </div>
-                            ) : undefined
-                          }
-                        />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {soloRequests.length > 0 && (
+            <div>
+              <SectionHead label="PENDING REQUESTS" count={soloRequests.length} variant="gold" />
+              <div className="flex flex-col gap-2.5">
+                {soloRequests.map((r) => (
+                  <AttendeeCard
+                    key={r._id}
+                    name={r.userId?.name ?? 'User'}
+                    username={r.userId?.username ?? '—'}
+                    profileImage={r.userId?.profileImage}
+                    gender={r.userId?.gender}
+                    age={r.userId?.age}
+                    phone={r.userId?.phone}
+                    connectedSocials={r.userId?.connectedSocials}
+                    city={r.userId?.city}
+                    cliquescore={r.userId?.cliquescore}
+                    requestStatus="requested"
+                    entryType={getEntryType(r.userId?.gender, undefined)}
+                    right={
+                      <div className="flex gap-2">
+                        {approveBtn(approving === r._id, () => handleApprove(r._id))}
+                        {rejectBtn(rejecting === r._id, () => handleReject(r._id))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Solo pending requests */}
-      {soloRequests.length > 0 && (
-        <div>
-          <SectionHead label="PENDING REQUESTS" count={soloRequests.length} variant="gold" />
-          <div className="flex flex-col gap-2.5">
-            {soloRequests.map((r) => (
-              <AttendeeCard
-                key={r._id}
-                name={r.userId?.name ?? 'User'}
-                username={r.userId?.username ?? '—'}
-                profileImage={r.userId?.profileImage}
-                gender={r.userId?.gender}
-                age={r.userId?.age}
-                phone={r.userId?.phone}
-                connectedSocials={r.userId?.connectedSocials}
-                city={r.userId?.city}
-                cliquescore={r.userId?.cliquescore}
-                requestStatus="requested"
-                entryType={getEntryType(r.userId?.gender, undefined)}
-                right={
-                  <div className="flex gap-2">
-                    {approveBtn(approving === r._id, () => handleApprove(r._id))}
-                    {rejectBtn(rejecting === r._id, () => handleReject(r._id))}
-                  </div>
-                }
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Approved groups */}
-      {approvedGroups.length > 0 && (
+      {/* ── Groups ── */}
+      {activePage === 'groups' && (
         <div>
           <SectionHead label="GROUPS ON THE LIST" count={approvedGroups.length} variant="lime" />
           {sortedGroupSizes.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-wrap gap-2">
               {sortedGroupSizes.map(([size, count]) => (
                 <span key={size} className="inline-flex items-center gap-1.5 rounded-full border border-line-2 px-3 py-1 font-mono text-[10px] tracking-[.08em] text-cream">
-                  <span className="text-lime font-bold">{count}×</span>
+                  <span className="font-bold text-lime">{count}×</span>
                   group of {size}
                 </span>
               ))}
@@ -814,10 +860,10 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
         </div>
       )}
 
-      {/* Paid bookings */}
-      {paidBookings.length > 0 && (
+      {/* ── Paid ── */}
+      {activePage === 'paid' && (
         <div>
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2.5">
                 <span className="clique-label">PAID BOOKINGS</span>
@@ -854,9 +900,7 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
                     <div className="flex flex-col items-end gap-1.5">
                       <div className="flex items-center gap-2">
                         <BookingStatusBadge status={b.status} />
-                        {(b.status === 'confirmed' || b.status === 'checked_in') && (
-                          <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
-                        )}
+                        <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
                       </div>
                       {b.tierLabel && (
                         <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
@@ -870,10 +914,10 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
         </div>
       )}
 
-      {/* Guestlist (complimentary passes) */}
-      {guestlistBookings.length > 0 && (
+      {/* ── Guestlist ── */}
+      {activePage === 'guestlist' && (
         <div>
-          <div className="mb-3 flex items-center gap-2.5">
+          <div className="mb-4 flex items-center gap-2.5">
             <span className="clique-label">GUESTLIST</span>
             <Badge variant="lime">{guestlistBookings.length}</Badge>
             <span className="font-mono text-[10px] tracking-[.06em] text-dim">
@@ -903,9 +947,7 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
                     <div className="flex flex-col items-end gap-1.5">
                       <div className="flex items-center gap-2">
                         <BookingStatusBadge status={b.status} />
-                        {(b.status === 'confirmed' || b.status === 'checked_in') && (
-                          <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
-                        )}
+                        <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
                       </div>
                       <span className="rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">Guestlist</span>
                     </div>
@@ -917,11 +959,11 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
         </div>
       )}
 
-      {/* Bookings in process — payment not yet confirmed */}
-      {inProcess.length > 0 && (
+      {/* ── In Process ── */}
+      {activePage === 'process' && (
         <div>
           <SectionHead label="IN PROCESS" count={inProcess.length} variant="gold" />
-          <p className="mb-3 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
+          <p className="mb-4 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
             Payment pending or under review — not yet confirmed.
           </p>
           <div className="flex flex-col gap-2.5">
@@ -957,12 +999,12 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
         </div>
       )}
 
-      {/* Dropped off — cancelled / refunded / abandoned payment */}
-      {droppedOff.length > 0 && (
+      {/* ── Dropped Off ── */}
+      {activePage === 'dropped' && (
         <div>
           <SectionHead label="DROPPED OFF" count={droppedOff.length} variant="neutral" />
-          <p className="mb-3 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
-            Cancelled, refunded, or abandoned payment. These people showed interest — consider following up.
+          <p className="mb-4 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
+            Cancelled, refunded, or rejected. These people showed interest — consider following up.
           </p>
           <div className="flex flex-col gap-2.5">
             {droppedOff.map((b) => (
