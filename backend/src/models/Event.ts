@@ -48,6 +48,7 @@ export interface IEvent extends Document {
   groupPricing: IGroupPricing[];
   capacity: number;
   bookedCount: number;
+  reservedCount: number;
   checkedInCount: number;
   revenue: number;
   privacy: 'public' | 'private' | 'secret';
@@ -119,6 +120,7 @@ const eventSchema = new Schema<IEvent>(
     },
     capacity: { type: Number, required: true, min: 1 },
     bookedCount: { type: Number, default: 0 },
+    reservedCount: { type: Number, default: 0 },
     checkedInCount: { type: Number, default: 0 },
     revenue: { type: Number, default: 0 },
     privacy: { type: String, enum: ['public', 'private', 'secret'], default: 'public' },

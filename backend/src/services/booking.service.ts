@@ -120,18 +120,21 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
       if (dup) throw createError('Already booked this event', 409);
 
       // Atomically claim slots (group bookings claim groupSize slots at once).
+      // Capacity is checked against confirmed + reserved so payment_pending slots don't overbook.
+      // Only confirmed bookings increment bookedCount; paid bookings increment reservedCount until payment clears.
       const capacityQuery = {
         _id: eventId,
         status: 'published',
-        $expr: { $lte: [{ $add: ['$bookedCount', groupSize] }, '$capacity'] },
+        $expr: { $lte: [{ $add: ['$bookedCount', { $ifNull: ['$reservedCount', 0] }, groupSize] }, '$capacity'] },
       };
+      const countField = isFree ? 'bookedCount' : 'reservedCount';
       const ev = tierId
         ? await Event.findOneAndUpdate(
             capacityQuery,
-            { $inc: { bookedCount: groupSize, 'pricingTiers.$[tier].soldCount': 1 } },
+            { $inc: { [countField]: groupSize, 'pricingTiers.$[tier].soldCount': 1 } },
             { new: true, arrayFilters: [{ 'tier._id': tierId }], session }
           )
-        : await Event.findOneAndUpdate(capacityQuery, { $inc: { bookedCount: groupSize } }, { new: true, session });
+        : await Event.findOneAndUpdate(capacityQuery, { $inc: { [countField]: groupSize } }, { new: true, session });
       if (!ev) throw createError('Event is fully booked', 409);
       updatedEvent = ev;
 
@@ -203,7 +206,11 @@ export async function confirmBookingAfterPayment(bookingId: string, paymentId: s
     passId: pass._id,
   });
 
-  await Event.findByIdAndUpdate(booking.eventId, { $inc: { revenue: booking.amount } });
+  // Move slot from reserved → confirmed, and record revenue
+  const slotsConfirmed = booking.groupSize ?? 1;
+  await Event.findByIdAndUpdate(booking.eventId, {
+    $inc: { bookedCount: slotsConfirmed, reservedCount: -slotsConfirmed, revenue: booking.amount },
+  });
   await incrementEventAttendance(booking.userId.toString());
   void notifyBookingConfirmed(booking.userId.toString(), event?.title || 'the event', pass._id.toString());
 
@@ -251,10 +258,14 @@ export async function cancelBooking(bookingId: string, userId: string) {
     await Pass.findByIdAndUpdate(booking.passId, { status: 'cancelled' });
   }
 
-  // Release capacity slots — group bookings occupy multiple slots.
+  // Release capacity slots — decrement the correct counter based on what was incremented at booking time.
   const slotsToRelease = booking.groupSize ?? 1;
+  const wasReserved = ['payment_pending', 'utr_submitted'].includes(booking.status);
   const revenueDecrement = booking.status === 'confirmed' ? -booking.amount : 0;
-  await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -slotsToRelease, revenue: revenueDecrement } });
+  const countField = wasReserved ? 'reservedCount' : 'bookedCount';
+  await Event.findByIdAndUpdate(booking.eventId, {
+    $inc: { [countField]: -slotsToRelease, revenue: revenueDecrement },
+  });
 
   // Decrement soldCount on the pricing tier that was booked.
   if (booking.tierLabel) {
@@ -306,7 +317,7 @@ export async function addToGuestlist(hostId: string, eventId: string, username: 
   try {
     await session.withTransaction(async () => {
       const ev = await Event.findOneAndUpdate(
-        { _id: eventId, $expr: { $lte: [{ $add: ['$bookedCount', 1] }, '$capacity'] } },
+        { _id: eventId, $expr: { $lte: [{ $add: ['$bookedCount', { $ifNull: ['$reservedCount', 0] }, 1] }, '$capacity'] } },
         { $inc: { bookedCount: 1 } },
         { new: true, session }
       );
