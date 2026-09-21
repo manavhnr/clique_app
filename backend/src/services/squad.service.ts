@@ -64,9 +64,11 @@ export async function getMySquad(userId: string, eventId: string) {
 // ─── Read (host) ──────────────────────────────────────────────────────────────
 
 export async function getAllSquadsForEvent(hostId: string, eventId: string) {
-  const event = await Event.findById(eventId).select('hostId');
+  const event = await Event.findById(eventId).select('hostId coHosts');
   if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  const isHost = event.hostId.toString() === hostId;
+  const isCoHost = event.coHosts.some((c: { userId: { toString(): string } }) => c.userId.toString() === hostId);
+  if (!isHost && !isCoHost) throw createError('Forbidden', 403);
 
   const squads = await EventSquad.find({ eventId }).sort({ createdAt: 1 });
 

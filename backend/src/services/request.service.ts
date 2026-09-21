@@ -58,7 +58,17 @@ export async function getHostRequests(
   limit: number,
   status?: string
 ) {
-  const query: Record<string, unknown> = { hostId };
+  // If caller is a co-host on the specific event, resolve to the actual host's ID
+  let effectiveHostId = hostId;
+  if (eventId) {
+    const event = await Event.findById(eventId).select('hostId coHosts');
+    if (event) {
+      const isCoHost = event.coHosts.some((c: { userId: { toString(): string } }) => c.userId.toString() === hostId);
+      if (isCoHost) effectiveHostId = event.hostId.toString();
+    }
+  }
+
+  const query: Record<string, unknown> = { hostId: effectiveHostId };
   if (status && status !== 'all') query.status = status;
   else if (!status) query.status = 'requested';
   if (eventId) query.eventId = eventId;

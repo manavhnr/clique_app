@@ -343,9 +343,11 @@ export async function addToGuestlist(hostId: string, eventId: string, username: 
 // ─── Get Event Bookings (host view) ──────────────────────────────────────────
 
 export async function getEventBookings(hostId: string, eventId: string) {
-  const event = await Event.findById(eventId).select('hostId');
+  const event = await Event.findById(eventId).select('hostId coHosts');
   if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Access denied', 403);
+  const isHost = event.hostId.toString() === hostId;
+  const isCoHost = event.coHosts.some((c) => c.userId.toString() === hostId);
+  if (!isHost && !isCoHost) throw createError('Access denied', 403);
 
   const populate = { path: 'userId', select: 'name username profileImage connectedSocials gender age city cliquescore phone' };
   const select   = 'userId status amount tierLabel passId createdAt';
