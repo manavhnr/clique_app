@@ -573,6 +573,45 @@ function AddToGuestlistForm({ eventId, onSuccess }: { eventId: string; onSuccess
   );
 }
 
+function Paginated<T>({ items, pageSize = 10, listClassName = 'flex flex-col gap-2.5', renderItem }: {
+  items: T[];
+  pageSize?: number;
+  listClassName?: string;
+  renderItem: (item: T) => React.ReactNode;
+}) {
+  const [page, setPage] = useState(0);
+  const total = Math.ceil(items.length / pageSize);
+  const visible = items.slice(page * pageSize, (page + 1) * pageSize);
+  return (
+    <div>
+      <div className={listClassName}>
+        {visible.map((item, i) => <div key={i}>{renderItem(item)}</div>)}
+      </div>
+      {total > 1 && (
+        <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="rounded border border-line-2 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.08em] text-dim transition-colors hover:border-line-1 hover:text-cream disabled:opacity-30"
+          >
+            ← Prev
+          </button>
+          <span className="font-mono text-[10px] tracking-[.08em] text-dim">
+            {page + 1} / {total}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(total - 1, p + 1))}
+            disabled={page === total - 1}
+            className="rounded border border-line-2 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.08em] text-dim transition-colors hover:border-line-1 hover:text-cream disabled:opacity-30"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, requests, squads, onRefresh }: {
   eventTitle: string;
   eventId: string;
@@ -724,85 +763,80 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
           {pendingGroups.length > 0 && (
             <div>
               <SectionHead label="PENDING GROUPS" count={pendingGroups.length} variant="gold" />
-              <div className="flex flex-col gap-4">
-                {pendingGroups.map((sq) => {
-                  const pendingMemberCount = sq.members.filter((m) => m.requestStatus === 'requested').length;
-                  const entryType = getEntryType(undefined, sq.name, sq.members);
-                  const sqId = sq._id.toString();
-                  return (
-                    <div key={sqId} className="overflow-hidden rounded-card border border-gold/25 bg-card">
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-gold/[.05] px-4 py-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="m-0 font-display text-sm font-bold text-paper">{sq.name}</p>
-                            <EntryTypeBadge type={entryType} />
-                          </div>
-                          <p className="m-0 mt-0.5 font-mono text-[10px] tracking-[.08em] text-dim">
-                            {sq.members.length} MEMBERS{pendingMemberCount > 0 && ` · ${pendingMemberCount} PENDING`}
-                          </p>
+              <Paginated items={pendingGroups} listClassName="flex flex-col gap-4" renderItem={(sq) => {
+                const pendingMemberCount = sq.members.filter((m) => m.requestStatus === 'requested').length;
+                const entryType = getEntryType(undefined, sq.name, sq.members);
+                const sqId = sq._id.toString();
+                return (
+                  <div className="overflow-hidden rounded-card border border-gold/25 bg-card">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-gold/[.05] px-4 py-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="m-0 font-display text-sm font-bold text-paper">{sq.name}</p>
+                          <EntryTypeBadge type={entryType} />
                         </div>
-                        {pendingMemberCount > 0 && (
-                          <Button size="sm" onClick={() => handleApproveGroup(sqId)} disabled={approvingGroup === sqId}>
-                            {approvingGroup === sqId ? 'Approving…' : 'Approve all'}
-                          </Button>
-                        )}
+                        <p className="m-0 mt-0.5 font-mono text-[10px] tracking-[.08em] text-dim">
+                          {sq.members.length} MEMBERS{pendingMemberCount > 0 && ` · ${pendingMemberCount} PENDING`}
+                        </p>
                       </div>
-                      <div className="divide-y divide-line">
-                        {sq.members.map((m) => (
-                          <div key={m.userId} className="px-4 py-3">
-                            <AttendeeCard
-                              framed={false}
-                              name={m.name} username={m.username} profileImage={m.profileImage}
-                              gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
-                              city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
-                              entryType={getEntryType(m.gender, sq.name, sq.members)}
-                              squadName={sq.name}
-                              right={
-                                m.requestStatus === 'requested' && m.requestId ? (
-                                  <div className="flex gap-2">
-                                    {approveBtn(approving === m.requestId, () => handleApprove(m.requestId!))}
-                                    {rejectBtn(rejecting === m.requestId, () => handleReject(m.requestId!))}
-                                  </div>
-                                ) : undefined
-                              }
-                            />
-                          </div>
-                        ))}
-                      </div>
+                      {pendingMemberCount > 0 && (
+                        <Button size="sm" onClick={() => handleApproveGroup(sqId)} disabled={approvingGroup === sqId}>
+                          {approvingGroup === sqId ? 'Approving…' : 'Approve all'}
+                        </Button>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="divide-y divide-line">
+                      {sq.members.map((m) => (
+                        <div key={m.userId} className="px-4 py-3">
+                          <AttendeeCard
+                            framed={false}
+                            name={m.name} username={m.username} profileImage={m.profileImage}
+                            gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
+                            city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
+                            entryType={getEntryType(m.gender, sq.name, sq.members)}
+                            squadName={sq.name}
+                            right={
+                              m.requestStatus === 'requested' && m.requestId ? (
+                                <div className="flex gap-2">
+                                  {approveBtn(approving === m.requestId, () => handleApprove(m.requestId!))}
+                                  {rejectBtn(rejecting === m.requestId, () => handleReject(m.requestId!))}
+                                </div>
+                              ) : undefined
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }} />
             </div>
           )}
 
           {soloRequests.length > 0 && (
             <div>
               <SectionHead label="PENDING REQUESTS" count={soloRequests.length} variant="gold" />
-              <div className="flex flex-col gap-2.5">
-                {soloRequests.map((r) => (
-                  <AttendeeCard
-                    key={r._id}
-                    name={r.userId?.name ?? 'User'}
-                    username={r.userId?.username ?? '—'}
-                    profileImage={r.userId?.profileImage}
-                    gender={r.userId?.gender}
-                    age={r.userId?.age}
-                    phone={r.userId?.phone}
-                    connectedSocials={r.userId?.connectedSocials}
-                    city={r.userId?.city}
-                    cliquescore={r.userId?.cliquescore}
-                    requestStatus="requested"
-                    entryType={getEntryType(r.userId?.gender, undefined)}
-                    right={
-                      <div className="flex gap-2">
-                        {approveBtn(approving === r._id, () => handleApprove(r._id))}
-                        {rejectBtn(rejecting === r._id, () => handleReject(r._id))}
-                      </div>
-                    }
-                  />
-                ))}
-              </div>
+              <Paginated items={soloRequests} renderItem={(r) => (
+                <AttendeeCard
+                  name={r.userId?.name ?? 'User'}
+                  username={r.userId?.username ?? '—'}
+                  profileImage={r.userId?.profileImage}
+                  gender={r.userId?.gender}
+                  age={r.userId?.age}
+                  phone={r.userId?.phone}
+                  connectedSocials={r.userId?.connectedSocials}
+                  city={r.userId?.city}
+                  cliquescore={r.userId?.cliquescore}
+                  requestStatus="requested"
+                  entryType={getEntryType(r.userId?.gender, undefined)}
+                  right={
+                    <div className="flex gap-2">
+                      {approveBtn(approving === r._id, () => handleApprove(r._id))}
+                      {rejectBtn(rejecting === r._id, () => handleReject(r._id))}
+                    </div>
+                  }
+                />
+              )} />
             </div>
           )}
         </div>
@@ -822,41 +856,39 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
               ))}
             </div>
           )}
-          <div className="flex flex-col gap-3">
-            {approvedGroups.map((sq) => {
-              const entryType = getEntryType(undefined, sq.name, sq.members);
-              return (
-                <div key={sq._id.toString()} className="overflow-hidden rounded-card border border-line-2 bg-card">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="m-0 font-display text-sm font-bold text-paper">{sq.name}</p>
-                        <EntryTypeBadge type={entryType} />
-                      </div>
-                      <p className="m-0 mt-0.5 font-mono text-[10px] tracking-[.08em] text-dim">{sq.members.length} MEMBERS</p>
+          <Paginated items={approvedGroups} listClassName="flex flex-col gap-3" renderItem={(sq) => {
+            const entryType = getEntryType(undefined, sq.name, sq.members);
+            return (
+              <div className="overflow-hidden rounded-card border border-line-2 bg-card">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="m-0 font-display text-sm font-bold text-paper">{sq.name}</p>
+                      <EntryTypeBadge type={entryType} />
                     </div>
-                    <Badge variant={sq.groupPass ? 'lime' : 'neutral'}>
-                      {sq.groupPass ? 'Group pass issued' : 'No pass yet'}
-                    </Badge>
+                    <p className="m-0 mt-0.5 font-mono text-[10px] tracking-[.08em] text-dim">{sq.members.length} MEMBERS</p>
                   </div>
-                  <div className="divide-y divide-line">
-                    {sq.members.map((m) => (
-                      <div key={m.userId} className="px-4 py-3">
-                        <AttendeeCard
-                          framed={false}
-                          name={m.name} username={m.username} profileImage={m.profileImage}
-                          gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
-                          city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
-                          entryType={getEntryType(m.gender, sq.name, sq.members)}
-                          squadName={sq.name}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  <Badge variant={sq.groupPass ? 'lime' : 'neutral'}>
+                    {sq.groupPass ? 'Group pass issued' : 'No pass yet'}
+                  </Badge>
                 </div>
-              );
-            })}
-          </div>
+                <div className="divide-y divide-line">
+                  {sq.members.map((m) => (
+                    <div key={m.userId} className="px-4 py-3">
+                      <AttendeeCard
+                        framed={false}
+                        name={m.name} username={m.username} profileImage={m.profileImage}
+                        gender={m.gender} age={m.age} phone={m.phone} connectedSocials={m.connectedSocials}
+                        city={m.city} cliquescore={m.cliquescore} requestStatus={m.requestStatus}
+                        entryType={getEntryType(m.gender, sq.name, sq.members)}
+                        squadName={sq.name}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          }} />
         </div>
       )}
 
@@ -877,40 +909,37 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
               Export CSV ↓
             </Button>
           </div>
-          <div className="flex flex-col gap-2.5">
-            {paidBookings.map((b) => {
-              const entered = b.status === 'checked_in';
-              const sq = squadByUserId.get(b.userId?._id ?? '');
-              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
-              return (
-                <AttendeeCard
-                  key={b._id}
-                  name={b.userId?.name ?? 'User'}
-                  username={b.userId?.username ?? '—'}
-                  profileImage={b.userId?.profileImage}
-                  gender={b.userId?.gender}
-                  age={b.userId?.age}
-                  phone={b.userId?.phone}
-                  connectedSocials={b.userId?.connectedSocials}
-                  city={b.userId?.city}
-                  requestStatus={null}
-                  entryType={entryType}
-                  squadName={sq?.name}
-                  right={
-                    <div className="flex flex-col items-end gap-1.5">
-                      <div className="flex items-center gap-2">
-                        <BookingStatusBadge status={b.status} />
-                        <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
-                      </div>
-                      {b.tierLabel && (
-                        <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
-                      )}
+          <Paginated items={paidBookings} renderItem={(b) => {
+            const entered = b.status === 'checked_in';
+            const sq = squadByUserId.get(b.userId?._id ?? '');
+            const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
+            return (
+              <AttendeeCard
+                name={b.userId?.name ?? 'User'}
+                username={b.userId?.username ?? '—'}
+                profileImage={b.userId?.profileImage}
+                gender={b.userId?.gender}
+                age={b.userId?.age}
+                phone={b.userId?.phone}
+                connectedSocials={b.userId?.connectedSocials}
+                city={b.userId?.city}
+                requestStatus={null}
+                entryType={entryType}
+                squadName={sq?.name}
+                right={
+                  <div className="flex flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <BookingStatusBadge status={b.status} />
+                      <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
                     </div>
-                  }
-                />
-              );
-            })}
-          </div>
+                    {b.tierLabel && (
+                      <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
+                    )}
+                  </div>
+                }
+              />
+            );
+          }} />
         </div>
       )}
 
@@ -924,38 +953,35 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
               {guestlistEnteredCount} in · {guestlistBookings.length - guestlistEnteredCount} awaiting
             </span>
           </div>
-          <div className="flex flex-col gap-2.5">
-            {guestlistBookings.map((b) => {
-              const entered = b.status === 'checked_in';
-              const sq = squadByUserId.get(b.userId?._id ?? '');
-              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
-              return (
-                <AttendeeCard
-                  key={b._id}
-                  name={b.userId?.name ?? 'User'}
-                  username={b.userId?.username ?? '—'}
-                  profileImage={b.userId?.profileImage}
-                  gender={b.userId?.gender}
-                  age={b.userId?.age}
-                  phone={b.userId?.phone}
-                  connectedSocials={b.userId?.connectedSocials}
-                  city={b.userId?.city}
-                  requestStatus={null}
-                  entryType={entryType}
-                  squadName={sq?.name}
-                  right={
-                    <div className="flex flex-col items-end gap-1.5">
-                      <div className="flex items-center gap-2">
-                        <BookingStatusBadge status={b.status} />
-                        <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
-                      </div>
-                      <span className="rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">Guestlist</span>
+          <Paginated items={guestlistBookings} renderItem={(b) => {
+            const entered = b.status === 'checked_in';
+            const sq = squadByUserId.get(b.userId?._id ?? '');
+            const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
+            return (
+              <AttendeeCard
+                name={b.userId?.name ?? 'User'}
+                username={b.userId?.username ?? '—'}
+                profileImage={b.userId?.profileImage}
+                gender={b.userId?.gender}
+                age={b.userId?.age}
+                phone={b.userId?.phone}
+                connectedSocials={b.userId?.connectedSocials}
+                city={b.userId?.city}
+                requestStatus={null}
+                entryType={entryType}
+                squadName={sq?.name}
+                right={
+                  <div className="flex flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <BookingStatusBadge status={b.status} />
+                      <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
                     </div>
-                  }
-                />
-              );
-            })}
-          </div>
+                    <span className="rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">Guestlist</span>
+                  </div>
+                }
+              />
+            );
+          }} />
         </div>
       )}
 
@@ -966,36 +992,33 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
           <p className="mb-4 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
             Payment pending or under review — not yet confirmed.
           </p>
-          <div className="flex flex-col gap-2.5">
-            {inProcess.map((b) => {
-              const sq = squadByUserId.get(b.userId?._id ?? '');
-              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
-              return (
-                <AttendeeCard
-                  key={b._id}
-                  name={b.userId?.name ?? 'User'}
-                  username={b.userId?.username ?? '—'}
-                  profileImage={b.userId?.profileImage}
-                  gender={b.userId?.gender}
-                  age={b.userId?.age}
-                  phone={b.userId?.phone}
-                  connectedSocials={b.userId?.connectedSocials}
-                  city={b.userId?.city}
-                  requestStatus={null}
-                  entryType={entryType}
-                  squadName={sq?.name}
-                  right={
-                    <div className="flex flex-col items-end gap-1.5">
-                      <BookingStatusBadge status={b.status} />
-                      {b.tierLabel && b.tierLabel !== 'Guestlist' && (
-                        <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
-                      )}
-                    </div>
-                  }
-                />
-              );
-            })}
-          </div>
+          <Paginated items={inProcess} renderItem={(b) => {
+            const sq = squadByUserId.get(b.userId?._id ?? '');
+            const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
+            return (
+              <AttendeeCard
+                name={b.userId?.name ?? 'User'}
+                username={b.userId?.username ?? '—'}
+                profileImage={b.userId?.profileImage}
+                gender={b.userId?.gender}
+                age={b.userId?.age}
+                phone={b.userId?.phone}
+                connectedSocials={b.userId?.connectedSocials}
+                city={b.userId?.city}
+                requestStatus={null}
+                entryType={entryType}
+                squadName={sq?.name}
+                right={
+                  <div className="flex flex-col items-end gap-1.5">
+                    <BookingStatusBadge status={b.status} />
+                    {b.tierLabel && b.tierLabel !== 'Guestlist' && (
+                      <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
+                    )}
+                  </div>
+                }
+              />
+            );
+          }} />
         </div>
       )}
 
@@ -1006,30 +1029,27 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
           <p className="mb-4 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
             Cancelled, refunded, or rejected. These people showed interest — consider following up.
           </p>
-          <div className="flex flex-col gap-2.5">
-            {droppedOff.map((b) => (
-              <AttendeeCard
-                key={b._id}
-                name={b.userId?.name ?? 'User'}
-                username={b.userId?.username ?? '—'}
-                profileImage={b.userId?.profileImage}
-                gender={b.userId?.gender}
-                age={b.userId?.age}
-                phone={b.userId?.phone}
-                connectedSocials={b.userId?.connectedSocials}
-                city={b.userId?.city}
-                requestStatus={null}
-                right={
-                  <div className="flex flex-col items-end gap-1.5">
-                    <BookingStatusBadge status={b.status} />
-                    {b.tierLabel && (
-                      <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
-                    )}
-                  </div>
-                }
-              />
-            ))}
-          </div>
+          <Paginated items={droppedOff} renderItem={(b) => (
+            <AttendeeCard
+              name={b.userId?.name ?? 'User'}
+              username={b.userId?.username ?? '—'}
+              profileImage={b.userId?.profileImage}
+              gender={b.userId?.gender}
+              age={b.userId?.age}
+              phone={b.userId?.phone}
+              connectedSocials={b.userId?.connectedSocials}
+              city={b.userId?.city}
+              requestStatus={null}
+              right={
+                <div className="flex flex-col items-end gap-1.5">
+                  <BookingStatusBadge status={b.status} />
+                  {b.tierLabel && (
+                    <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
+                  )}
+                </div>
+              }
+            />
+          )} />
         </div>
       )}
     </div>
