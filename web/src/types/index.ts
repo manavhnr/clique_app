@@ -53,6 +53,12 @@ export interface PricingTier {
   isOpen: boolean;
 }
 
+export interface GroupDeal {
+  label: string;
+  size: number;
+  price: number;
+}
+
 export interface Event {
   _id: string;
   hostId: string | User;
@@ -70,7 +76,9 @@ export interface Event {
   address: string;
   exactAddressHiddenBeforeBooking?: boolean;
   price: number;
+  pricingMode?: 'common' | 'split';
   pricingTiers?: PricingTier[];
+  groupPricing?: GroupDeal[];
   platformFee?: number;
   capacity: number;
   bookedCount: number;

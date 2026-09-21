@@ -357,6 +357,30 @@ export async function setTierOpen(eventId: string, hostId: string, tierId: strin
   return event;
 }
 
+// ─── Group Deals ─────────────────────────────────────────────────────────────
+
+export async function addGroupDeal(eventId: string, hostId: string, data: { label: string; size: number; price: number }) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  if (['cancelled', 'completed', 'blocked'].includes(event.status)) {
+    throw createError('Cannot modify this event', 400);
+  }
+  event.groupPricing.push({ label: data.label, size: data.size, price: data.price } as typeof event.groupPricing[number]);
+  await event.save();
+  return event;
+}
+
+export async function removeGroupDeal(eventId: string, hostId: string, index: number) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  if (index < 0 || index >= event.groupPricing.length) throw createError('Group deal not found', 404);
+  event.groupPricing.splice(index, 1);
+  await event.save();
+  return event;
+}
+
 export async function recalculateBookedCount(eventId: string, hostId: string) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);

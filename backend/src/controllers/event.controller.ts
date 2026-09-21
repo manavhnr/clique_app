@@ -19,6 +19,8 @@ import {
   removeScanner,
   addTier,
   setTierOpen,
+  addGroupDeal,
+  removeGroupDeal,
   recalculateBookedCount,
 } from '../services/event.service';
 
@@ -160,6 +162,22 @@ export async function closeTierHandler(req: AuthRequest, res: Response, next: Ne
   try {
     const event = await setTierOpen(req.params.eventId, req.user!.userId, req.params.tierId, false);
     sendSuccess(res, { pricingTiers: event.pricingTiers }, 'Phase closed');
+  } catch (err) { next(err); }
+}
+
+export async function addGroupDealHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { label, size, price } = req.body;
+    if (!label || size == null || price == null) { res.status(400).json({ message: 'label, size, and price are required' }); return; }
+    const event = await addGroupDeal(req.params.eventId, req.user!.userId, { label, size: Number(size), price: Number(price) });
+    sendSuccess(res, { groupPricing: event.groupPricing }, 'Group deal added', 201);
+  } catch (err) { next(err); }
+}
+
+export async function removeGroupDealHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await removeGroupDeal(req.params.eventId, req.user!.userId, Number(req.params.index));
+    sendSuccess(res, { groupPricing: event.groupPricing }, 'Group deal removed');
   } catch (err) { next(err); }
 }
 

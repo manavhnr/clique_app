@@ -23,6 +23,8 @@ import {
   addTierHandler,
   openTierHandler,
   closeTierHandler,
+  addGroupDealHandler,
+  removeGroupDealHandler,
   recalculateCountHandler,
 } from '../controllers/event.controller';
 import { guestlistAdd } from '../controllers/booking.controller';
@@ -77,6 +79,10 @@ router.patch('/:eventId/recalculate-count', requireVerifiedHost, recalculateCoun
 router.post('/:eventId/tiers', requireVerifiedHost, validate(addTierSchema), addTierHandler);
 router.patch('/:eventId/tiers/:tierId/open', requireVerifiedHost, openTierHandler);
 router.patch('/:eventId/tiers/:tierId/close', requireVerifiedHost, closeTierHandler);
+
+// Group deal management (host only)
+router.post('/:eventId/group-deals', requireVerifiedHost, addGroupDealHandler);
+router.delete('/:eventId/group-deals/:index', requireVerifiedHost, removeGroupDealHandler);
 
 // Any authenticated user
 router.post('/:eventId/save', save);
