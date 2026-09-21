@@ -225,13 +225,17 @@ export async function unsaveEvent(userId: string, eventId: string) {
 }
 
 export async function getHostEvents(hostId: string, page: number, limit: number) {
-  const events = await Event.find({ hostId, status: { $ne: 'blocked' } })
+  const filter = {
+    $or: [{ hostId }, { 'coHosts.userId': hostId }],
+    status: { $ne: 'blocked' },
+  };
+  const events = await Event.find(filter)
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
     .select('title images date startTime status capacity bookedCount checkedInCount privacy price revenue');
 
-  const total = await Event.countDocuments({ hostId, status: { $ne: 'blocked' } });
+  const total = await Event.countDocuments(filter);
   return { events, total, page, limit };
 }
 
