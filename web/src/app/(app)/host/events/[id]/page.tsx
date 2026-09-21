@@ -617,15 +617,25 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
     finally { setApprovingGroup(null); }
   };
 
-  const enteredCount = bookings.filter((b) => b.status === 'checked_in').length;
+  const paidBookings = bookings.filter((b) => b.tierLabel !== 'Guestlist');
+  const guestlistBookings = bookings.filter((b) => b.tierLabel === 'Guestlist');
+  const paidEnteredCount = paidBookings.filter((b) => b.status === 'checked_in').length;
+  const guestlistEnteredCount = guestlistBookings.filter((b) => b.status === 'checked_in').length;
 
   const pendingGroups = squads.filter((sq) => sq.groupStatus === 'pending' || sq.groupStatus === 'mixed');
   const approvedGroups = squads.filter((sq) => sq.groupStatus === 'approved');
 
+  const groupSizeBreakdown = new Map<number, number>();
+  for (const sq of approvedGroups) {
+    const size = sq.members.length;
+    groupSizeBreakdown.set(size, (groupSizeBreakdown.get(size) ?? 0) + 1);
+  }
+  const sortedGroupSizes = Array.from(groupSizeBreakdown.entries()).sort(([a], [b]) => a - b);
+
   const allGroupMemberUserIds = new Set(squads.flatMap((sq) => sq.members.map((m) => m.userId)));
   const soloRequests = requests.filter((r) => !allGroupMemberUserIds.has(r.userId._id));
 
-  const isEmpty = soloRequests.length === 0 && bookings.length === 0 && squads.length === 0;
+  const isEmpty = soloRequests.length === 0 && paidBookings.length === 0 && guestlistBookings.length === 0 && squads.length === 0;
 
   if (isEmpty) {
     return (
@@ -751,6 +761,16 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
       {approvedGroups.length > 0 && (
         <div>
           <SectionHead label="GROUPS ON THE LIST" count={approvedGroups.length} variant="lime" />
+          {sortedGroupSizes.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {sortedGroupSizes.map(([size, count]) => (
+                <span key={size} className="inline-flex items-center gap-1.5 rounded-full border border-line-2 px-3 py-1 font-mono text-[10px] tracking-[.08em] text-cream">
+                  <span className="text-lime font-bold">{count}×</span>
+                  group of {size}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex flex-col gap-3">
             {approvedGroups.map((sq) => {
               const entryType = getEntryType(undefined, sq.name, sq.members);
@@ -789,14 +809,17 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
         </div>
       )}
 
-      {/* Confirmed individual guests */}
-      {bookings.length > 0 && (
+      {/* Paid bookings */}
+      {paidBookings.length > 0 && (
         <div>
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <span className="clique-label">ON THE LIST</span>
+              <div className="flex items-center gap-2.5">
+                <span className="clique-label">PAID BOOKINGS</span>
+                <Badge variant="lime">{paidBookings.length}</Badge>
+              </div>
               <p className="m-0 mt-1 font-mono text-[11px] tracking-[.06em] text-cream">
-                <span className="text-lime">{enteredCount}</span> in · {bookings.length - enteredCount} awaiting
+                <span className="text-lime">{paidEnteredCount}</span> in · {paidBookings.length - paidEnteredCount} awaiting
               </p>
             </div>
             <Button size="sm" variant="secondary" onClick={() => exportGuestsCSV(bookings, squads, eventTitle)}>
@@ -804,7 +827,7 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
             </Button>
           </div>
           <div className="flex flex-col gap-2.5">
-            {bookings.map((b) => {
+            {paidBookings.map((b) => {
               const entered = b.status === 'checked_in';
               const sq = squadByUserId.get(b.userId?._id ?? '');
               const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members);
@@ -831,10 +854,55 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
                         )}
                       </div>
                       {b.tierLabel && (
-                        b.tierLabel === 'Guestlist'
-                          ? <span className="rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">Guestlist</span>
-                          : <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
+                        <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
                       )}
+                    </div>
+                  }
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Guestlist (complimentary passes) */}
+      {guestlistBookings.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center gap-2.5">
+            <span className="clique-label">GUESTLIST</span>
+            <Badge variant="lime">{guestlistBookings.length}</Badge>
+            <span className="font-mono text-[10px] tracking-[.06em] text-dim">
+              {guestlistEnteredCount} in · {guestlistBookings.length - guestlistEnteredCount} awaiting
+            </span>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {guestlistBookings.map((b) => {
+              const entered = b.status === 'checked_in';
+              const sq = squadByUserId.get(b.userId?._id ?? '');
+              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members);
+              return (
+                <AttendeeCard
+                  key={b._id}
+                  name={b.userId?.name ?? 'User'}
+                  username={b.userId?.username ?? '—'}
+                  profileImage={b.userId?.profileImage}
+                  gender={b.userId?.gender}
+                  age={b.userId?.age}
+                  phone={b.userId?.phone}
+                  connectedSocials={b.userId?.connectedSocials}
+                  city={b.userId?.city}
+                  requestStatus={null}
+                  entryType={entryType}
+                  squadName={sq?.name}
+                  right={
+                    <div className="flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <BookingStatusBadge status={b.status} />
+                        {(b.status === 'confirmed' || b.status === 'checked_in') && (
+                          <Badge variant={entered ? 'lime' : 'neutral'}>{entered ? '✓ In' : 'Awaiting'}</Badge>
+                        )}
+                      </div>
+                      <span className="rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">Guestlist</span>
                     </div>
                   }
                 />
