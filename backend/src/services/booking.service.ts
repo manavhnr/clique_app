@@ -361,14 +361,16 @@ export async function getEventBookings(hostId: string, eventId: string) {
   if (!isHost && !isCoHost) throw createError('Access denied', 403);
 
   const populate = { path: 'userId', select: 'name username profileImage connectedSocials gender age city cliquescore phone' };
-  const select   = 'userId status amount tierLabel passId createdAt';
+  const select   = 'userId status amount tierLabel groupSize passId createdAt';
 
-  const [bookings, droppedOff] = await Promise.all([
-    Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
+  const [bookings, inProcess, droppedOff] = await Promise.all([
+    Booking.find({ eventId, status: { $in: ['confirmed', 'checked_in'] } })
       .populate(populate).select(select).sort({ createdAt: -1 }),
-    Booking.find({ eventId, status: { $in: ['cancelled', 'refunded', 'payment_pending'] } })
+    Booking.find({ eventId, status: { $in: ['pending', 'payment_pending', 'utr_submitted'] } })
+      .populate(populate).select(select).sort({ createdAt: -1 }),
+    Booking.find({ eventId, status: { $in: ['cancelled', 'refunded', 'rejected'] } })
       .populate(populate).select(select).sort({ createdAt: -1 }),
   ]);
 
-  return { bookings, droppedOff };
+  return { bookings, inProcess, droppedOff };
 }

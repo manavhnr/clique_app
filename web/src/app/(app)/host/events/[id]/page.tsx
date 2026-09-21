@@ -59,6 +59,7 @@ export default function HostEventPage() {
   const { id } = useParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [inProcess, setInProcess] = useState<Booking[]>([]);
   const [droppedOff, setDroppedOff] = useState<Booking[]>([]);
   const [requests, setRequests] = useState<PendingRequest[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
@@ -74,6 +75,7 @@ export default function HostEventPage() {
       api.get(`/events/${id}`).catch(() => null),
     ]).then(([bRes, rRes, sRes, evtRes]) => {
       if (bRes?.data?.data?.bookings) setBookings(bRes.data.data.bookings);
+      if (bRes?.data?.data?.inProcess) setInProcess(bRes.data.data.inProcess);
       if (bRes?.data?.data?.droppedOff) setDroppedOff(bRes.data.data.droppedOff);
       if (rRes?.data?.data?.requests) setRequests(rRes.data.data.requests);
       if (sRes?.data?.data?.squads) setSquads(sRes.data.data.squads);
@@ -145,7 +147,7 @@ export default function HostEventPage() {
 
       {activeTab === 'overview' && <OverviewTab event={event} />}
       {activeTab === 'guests' && (
-        <GuestsTab eventTitle={event.title} eventId={id} bookings={bookings} droppedOff={droppedOff} requests={requests} squads={squads} onRefresh={fetchGuests} />
+        <GuestsTab eventTitle={event.title} eventId={id} bookings={bookings} inProcess={inProcess} droppedOff={droppedOff} requests={requests} squads={squads} onRefresh={fetchGuests} />
       )}
       {activeTab === 'phases' && <PhasesTab event={event} onRefresh={refreshEvent} />}
       {activeTab === 'team' && <TeamTab event={event} onRefresh={refreshEvent} />}
@@ -571,10 +573,11 @@ function AddToGuestlistForm({ eventId, onSuccess }: { eventId: string; onSuccess
   );
 }
 
-function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads, onRefresh }: {
+function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, requests, squads, onRefresh }: {
   eventTitle: string;
   eventId: string;
   bookings: Booking[];
+  inProcess: Booking[];
   droppedOff: Booking[];
   requests: PendingRequest[];
   squads: Squad[];
@@ -637,7 +640,7 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
   const allGroupMemberUserIds = new Set(squads.flatMap((sq) => sq.members.map((m) => m.userId)));
   const soloRequests = requests.filter((r) => !allGroupMemberUserIds.has(r.userId._id));
 
-  const isEmpty = soloRequests.length === 0 && paidBookings.length === 0 && guestlistBookings.length === 0 && squads.length === 0;
+  const isEmpty = soloRequests.length === 0 && paidBookings.length === 0 && guestlistBookings.length === 0 && inProcess.length === 0 && squads.length === 0;
 
   if (isEmpty) {
     return (
@@ -905,6 +908,46 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
                         )}
                       </div>
                       <span className="rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">Guestlist</span>
+                    </div>
+                  }
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Bookings in process — payment not yet confirmed */}
+      {inProcess.length > 0 && (
+        <div>
+          <SectionHead label="IN PROCESS" count={inProcess.length} variant="gold" />
+          <p className="mb-3 mt-[-8px] font-mono text-[10px] tracking-[.06em] text-dim">
+            Payment pending or under review — not yet confirmed.
+          </p>
+          <div className="flex flex-col gap-2.5">
+            {inProcess.map((b) => {
+              const sq = squadByUserId.get(b.userId?._id ?? '');
+              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
+              return (
+                <AttendeeCard
+                  key={b._id}
+                  name={b.userId?.name ?? 'User'}
+                  username={b.userId?.username ?? '—'}
+                  profileImage={b.userId?.profileImage}
+                  gender={b.userId?.gender}
+                  age={b.userId?.age}
+                  phone={b.userId?.phone}
+                  connectedSocials={b.userId?.connectedSocials}
+                  city={b.userId?.city}
+                  requestStatus={null}
+                  entryType={entryType}
+                  squadName={sq?.name}
+                  right={
+                    <div className="flex flex-col items-end gap-1.5">
+                      <BookingStatusBadge status={b.status} />
+                      {b.tierLabel && b.tierLabel !== 'Guestlist' && (
+                        <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
+                      )}
                     </div>
                   }
                 />
