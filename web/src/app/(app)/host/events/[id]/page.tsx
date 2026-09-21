@@ -19,6 +19,7 @@ interface Booking {
   status: string;
   amount: number;
   tierLabel?: string;
+  groupSize?: number;
   createdAt: string;
 }
 
@@ -386,13 +387,14 @@ function GenderBadge({ gender }: { gender?: string }) {
 
 type EntryType = 'stag' | 'solo' | 'group' | 'mixed';
 
-function getEntryType(gender: string | undefined, squadName: string | undefined, squadMembers?: { gender?: string }[]): EntryType {
+function getEntryType(gender: string | undefined, squadName: string | undefined, squadMembers?: { gender?: string }[], groupSize?: number): EntryType {
   if (squadName && squadMembers) {
     const hasMale = squadMembers.some((m) => m.gender === 'male');
     const hasFemale = squadMembers.some((m) => m.gender === 'female');
     if (hasMale && hasFemale) return 'mixed';
     return 'group';
   }
+  if (groupSize != null && groupSize > 1) return 'group';
   if (gender === 'male') return 'stag';
   return 'solo';
 }
@@ -481,7 +483,7 @@ function exportGuestsCSV(bookings: Booking[], squads: Squad[], eventTitle: strin
     ...bookings.map((b) => {
       const u = b.userId;
       const sq = squadByUserId.get(u?._id ?? '');
-      const entryType = getEntryType(u?.gender, sq?.name, sq?.members);
+      const entryType = getEntryType(u?.gender, sq?.name, sq?.members, b.groupSize);
       return [
         u?.name ?? '',
         u?.username ?? '',
@@ -830,7 +832,7 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
             {paidBookings.map((b) => {
               const entered = b.status === 'checked_in';
               const sq = squadByUserId.get(b.userId?._id ?? '');
-              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members);
+              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
               return (
                 <AttendeeCard
                   key={b._id}
@@ -879,7 +881,7 @@ function GuestsTab({ eventTitle, eventId, bookings, droppedOff, requests, squads
             {guestlistBookings.map((b) => {
               const entered = b.status === 'checked_in';
               const sq = squadByUserId.get(b.userId?._id ?? '');
-              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members);
+              const entryType = getEntryType(b.userId?.gender, sq?.name, sq?.members, b.groupSize);
               return (
                 <AttendeeCard
                   key={b._id}
