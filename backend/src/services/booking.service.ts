@@ -300,9 +300,10 @@ export async function getMyBookings(userId: string, page: number, limit: number)
 // ─── Add to Guestlist (host grants complimentary pass) ───────────────────────
 
 export async function addToGuestlist(hostId: string, eventId: string, username: string) {
-  const event = await Event.findById(eventId).select('hostId title status capacity bookedCount');
+  const event = await Event.findById(eventId).select('hostId title status capacity bookedCount coHosts');
   if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Access denied', 403);
+  const isCoHost = event.coHosts.some((c) => c.userId.toString() === hostId);
+  if (event.hostId.toString() !== hostId && !isCoHost) throw createError('Access denied', 403);
   if (!['draft', 'published'].includes(event.status)) throw createError('Cannot add guests to a cancelled or completed event', 400);
 
   const user = await User.findOne({ username: username.toLowerCase().trim() }).select('_id name username');
