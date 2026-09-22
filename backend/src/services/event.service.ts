@@ -399,17 +399,23 @@ export async function recalculateBookedCount(eventId: string, hostId: string) {
   if (!event) throw createError('Event not found', 404);
   if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
 
-  const activeStatus = { $nin: ['cancelled', 'refunded', 'rejected'] };
+  const confirmedStatuses = { $in: ['confirmed', 'checked_in'] };
+  const eventObjId = new mongoose.Types.ObjectId(eventId);
 
-  // Overall booked count
-  const liveCount = await Booking.countDocuments({ eventId, status: activeStatus });
+  // Sum groupSize across confirmed/checked_in bookings:
+  // stag/solo (groupSize=1) → 1 person, group (groupSize=N) → N people, guestlist (groupSize=1) → 1 person.
+  const [agg] = await Booking.aggregate<{ total: number }>([
+    { $match: { eventId: eventObjId, status: confirmedStatuses } },
+    { $group: { _id: null, total: { $sum: '$groupSize' } } },
+  ]);
+  const liveCount = agg?.total ?? 0;
 
-  // Per-tier sold counts
+  // Per-tier sold counts (document count — not people count — for tier inventory tracking)
   const tierUpdates: Promise<unknown>[] = event.pricingTiers.map(async (tier) => {
     const soldCount = await Booking.countDocuments({
       eventId,
       tierLabel: tier.label,
-      status: activeStatus,
+      status: confirmedStatuses,
     });
     return Event.updateOne(
       { _id: eventId, 'pricingTiers._id': tier._id },
