@@ -22,7 +22,7 @@ const FLOW_PLACEHOLDER = `1. User selects a paid event and taps "Book"
 5. Admin clicks "Verify payment" → booking confirmed → QR pass generated instantly
 6. User opens Passes tab and sees active QR pass
 7. Host scans QR at the door → pass marked used → booking status → checked_in
-8. Revenue is paid out to host via UPI (T+2 days, 80/20 split)`;
+8. Revenue is paid out to host via UPI (T+1 days, 90/10 split)`;
 
 const ABOUT_PLACEHOLDER = `Clique is a social-first nightlife application for discovering and attending house parties, club nights, and exclusive events.
 
@@ -225,7 +225,7 @@ export default function AdminCompliancePage() {
                   { label: 'TEST UPI VPA',   value: 'success@razorpay' },
                   { label: 'SANDBOX MODE',   value: 'All UPI payments go to pending_verification state' },
                   { label: 'ADMIN REVIEW',   value: 'Admin verifies screenshot → booking confirmed → QR pass generated' },
-                  { label: 'PAYOUT',         value: '80% to host UPI ID · 20% platform fee · T+2 settlement' },
+                  { label: 'PAYOUT',         value: '90% to host UPI ID · 10% platform fee · T+1 settlement' },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 24px', alignItems: 'baseline' }}>
                     <span className="clique-label" style={{ minWidth: 160 }}>{label}</span>

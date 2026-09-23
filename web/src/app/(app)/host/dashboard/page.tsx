@@ -275,8 +275,8 @@ function PayoutsSection({ payoutStatus, upiId, loading, toast, success, onSave, 
         {isActive && !editing && (
           <div className="flex flex-wrap gap-6 border-t border-line pt-4">
             {[
-              { label: 'PAYOUT SPLIT', value: '80 / 20' },
-              { label: 'SETTLEMENT', value: 'T+2 days' },
+              { label: 'PAYOUT SPLIT', value: '90 / 10' },
+              { label: 'SETTLEMENT', value: 'T+1 days' },
             ].map(({ label, value }) => (
               <div key={label}>
                 <div className="clique-label !text-[9px]">{label}</div>

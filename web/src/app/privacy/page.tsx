@@ -263,9 +263,9 @@ export default function PrivacyPage() {
             </div>
             <P>When an attendee purchases a ticket, the full ticket price is collected by Clique via Razorpay (our payment processor). Clique then distributes funds as follows:</P>
             <UL items={[
-              <><Strong>80% to the Host</Strong> — paid within 7 business days after the event concludes, by electronic transfer to the Host&apos;s registered bank account.</>,
-              <><Strong>20% retained by Clique</Strong> — this is our platform commission and service fee, which covers payment processing costs, platform operations, fraud prevention, and customer support.</>,
-              <><Strong>Payment gateway fees</Strong> — Razorpay&apos;s transaction fees are deducted before calculating the Host&apos;s 80% share (i.e., from gross revenue before the split).</>,
+              <><Strong>90% to the Host</Strong> — paid within 7 business days after the event concludes, by electronic transfer to the Host&apos;s registered bank account.</>,
+              <><Strong>10% retained by Clique</Strong> — this is our platform commission and service fee, which covers payment processing costs, platform operations, fraud prevention, and customer support.</>,
+              <><Strong>Payment gateway fees</Strong> — Razorpay&apos;s transaction fees are deducted before calculating the Host&apos;s 90% share (i.e., from gross revenue before the split).</>,
             ]} />
 
             <div style={{ ...mono, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5B544A', paddingTop: 8 }}>

@@ -275,13 +275,13 @@ export default function TermsPage() {
               <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ ...mono, fontSize: 10, letterSpacing: '.14em', color: '#5B544A', marginBottom: 6 }}>HOST RECEIVES</div>
-                  <div style={{ ...display, fontSize: 40, fontWeight: 800, color: '#C9F36E', letterSpacing: '-0.03em' }}>80%</div>
+                  <div style={{ ...display, fontSize: 40, fontWeight: 800, color: '#C9F36E', letterSpacing: '-0.03em' }}>90%</div>
                   <div style={{ ...mono, fontSize: 11, color: '#5B544A' }}>of Net Revenue per ticket</div>
                 </div>
                 <div style={{ width: 1, background: '#2A2520', alignSelf: 'stretch' }} />
                 <div>
                   <div style={{ ...mono, fontSize: 10, letterSpacing: '.14em', color: '#5B544A', marginBottom: 6 }}>CLIQUE RETAINS</div>
-                  <div style={{ ...display, fontSize: 40, fontWeight: 800, color: '#FF3D6E', letterSpacing: '-0.03em' }}>20%</div>
+                  <div style={{ ...display, fontSize: 40, fontWeight: 800, color: '#FF3D6E', letterSpacing: '-0.03em' }}>10%</div>
                   <div style={{ ...mono, fontSize: 11, color: '#5B544A' }}>commission & service fee</div>
                 </div>
               </div>
