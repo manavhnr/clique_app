@@ -135,7 +135,15 @@ export async function updateEvent(
     throw createError('Cannot update a cancelled or completed event', 400);
   }
 
+  const rawBody = data as Record<string, unknown>;
+  const keptImages: string[] = rawBody.existingImages == null
+    ? event.images
+    : Array.isArray(rawBody.existingImages)
+      ? (rawBody.existingImages as string[])
+      : [rawBody.existingImages as string];
+
   const update: Record<string, unknown> = { ...data };
+  delete update.existingImages;
   if (data.date) update.date = new Date(data.date);
   if (data.pricingData) {
     update.pricingMode = data.pricingData.mode;
@@ -152,10 +160,12 @@ export async function updateEvent(
   }
   delete update.pricingData;
 
-  // Append any newly uploaded media to existing arrays
+  // Merge kept images with any newly uploaded ones
   if (imageFiles.length > 0) {
     const newImageUrls = await Promise.all(imageFiles.map((f) => uploadFile(f, 'clique/events/images')));
-    update.images = [...event.images, ...newImageUrls];
+    update.images = [...keptImages, ...newImageUrls];
+  } else {
+    update.images = keptImages;
   }
   if (videoFiles.length > 0) {
     const newVideoUrls = await Promise.all(videoFiles.map((f) => uploadFile(f, 'clique/events/videos')));
