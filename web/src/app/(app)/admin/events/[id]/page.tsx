@@ -451,7 +451,11 @@ function GuestsTab({ detail, eventId, confirmedSlots, checkedInSlots, pendingSlo
         {confirmRemove && (
           <div className="flex flex-col gap-4">
             <p className="m-0 rounded-xl border border-hot/25 bg-hot/[.08] p-3.5 font-display text-sm leading-relaxed text-cream">
-              Remove <strong>@{confirmRemove.userId.username}</strong> from the guest list? Their pass will be cancelled and the booking count and revenue will be decremented.
+              Remove <strong>@{confirmRemove.userId.username}</strong> from the guest list?
+              Their pass will be cancelled, the booking count and revenue will be decremented.
+              {(['confirmed', 'checked_in'].includes(confirmRemove.status) && confirmRemove.amount > 0) && (
+                <> A refund will be automatically issued to the user.</>
+              )}
             </p>
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setConfirmRemove(null)}>Cancel</Button>

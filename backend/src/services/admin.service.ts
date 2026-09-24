@@ -262,15 +262,41 @@ export async function removeGuestFromEvent(eventId: string, bookingId: string, a
     await Pass.findByIdAndUpdate(booking.passId, { status: 'cancelled' });
   }
 
-  // Decrement revenue only if the booking was confirmed (money was counted).
-  // Release groupSize slots — group bookings occupy multiple capacity slots.
   const wasConfirmed = ['confirmed', 'checked_in'].includes(booking.status);
+  const wasReserved  = ['payment_pending', 'utr_submitted'].includes(booking.status);
+
+  // Attempt refund for confirmed/checked-in paid bookings.
+  // Razorpay payments: call the Razorpay refund API.
+  // UPI payments: mark the payment record as refunded (manual transfer handled out-of-band).
+  let refunded = false;
+  if (wasConfirmed) {
+    const { refundBookingPayment } = await import('./payment.service');
+    refunded = await refundBookingPayment(bookingId, adminId);
+
+    if (!refunded) {
+      const upiPayment = await Payment.findOne({ bookingId, status: 'paid', paymentMethod: 'upi' });
+      if (upiPayment) {
+        await Payment.findByIdAndUpdate(upiPayment._id, { status: 'refunded' });
+        refunded = true;
+        await writeAuditLog({
+          actorId: adminId,
+          action: 'UPI_PAYMENT_REFUND_MARKED',
+          targetType: 'Payment',
+          targetId: upiPayment._id.toString(),
+          metadata: { bookingId, note: 'Admin removed guest — UPI refund to be processed manually' },
+        });
+      }
+    }
+  }
+
   const revenueDecrement = wasConfirmed ? -booking.amount : 0;
-  const slotsToRelease = booking.groupSize ?? 1;
+  const slotsToRelease   = booking.groupSize ?? 1;
+  // confirmed/checked_in slots live in bookedCount; payment_pending/utr_submitted in reservedCount
+  const countField = wasReserved ? 'reservedCount' : 'bookedCount';
 
   await Promise.all([
-    Booking.findByIdAndUpdate(bookingId, { status: 'cancelled' }),
-    Event.findByIdAndUpdate(eventId, { $inc: { bookedCount: -slotsToRelease, revenue: revenueDecrement } }),
+    Booking.findByIdAndUpdate(bookingId, { status: refunded ? 'refunded' : 'cancelled' }),
+    Event.findByIdAndUpdate(eventId, { $inc: { [countField]: -slotsToRelease, revenue: revenueDecrement } }),
     booking.tierLabel
       ? Event.updateOne(
           { _id: eventId, 'pricingTiers.label': booking.tierLabel },
@@ -281,10 +307,10 @@ export async function removeGuestFromEvent(eventId: string, bookingId: string, a
 
   await writeAuditLog({
     actorId: adminId,
-    action: 'ADMIN_GUEST_REMOVED',
+    action: refunded ? 'ADMIN_GUEST_REMOVED_REFUNDED' : 'ADMIN_GUEST_REMOVED',
     targetType: 'Booking',
     targetId: bookingId,
-    metadata: { eventId, userId: booking.userId.toString(), slotsReleased: slotsToRelease, amountDeducted: wasConfirmed ? booking.amount : 0 },
+    metadata: { eventId, userId: booking.userId.toString(), slotsReleased: slotsToRelease, amountDeducted: wasConfirmed ? booking.amount : 0, refunded },
   });
 }
 
