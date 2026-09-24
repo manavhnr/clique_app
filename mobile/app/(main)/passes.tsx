@@ -79,6 +79,11 @@ export default function PassesScreen() {
                 <Ionicons name="chevron-forward" size={14} color="#7C3AED" />
               </View>
             )}
+            {item.status === 'cancelled' && item.bookingId?.cancellationReason && (
+              <View className="mt-3 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+                <Text className="text-red-400 text-xs leading-relaxed">{item.bookingId.cancellationReason}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
         ListEmptyComponent={

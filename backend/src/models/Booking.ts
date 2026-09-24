@@ -10,6 +10,7 @@ export interface IBooking extends Document {
   groupSize: number;
   paymentId?: mongoose.Types.ObjectId;
   passId?: mongoose.Types.ObjectId;
+  cancellationReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +30,7 @@ const bookingSchema = new Schema<IBooking>(
     groupSize: { type: Number, default: 1, min: 1 },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
     passId: { type: Schema.Types.ObjectId, ref: 'Pass' },
+    cancellationReason: { type: String },
   },
   { timestamps: true }
 );

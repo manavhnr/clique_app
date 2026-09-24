@@ -11,7 +11,7 @@ import { createError } from '../middleware/error.middleware';
 import { writeAuditLog } from '../utils/auditLog';
 import { uploadBuffer } from '../utils/cloudinary';
 import { incrementEventAttendance } from './cliquescore.service';
-import { notifyBookingConfirmed } from './notification.service';
+import { notifyBookingConfirmed, notifyMalePriceApplied } from './notification.service';
 import { getUserActiveDiscount, markDiscountUsed, applyDiscount } from './discount.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -80,13 +80,16 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
 
   const bookingUser = await import('../models/User').then(m => m.User.findById(userId).select('gender').lean());
   const gender = bookingUser?.gender as string | undefined;
+  const isSplitEvent = !groupOffer && activeTier && event.pricingMode === 'split';
+  const usedMalePriceFallback = isSplitEvent && gender !== 'male' && gender !== 'female';
   const ticketPrice = groupOffer
     ? groupOffer.price
     : activeTier
       ? event.pricingMode === 'split'
         ? gender === 'male' ? activeTier.malePrice
           : gender === 'female' ? activeTier.femalePrice
-          : activeTier.commonPrice
+          // prefer_not_to_say or unset — always charge male price
+          : activeTier.malePrice
         : activeTier.commonPrice
       : event.price;
   const resolvedTierLabel = groupOffer
@@ -185,6 +188,11 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
       targetType: 'Booking',
       targetId: confirmedBooking._id.toString(),
     });
+  }
+
+  // Notify user if male price was applied due to prefer_not_to_say gender
+  if (usedMalePriceFallback) {
+    void notifyMalePriceApplied(userId, event.title, finalPrice, confirmedBooking._id.toString());
   }
 
   return { booking: confirmedBooking, pass };

@@ -107,6 +107,25 @@ export async function notifyEventCancelled(userId: string, eventTitle: string) {
   ]);
 }
 
+export async function notifyBookingCancelledByAdmin(userId: string, eventTitle: string, reason: string) {
+  const title = 'Booking cancelled';
+  const body = `Your booking for ${eventTitle} has been cancelled. ${reason}`;
+  await Promise.all([
+    createNotification(userId, title, body, 'booking_cancelled_admin', { eventTitle, reason }),
+    sendPush(userId, title, body),
+  ]);
+}
+
+export async function notifyMalePriceApplied(userId: string, eventTitle: string, amount: number, bookingId: string) {
+  const formatted = `₹${(amount).toLocaleString('en-IN')}`;
+  const title = 'Pricing notice for your booking';
+  const body = `You've been charged the male entry price (${formatted}) for ${eventTitle} because your gender is set to "Prefer not to say". If you don't agree, cancel your booking in My Passes and update your gender in Profile Settings.`;
+  await Promise.all([
+    createNotification(userId, title, body, 'male_price_applied', { bookingId, eventTitle, amount }),
+    sendPush(userId, title, body, { bookingId }),
+  ]);
+}
+
 export async function notifyPaymentSuccess(userId: string, eventTitle: string) {
   const title = 'Payment Successful';
   const body = `Payment confirmed for ${eventTitle}`;
