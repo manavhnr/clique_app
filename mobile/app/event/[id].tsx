@@ -245,7 +245,8 @@ export default function EventDetailScreen() {
 
   // Effective price: use active tier + user gender for split pricing
   const activeTier = event.activeTier;
-  const effectivePrice = (() => {
+  const userDiscount = (event as any).userDiscount as { discountType: 'percentage' | 'absolute'; discountValue: number } | null | undefined;
+  const basePrice = (() => {
     if (!activeTier) return event.price ?? 0;
     if (event.pricingMode === 'split') {
       if (user?.gender === 'male') return activeTier.malePrice;
@@ -253,6 +254,11 @@ export default function EventDetailScreen() {
     }
     return activeTier.commonPrice;
   })();
+  const effectivePrice = userDiscount
+    ? userDiscount.discountType === 'percentage'
+      ? Math.max(0, Math.round(basePrice * (1 - userDiscount.discountValue / 100)))
+      : Math.max(0, basePrice - userDiscount.discountValue)
+    : basePrice;
 
   const privacyLabel = event.privacy === 'secret' ? 'Secret' : event.privacy === 'private' ? 'Private' : 'Public';
   const privacyColor = event.privacy === 'public' ? '#14532d' : '#422006';
@@ -344,11 +350,22 @@ export default function EventDetailScreen() {
               label={isFull ? 'Sold out' : `${spotsLeft} spots left`}
               accent={isFull ? '#ef4444' : undefined}
             />
-            <InfoPill
-              icon="cash-outline"
-              label={effectivePrice > 0 ? `₹${effectivePrice}` : 'Free Entry'}
-              accent={effectivePrice > 0 ? '#F59E0B' : '#22c55e'}
-            />
+            {userDiscount && basePrice > 0 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderWidth: 1, borderColor: '#1F2937' }}>
+                <Ionicons name="cash-outline" size={13} color="#22c55e" />
+                <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '500', textDecorationLine: 'line-through' }}>₹{basePrice}</Text>
+                <Text style={{ color: '#22c55e', fontSize: 13, fontWeight: '700' }}>₹{effectivePrice}</Text>
+                <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '500' }}>
+                  {userDiscount.discountType === 'percentage' ? `${userDiscount.discountValue}% off` : `₹${userDiscount.discountValue} off`}
+                </Text>
+              </View>
+            ) : (
+              <InfoPill
+                icon="cash-outline"
+                label={effectivePrice > 0 ? `₹${effectivePrice}` : 'Free Entry'}
+                accent={effectivePrice > 0 ? '#F59E0B' : '#22c55e'}
+              />
+            )}
           </View>
 
           {event.description ? (

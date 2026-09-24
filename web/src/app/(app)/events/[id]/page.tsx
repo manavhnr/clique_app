@@ -242,7 +242,7 @@ export default function EventDetailPage() {
   const isFull       = event ? event.bookedCount >= event.capacity : false;
   const spotsLeft    = event ? event.capacity - event.bookedCount : 0;
   const filled       = event ? Math.min(100, (event.bookedCount / event.capacity) * 100) : 0;
-  const ev           = event as unknown as { activeTier?: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number; soldCount: number } | null; pricingTiers?: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number; soldCount: number; isOpen: boolean }[]; pricingMode?: string; groupPricing?: { label: string; size: number; price: number }[] };
+  const ev           = event as unknown as { activeTier?: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number; soldCount: number } | null; pricingTiers?: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number; soldCount: number; isOpen: boolean }[]; pricingMode?: string; groupPricing?: { label: string; size: number; price: number }[]; userDiscount?: { discountType: 'percentage' | 'absolute'; discountValue: number } | null };
   const activeTier   = ev?.activeTier ?? null;
   const allTiers     = ev?.pricingTiers ?? [];
   const pricingMode  = ev?.pricingMode ?? 'common';
@@ -250,6 +250,7 @@ export default function EventDetailPage() {
   const selectedGroup = selectedGroupIdx !== null ? (groupPricing[selectedGroupIdx] ?? null) : null;
   const hasPhases    = allTiers.length > 0;
   const ticketsAvailable = !hasPhases || !!activeTier;
+  const userDiscount = ev?.userDiscount ?? null;
 
   const userRequest  = event?.userRequest as JoinRequest | null;
   const userBooking  = event?.userBooking as any;
@@ -266,7 +267,7 @@ export default function EventDetailPage() {
   const paymentUnderReview  = !!(userBooking?.status === 'utr_submitted');
 
   // Effective price for the current user (gender-aware for split pricing)
-  const effectivePrice = (() => {
+  const basePrice = (() => {
     if (!event) return 0;
     if (selectedGroup) return selectedGroup.price;
     if (activeTier) {
@@ -278,6 +279,11 @@ export default function EventDetailPage() {
     }
     return event.price;
   })();
+  const effectivePrice = userDiscount
+    ? userDiscount.discountType === 'percentage'
+      ? Math.max(0, Math.round(basePrice * (1 - userDiscount.discountValue / 100)))
+      : Math.max(0, basePrice - userDiscount.discountValue)
+    : basePrice;
 
   // Social gate: check if user has required socials
   const missingSocials = (event?.requiresSocials && (event?.requiredSocials?.length ?? 0) > 0)
@@ -543,13 +549,21 @@ export default function EventDetailPage() {
                     </span>
                   </div>
                 ) : (
-                  <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
-                    {selectedGroup
-                      ? (selectedGroup.price === 0 ? 'Free' : `₹${selectedGroup.price.toLocaleString('en-IN')}`)
-                      : activeTier
-                        ? (activeTier.commonPrice === 0 ? 'Free' : `₹${activeTier.commonPrice.toLocaleString('en-IN')}`)
-                        : (event.price === 0 ? 'Free' : `₹${event.price.toLocaleString('en-IN')}`)}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                    {userDiscount && basePrice > 0 && (
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', textDecoration: 'line-through', letterSpacing: '.04em' }}>
+                        ₹{basePrice.toLocaleString('en-IN')}
+                      </span>
+                    )}
+                    <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em', color: userDiscount ? 'var(--lime)' : undefined }}>
+                      {effectivePrice === 0 ? 'Free' : `₹${effectivePrice.toLocaleString('en-IN')}`}
+                    </span>
+                    {userDiscount && (
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.1em', color: 'var(--lime)', textTransform: 'uppercase' }}>
+                        {userDiscount.discountType === 'percentage' ? `${userDiscount.discountValue}% off` : `₹${userDiscount.discountValue} off`} · your price
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
               {/* All phases */}
