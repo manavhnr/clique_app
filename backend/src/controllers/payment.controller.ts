@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendSuccess } from '../utils/response';
-import { createOrder, verifyPayment, handleWebhook, submitUPIPayment, adminVerifyUPIPayment, adminRejectUPIPayment, listPendingUPIPayments } from '../services/payment.service';
+import { createOrder, verifyPayment, handleWebhook, submitUPIPayment, adminVerifyUPIPayment, adminRejectUPIPayment, listPendingUPIPayments, listUPIPaymentHistory } from '../services/payment.service';
 
 export async function createPaymentOrder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -53,6 +53,13 @@ export async function listPendingPaymentsHandler(req: AuthRequest, res: Response
   try {
     const payments = await listPendingUPIPayments();
     sendSuccess(res, { payments }, 'Pending UPI payments');
+  } catch (err) { next(err); }
+}
+
+export async function listPaymentHistoryHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const payments = await listUPIPaymentHistory();
+    sendSuccess(res, { payments }, 'UPI payment history');
   } catch (err) { next(err); }
 }
 

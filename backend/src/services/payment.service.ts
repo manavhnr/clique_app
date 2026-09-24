@@ -385,6 +385,17 @@ export async function listPendingUPIPayments() {
     .sort({ createdAt: -1 });
 }
 
+// ─── List UPI Payment History (admin) ────────────────────────────────────────
+
+export async function listUPIPaymentHistory(limit = 50) {
+  return Payment.find({ paymentMethod: 'upi', status: { $in: ['paid', 'failed', 'refunded'] } })
+    .populate('userId', 'name username phone')
+    .populate('eventId', 'title date price')
+    .populate('verifiedBy', 'name username')
+    .sort({ updatedAt: -1 })
+    .limit(limit);
+}
+
 // ─── Refund (called when a paid booking is cancelled) ─────────────────────────
 
 /**

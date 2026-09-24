@@ -6,7 +6,8 @@ import { validate } from '../middleware/validate.middleware';
 import { createOrderSchema, verifyPaymentSchema, submitUPISchema } from '../validators/payment.validator';
 import {
   createPaymentOrder, verifyPaymentHandler, webhookHandler,
-  submitUPIHandler, adminVerifyPaymentHandler, adminRejectPaymentHandler, listPendingPaymentsHandler,
+  submitUPIHandler, adminVerifyPaymentHandler, adminRejectPaymentHandler,
+  listPendingPaymentsHandler, listPaymentHistoryHandler,
 } from '../controllers/payment.controller';
 
 const router = Router();
@@ -26,6 +27,7 @@ router.post('/upi-submit', validate(submitUPISchema), submitUPIHandler);
 
 // Admin: list and verify UPI payments
 router.get('/pending', requireRole('admin'), listPendingPaymentsHandler);
+router.get('/history', requireRole('admin'), listPaymentHistoryHandler);
 router.patch('/:paymentId/verify', requireRole('admin'), adminVerifyPaymentHandler);
 router.patch('/:paymentId/reject', requireRole('admin'), adminRejectPaymentHandler);
 
