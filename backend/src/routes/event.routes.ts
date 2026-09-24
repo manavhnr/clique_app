@@ -28,7 +28,7 @@ import {
   recalculateCountHandler,
   scannableEvents,
 } from '../controllers/event.controller';
-import { guestlistAdd } from '../controllers/booking.controller';
+import { guestlistAdd, hostRemoveGuestHandler } from '../controllers/booking.controller';
 import { addDiscountsHandler, getDiscountsHandler, updateDiscountHandler, revokeDiscountHandler } from '../controllers/discount.controller';
 import { addDiscountsSchema, updateDiscountSchema } from '../validators/discount.validator';
 import { nearMe, eventSearch } from './search.routes';
@@ -69,6 +69,7 @@ router.delete('/:eventId/scanners/:userId', requireVerifiedHost, removeScannerHa
 
 // Guestlist management (host only)
 router.post('/:eventId/guestlist', requireVerifiedHost, guestlistAdd);
+router.delete('/:eventId/bookings/:bookingId', requireVerifiedHost, hostRemoveGuestHandler);
 
 // Discount management (host only)
 router.post('/:eventId/discounts', requireVerifiedHost, validate(addDiscountsSchema), addDiscountsHandler);

@@ -626,6 +626,8 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [approvingGroup, setApprovingGroup] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+  const [confirmRemove, setConfirmRemove] = useState<Booking | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [activePage, setActivePage] = useState('add');
 
   const squadByUserId = new Map<string, Squad>();
@@ -660,6 +662,21 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
     try { await api.patch(`/squads/${squadId}/approve`); onRefresh(); }
     catch (err) { fail('Could not approve the group — try again.')(err); }
     finally { setApprovingGroup(null); }
+  };
+
+  const handleRemove = async (booking: Booking) => {
+    setRemovingId(booking._id);
+    setActionError('');
+    try {
+      await api.delete(`/events/${eventId}/bookings/${booking._id}`);
+      setConfirmRemove(null);
+      onRefresh();
+    } catch (err) {
+      fail('Could not remove guest — try again.')(err);
+      setConfirmRemove(null);
+    } finally {
+      setRemovingId(null);
+    }
   };
 
   const paidBookings = bookings.filter((b) => b.tierLabel !== 'Guestlist');
@@ -935,11 +952,36 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
                     {b.tierLabel && (
                       <span className="font-mono text-[9px] tracking-[.1em] text-dim uppercase">{b.tierLabel}</span>
                     )}
+                    <button
+                      onClick={() => setConfirmRemove(b)}
+                      disabled={removingId === b._id}
+                      className="mt-1 rounded border border-hot/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-hot transition-colors hover:border-hot/60 hover:bg-hot/10 disabled:opacity-40"
+                    >
+                      {removingId === b._id ? '…' : 'Remove'}
+                    </button>
                   </div>
                 }
               />
             );
           }} />
+
+          <Modal open={!!confirmRemove} onClose={() => setConfirmRemove(null)} title="Remove guest?" size="sm">
+            {confirmRemove && (
+              <div className="flex flex-col gap-4">
+                <p className="m-0 rounded-xl border border-hot/25 bg-hot/[.08] p-3.5 font-display text-sm leading-relaxed text-cream">
+                  Remove <strong>@{confirmRemove.userId?.username}</strong> from the guest list?
+                  Their pass will be cancelled and the booking count will be decremented.
+                  {(['confirmed', 'checked_in'].includes(confirmRemove.status) && confirmRemove.amount > 0) && (
+                    <> A refund of <strong>{formatPrice(confirmRemove.amount)}</strong> will be automatically issued to them.</>
+                  )}
+                </p>
+                <div className="flex gap-3">
+                  <Button variant="secondary" className="flex-1" onClick={() => setConfirmRemove(null)}>Cancel</Button>
+                  <Button variant="danger" className="flex-1" loading={removingId === confirmRemove._id} onClick={() => handleRemove(confirmRemove)}>Remove guest</Button>
+                </div>
+              </div>
+            )}
+          </Modal>
         </div>
       )}
 

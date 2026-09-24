@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { Booking, IBooking } from '../models/Booking';
 import { Event } from '../models/Event';
 import { Pass } from '../models/Pass';
+import { Payment } from '../models/Payment';
 import { JoinRequest } from '../models/JoinRequest';
 import { User } from '../models/User';
 import { createError } from '../middleware/error.middleware';
@@ -358,6 +359,80 @@ export async function addToGuestlist(hostId: string, eventId: string, username: 
   });
 
   return { booking: confirmedBooking, pass, user: { _id: user._id, name: user.name, username: user.username } };
+}
+
+// ─── Host: Remove Guest (with refund if paid) ────────────────────────────────
+
+export async function hostRemoveGuest(hostId: string, eventId: string, bookingId: string) {
+  const event = await Event.findById(eventId).select('hostId coHosts');
+  if (!event) throw createError('Event not found', 404);
+
+  const isHost   = event.hostId.toString() === hostId;
+  const isCoHost = event.coHosts.some((c) => c.userId.toString() === hostId);
+  if (!isHost && !isCoHost) throw createError('Access denied', 403);
+
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw createError('Booking not found', 404);
+  if (booking.eventId.toString() !== eventId) throw createError('Booking does not belong to this event', 400);
+
+  const removable = ['confirmed', 'checked_in', 'payment_pending', 'utr_submitted', 'pending'];
+  if (!removable.includes(booking.status)) {
+    throw createError(`Cannot remove a guest with booking status: ${booking.status}`, 400);
+  }
+
+  if (booking.passId) {
+    await Pass.findByIdAndUpdate(booking.passId, { status: 'cancelled' });
+  }
+
+  const wasConfirmed = ['confirmed', 'checked_in'].includes(booking.status);
+  const wasReserved  = ['payment_pending', 'utr_submitted'].includes(booking.status);
+
+  // Attempt refund for confirmed/checked-in paid bookings.
+  let refunded = false;
+  if (wasConfirmed) {
+    const { refundBookingPayment } = await import('./payment.service');
+    refunded = await refundBookingPayment(bookingId, hostId);
+
+    if (!refunded) {
+      const upiPayment = await Payment.findOne({ bookingId, status: 'paid', paymentMethod: 'upi' });
+      if (upiPayment) {
+        await Payment.findByIdAndUpdate(upiPayment._id, { status: 'refunded' });
+        refunded = true;
+        await writeAuditLog({
+          actorId: hostId,
+          action: 'UPI_PAYMENT_REFUND_MARKED',
+          targetType: 'Payment',
+          targetId: upiPayment._id.toString(),
+          metadata: { bookingId, note: 'Host removed guest — UPI refund to be processed manually' },
+        });
+      }
+    }
+  }
+
+  const revenueDecrement = wasConfirmed ? -booking.amount : 0;
+  const slotsToRelease   = booking.groupSize ?? 1;
+  const countField       = wasReserved ? 'reservedCount' : 'bookedCount';
+
+  await Promise.all([
+    Booking.findByIdAndUpdate(bookingId, { status: refunded ? 'refunded' : 'cancelled' }),
+    Event.findByIdAndUpdate(eventId, { $inc: { [countField]: -slotsToRelease, revenue: revenueDecrement } }),
+    booking.tierLabel
+      ? Event.updateOne(
+          { _id: eventId, 'pricingTiers.label': booking.tierLabel },
+          { $inc: { 'pricingTiers.$.soldCount': -1 } }
+        )
+      : Promise.resolve(),
+  ]);
+
+  await writeAuditLog({
+    actorId: hostId,
+    action: refunded ? 'HOST_GUEST_REMOVED_REFUNDED' : 'HOST_GUEST_REMOVED',
+    targetType: 'Booking',
+    targetId: bookingId,
+    metadata: { eventId, userId: booking.userId.toString(), slotsReleased: slotsToRelease, refunded },
+  });
+
+  return { refunded };
 }
 
 // ─── Get Event Bookings (host view) ──────────────────────────────────────────

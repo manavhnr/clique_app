@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendSuccess } from '../utils/response';
-import { createBooking, cancelBooking, getMyBookings, getEventBookings, addToGuestlist } from '../services/booking.service';
+import { createBooking, cancelBooking, getMyBookings, getEventBookings, addToGuestlist, hostRemoveGuest } from '../services/booking.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
 const parseLimit = (q: unknown) => Math.min(50, Math.max(1, parseInt(String(q ?? 20))));
@@ -42,5 +42,13 @@ export async function guestlistAdd(req: AuthRequest, res: Response, next: NextFu
   try {
     const result = await addToGuestlist(req.user!.userId, req.params.eventId, req.body.username);
     sendSuccess(res, result, 'Added to guestlist. Pass generated.', 201);
+  } catch (err) { next(err); }
+}
+
+export async function hostRemoveGuestHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await hostRemoveGuest(req.user!.userId, req.params.eventId, req.params.bookingId);
+    const msg = result.refunded ? 'Guest removed and refund issued.' : 'Guest removed.';
+    sendSuccess(res, result, msg);
   } catch (err) { next(err); }
 }
