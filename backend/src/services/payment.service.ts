@@ -54,7 +54,7 @@ export async function createOrder(bookingId: string, userId: string) {
     };
   }
 
-  const totalAmount = Math.round((event.price + (event.platformFee ?? 0)) * 100); // paise
+  const totalAmount = Math.round((booking.amount + (event.platformFee ?? 0)) * 100); // paise
 
   const razorpay = getRazorpay();
   const order = await razorpay.orders.create({
