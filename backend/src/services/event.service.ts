@@ -135,12 +135,7 @@ export async function updateEvent(
     throw createError('Cannot update a cancelled or completed event', 400);
   }
 
-  const rawBody = data as Record<string, unknown>;
-  const keptImages: string[] = rawBody.existingImages == null
-    ? event.images
-    : Array.isArray(rawBody.existingImages)
-      ? (rawBody.existingImages as string[])
-      : [rawBody.existingImages as string];
+  const keptImages: string[] = data.existingImages ?? (event.images ?? []);
 
   const update: Record<string, unknown> = { ...data };
   delete update.existingImages;
@@ -169,7 +164,7 @@ export async function updateEvent(
   }
   if (videoFiles.length > 0) {
     const newVideoUrls = await Promise.all(videoFiles.map((f) => uploadFile(f, 'clique/events/videos')));
-    update.videos = [...event.videos, ...newVideoUrls];
+    update.videos = [...(event.videos ?? []), ...newVideoUrls];
   }
 
   const updated = await Event.findByIdAndUpdate(eventId, { $set: update }, { new: true, runValidators: true });

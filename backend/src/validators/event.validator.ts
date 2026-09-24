@@ -87,7 +87,16 @@ export const createEventSchema = z.object({
   status: z.enum(['draft', 'published']).default('draft'),
 });
 
-export const updateEventSchema = createEventSchema.partial().omit({ status: true });
+export const updateEventSchema = createEventSchema.partial().omit({ status: true }).extend({
+  existingImages: z.preprocess(
+    (v) => {
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string' && v !== '') return [v];
+      return undefined;
+    },
+    z.array(z.string()).optional()
+  ),
+});
 
 export const cancelEventSchema = z.object({
   reason: z.string().min(5).max(500).optional(),
