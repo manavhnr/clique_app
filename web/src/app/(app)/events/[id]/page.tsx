@@ -284,6 +284,12 @@ export default function EventDetailPage() {
       ? Math.max(0, Math.round(basePrice * (1 - userDiscount.discountValue / 100)))
       : Math.max(0, basePrice - userDiscount.discountValue)
     : basePrice;
+  const applyDiscountToPrice = (price: number): number => {
+    if (!userDiscount || price === 0) return price;
+    return userDiscount.discountType === 'percentage'
+      ? Math.max(0, Math.round(price * (1 - userDiscount.discountValue / 100)))
+      : Math.max(0, price - userDiscount.discountValue);
+  };
 
   // Social gate: check if user has required socials
   const missingSocials = (event?.requiresSocials && (event?.requiredSocials?.length ?? 0) > 0)
@@ -499,7 +505,14 @@ export default function EventDetailPage() {
                           <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginLeft: 10 }}>{g.size} PEOPLE</span>
                         </div>
                       </div>
-                      <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--lime)' }}>₹{g.price.toLocaleString('en-IN')}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                        {userDiscount && g.price > 0 && (
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', textDecoration: 'line-through', letterSpacing: '.04em' }}>₹{g.price.toLocaleString('en-IN')}</span>
+                        )}
+                        <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--lime)' }}>
+                          ₹{applyDiscountToPrice(g.price).toLocaleString('en-IN')}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -536,17 +549,27 @@ export default function EventDetailPage() {
                   )}
                 </div>
                 {!selectedGroup && pricingMode === 'split' && activeTier ? (
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>
-                      ♂ <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--paper)' }}>
-                        {activeTier.malePrice === 0 ? 'Free' : `₹${activeTier.malePrice.toLocaleString('en-IN')}`}
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                      {userDiscount && activeTier.malePrice > 0 && (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', textDecoration: 'line-through', letterSpacing: '.04em' }}>♂ ₹{activeTier.malePrice.toLocaleString('en-IN')}</span>
+                      )}
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>
+                        ♂ <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: userDiscount && activeTier.malePrice > 0 ? 'var(--lime)' : 'var(--paper)' }}>
+                          {activeTier.malePrice === 0 ? 'Free' : `₹${applyDiscountToPrice(activeTier.malePrice).toLocaleString('en-IN')}`}
+                        </span>
                       </span>
-                    </span>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>
-                      ♀ <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: 'var(--paper)' }}>
-                        {activeTier.femalePrice === 0 ? 'Free' : `₹${activeTier.femalePrice.toLocaleString('en-IN')}`}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                      {userDiscount && activeTier.femalePrice > 0 && (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', textDecoration: 'line-through', letterSpacing: '.04em' }}>♀ ₹{activeTier.femalePrice.toLocaleString('en-IN')}</span>
+                      )}
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>
+                        ♀ <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18, color: userDiscount && activeTier.femalePrice > 0 ? 'var(--lime)' : 'var(--paper)' }}>
+                          {activeTier.femalePrice === 0 ? 'Free' : `₹${applyDiscountToPrice(activeTier.femalePrice).toLocaleString('en-IN')}`}
+                        </span>
                       </span>
-                    </span>
+                    </div>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
@@ -576,11 +599,11 @@ export default function EventDetailPage() {
                       </span>
                       {pricingMode === 'split' ? (
                         <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream)', letterSpacing: '.06em' }}>
-                          ♂ ₹{t.malePrice} · ♀ ₹{t.femalePrice}
+                          ♂ {userDiscount && t.malePrice > 0 && <span style={{ textDecoration: 'line-through', color: 'var(--dim)' }}>₹{t.malePrice}</span>}{userDiscount && t.malePrice > 0 ? <span style={{ color: 'var(--lime)' }}> ₹{applyDiscountToPrice(t.malePrice)}</span> : `₹${t.malePrice}`} · ♀ {userDiscount && t.femalePrice > 0 && <span style={{ textDecoration: 'line-through', color: 'var(--dim)' }}>₹{t.femalePrice}</span>}{userDiscount && t.femalePrice > 0 ? <span style={{ color: 'var(--lime)' }}> ₹{applyDiscountToPrice(t.femalePrice)}</span> : `₹${t.femalePrice}`}
                         </span>
                       ) : (
                         <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream)', letterSpacing: '.06em' }}>
-                          ₹{t.commonPrice}
+                          {userDiscount && t.commonPrice > 0 && <span style={{ textDecoration: 'line-through', color: 'var(--dim)' }}>₹{t.commonPrice}</span>}{userDiscount && t.commonPrice > 0 ? <span style={{ color: 'var(--lime)' }}> ₹{applyDiscountToPrice(t.commonPrice)}</span> : `₹${t.commonPrice}`}
                         </span>
                       )}
                     </div>
