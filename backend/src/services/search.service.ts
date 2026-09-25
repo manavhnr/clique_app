@@ -18,15 +18,45 @@ export interface NearMeFilters {
   limit?: number;
 }
 
+function resolveDateRange(date: string): { start: Date; end: Date } | null {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  if (date === 'tonight') {
+    const end = new Date(startOfToday);
+    end.setDate(end.getDate() + 1);
+    return { start: startOfToday, end };
+  }
+
+  if (date === 'weekend') {
+    const day = startOfToday.getDay(); // 0=Sun … 6=Sat
+    const daysUntilFri = (5 - day + 7) % 7 || 7;
+    const start = new Date(startOfToday);
+    start.setDate(start.getDate() + daysUntilFri);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 3); // Fri + Sat + Sun
+    return { start, end };
+  }
+
+  const start = new Date(date);
+  if (isNaN(start.getTime())) return null;
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
 export async function getEventsNearMe(filters: NearMeFilters, requesterId: string) {
   const { date, category, minPrice, maxPrice, sort = 'date', page = 1, limit = 20 } = filters;
 
   const user = await User.findById(requesterId).select('city').lean();
   const city = (user?.city ?? '').trim();
 
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
   const query: Record<string, unknown> = {
     status: 'published',
-    date: { $gte: new Date() },
+    date: { $gte: startOfToday },
     privacy: { $ne: 'secret' },
   };
 
@@ -36,10 +66,8 @@ export async function getEventsNearMe(filters: NearMeFilters, requesterId: strin
   }
 
   if (date) {
-    const start = new Date(date);
-    const end = new Date(date);
-    end.setDate(end.getDate() + 1);
-    query.date = { $gte: start, $lt: end };
+    const range = resolveDateRange(date);
+    if (range) query.date = { $gte: range.start, $lt: range.end };
   }
 
   if (category) query.category = category;
@@ -102,9 +130,12 @@ export async function searchEvents(filters: EventSearchFilters, requesterId: str
     ...bookedEvents.map((b) => b.eventId),
   ];
 
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
   const query: Record<string, unknown> = {
     status: 'published',
-    date: { $gte: new Date() },
+    date: { $gte: startOfToday },
     $or: [{ privacy: { $ne: 'secret' } }, { _id: { $in: unlockedIds } }],
   };
 
@@ -113,10 +144,8 @@ export async function searchEvents(filters: EventSearchFilters, requesterId: str
   }
 
   if (date) {
-    const start = new Date(date);
-    const end = new Date(date);
-    end.setDate(end.getDate() + 1);
-    query.date = { $gte: start, $lt: end };
+    const range = resolveDateRange(date);
+    if (range) query.date = { $gte: range.start, $lt: range.end };
   }
 
   if (category) query.category = category;
