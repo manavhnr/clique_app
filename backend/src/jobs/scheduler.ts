@@ -42,8 +42,10 @@ export async function reapAbandonedBookings(): Promise<void> {
 
 /** Mark published events whose date has passed as completed (enables ratings). */
 export async function completePastEvents(): Promise<void> {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
   await Event.updateMany(
-    { status: 'published', date: { $lt: new Date() } },
+    { status: 'published', date: { $lt: startOfToday } },
     { status: 'completed' }
   );
 }
