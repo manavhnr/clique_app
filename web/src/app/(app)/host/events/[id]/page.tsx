@@ -299,8 +299,39 @@ function OverviewTab({ event }: { event: Event }) {
     }
   };
 
+  const revenue = event.revenue ?? 0;
+
   return (
     <div className="flex flex-col gap-7">
+      {revenue > 0 && (
+        <div className="flex flex-wrap gap-px overflow-hidden rounded-card border border-line-2">
+          <div className="flex min-w-[160px] flex-1 flex-col gap-1 bg-card px-5 py-4">
+            <span className="clique-label !text-[9px]">TOTAL REVENUE</span>
+            <span className="font-display text-2xl font-bold tracking-[-0.02em] text-lime">
+              ₹{revenue.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="flex min-w-[120px] flex-1 flex-col gap-1 bg-card px-5 py-4">
+            <span className="clique-label !text-[9px]">BOOKINGS</span>
+            <span className="font-display text-2xl font-bold tracking-[-0.02em] text-paper">
+              {event.bookedCount}
+              <span className="ml-1.5 font-mono text-sm font-normal text-dim">/ {event.capacity}</span>
+            </span>
+          </div>
+          <div className="flex min-w-[120px] flex-1 flex-col gap-1 bg-card px-5 py-4">
+            <span className="clique-label !text-[9px]">CHECKED IN</span>
+            <span className="font-display text-2xl font-bold tracking-[-0.02em] text-paper">
+              {event.checkedInCount ?? 0}
+              {event.bookedCount > 0 && (
+                <span className="ml-1.5 font-mono text-sm font-normal text-dim">
+                  {Math.round(((event.checkedInCount ?? 0) / event.bookedCount) * 100)}%
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="clique-label mb-3">ABOUT</div>
         <p className="m-0 max-w-[62ch] whitespace-pre-line font-display text-[15px] leading-relaxed text-paper">{event.description}</p>
