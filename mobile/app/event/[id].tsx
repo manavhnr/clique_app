@@ -409,6 +409,44 @@ export default function EventDetailScreen() {
               <Text style={{ color: '#9CA3AF', fontSize: 14, lineHeight: 22 }}>{event.refundPolicy}</Text>
             </Section>
           ) : null}
+
+          {isOwnEvent && (
+            <Section title="Revenue & Stats">
+              <View style={{ backgroundColor: '#111827', borderRadius: 14, borderWidth: 1, borderColor: '#1F2937', overflow: 'hidden' }}>
+                {/* Revenue highlight */}
+                <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#1F2937', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#14532d', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="cash-outline" size={18} color="#22c55e" />
+                  </View>
+                  <View>
+                    <Text style={{ color: '#6B7280', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Revenue</Text>
+                    <Text style={{ color: '#22c55e', fontSize: 24, fontWeight: '800', marginTop: 1 }}>
+                      ₹{(event.revenue ?? 0).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Stats grid */}
+                <View style={{ flexDirection: 'row' }}>
+                  <StatCell
+                    icon="ticket-outline"
+                    label="Bookings"
+                    value={`${event.bookedCount ?? 0}`}
+                    sub={`of ${event.capacity ?? 0}`}
+                    color="#60a5fa"
+                    borderRight
+                  />
+                  <StatCell
+                    icon="checkmark-circle-outline"
+                    label="Checked In"
+                    value={`${event.checkedInCount ?? 0}`}
+                    sub={event.bookedCount > 0 ? `${Math.round(((event.checkedInCount ?? 0) / event.bookedCount) * 100)}%` : '0%'}
+                    color="#a78bfa"
+                  />
+                </View>
+              </View>
+            </Section>
+          )}
         </View>
       </ScrollView>
 
@@ -493,6 +531,26 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <View style={{ marginBottom: 20 }}>
       <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 8 }}>{title}</Text>
       {children}
+    </View>
+  );
+}
+
+function StatCell({ icon, label, value, sub, color, borderRight }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  sub: string;
+  color: string;
+  borderRight?: boolean;
+}) {
+  return (
+    <View style={{ flex: 1, padding: 14, borderRightWidth: borderRight ? 1 : 0, borderRightColor: '#1F2937' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Ionicons name={icon} size={13} color={color} />
+        <Text style={{ color: '#6B7280', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</Text>
+      </View>
+      <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700' }}>{value}</Text>
+      <Text style={{ color: '#4B5563', fontSize: 12, marginTop: 2 }}>{sub}</Text>
     </View>
   );
 }
