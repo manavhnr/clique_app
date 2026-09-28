@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import {
   stats, users, ban, unban, userDetail,
-  events, eventDetail, blockEv, unblockEv, removeGuest,
+  events, eventDetail, blockEv, unblockEv, removeGuest, recalculateCount,
   reports, resolveRep,
   pendingHosts, allHosts, verifiedHosts, approveHost, rejectHost, hostDashboard,
   getConfig, setConfig,
@@ -23,6 +23,7 @@ router.get('/events/:eventId', eventDetail);
 router.patch('/events/:eventId/block', blockEv);
 router.patch('/events/:eventId/unblock', unblockEv);
 router.delete('/events/:eventId/bookings/:bookingId', removeGuest);
+router.patch('/events/:eventId/recalculate-count', recalculateCount);
 router.get('/reports', reports);
 router.patch('/reports/:reportId/resolve', resolveRep);
 router.get('/hosts/pending', pendingHosts);

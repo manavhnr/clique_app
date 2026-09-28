@@ -9,6 +9,7 @@ import {
   listPendingHosts, listAllHosts, listVerifiedHosts, approveHostAdmin, rejectHostAdmin, getHostDashboard,
   getAdminConfigs, setAdminConfig,
 } from '../services/admin.service';
+import { recalculateBookedCount } from '../services/event.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
 const parseLimit = (q: unknown) => Math.min(100, Math.max(1, parseInt(String(q ?? 20))));
@@ -161,5 +162,12 @@ export async function setConfig(req: AuthRequest, res: Response, next: NextFunct
     }
     await setAdminConfig(key, value, req.user!.userId);
     sendSuccess(res, null, 'Config updated');
+  } catch (err) { next(err); }
+}
+
+export async function recalculateCount(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await recalculateBookedCount(req.params.eventId);
+    sendSuccess(res, result, "Count recalculated");
   } catch (err) { next(err); }
 }

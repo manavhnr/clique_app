@@ -235,7 +235,7 @@ function EventHeader({ event, onRefresh }: { event: Event & { hostId: AdminEvent
   const handleRecalculate = async () => {
     setRecalculating(true);
     try {
-      await api.patch(`/events/${event._id}/recalculate-count`);
+      await api.patch(`/admin/events/${event._id}/recalculate-count`);
       await onRefresh();
     } finally { setRecalculating(false); }
   };

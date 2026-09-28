@@ -399,10 +399,10 @@ export async function removeGroupDeal(eventId: string, hostId: string, index: nu
   return event;
 }
 
-export async function recalculateBookedCount(eventId: string, hostId: string) {
+export async function recalculateBookedCount(eventId: string, hostId?: string) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  if (hostId && event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
 
   const confirmedStatuses = { $in: ['confirmed', 'checked_in'] };
   const eventObjId = new mongoose.Types.ObjectId(eventId);
