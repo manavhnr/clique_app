@@ -411,13 +411,13 @@ export async function recalculateBookedCount(eventId: string, hostId?: string) {
   // stag/solo (groupSize=1) → 1 person, group (groupSize=N) → N people, guestlist (groupSize=1) → 1 person.
   const [confirmedAgg] = await Booking.aggregate<{ total: number }>([
     { $match: { eventId: eventObjId, status: confirmedStatuses } },
-    { $group: { _id: null, total: { $sum: '$groupSize' } } },
+    { $group: { _id: null, total: { $sum: { $ifNull: ['$groupSize', 1] } } } },
   ]);
   const liveCount = confirmedAgg?.total ?? 0;
 
   const [reservedAgg] = await Booking.aggregate<{ total: number }>([
     { $match: { eventId: eventObjId, status: { $in: ['payment_pending', 'utr_submitted'] } } },
-    { $group: { _id: null, total: { $sum: '$groupSize' } } },
+    { $group: { _id: null, total: { $sum: { $ifNull: ['$groupSize', 1] } } } },
   ]);
   const liveReserved = reservedAgg?.total ?? 0;
 
