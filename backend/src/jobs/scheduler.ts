@@ -7,8 +7,9 @@ const PAYMENT_PENDING_TTL_MS = 30 * 60 * 1000;  // abandon after 30 minutes unpa
 
 /**
  * Release capacity held by bookings that were left in `payment_pending`
- * and never completed payment. Each such booking incremented bookedCount
- * at creation, so we decrement it back on expiry.
+ * and never completed payment. These bookings incremented `reservedCount`
+ * at creation (paid bookings hold reservedCount, not bookedCount), so we
+ * decrement reservedCount back on expiry.
  */
 export async function reapAbandonedBookings(): Promise<void> {
   const cutoff = new Date(Date.now() - PAYMENT_PENDING_TTL_MS);
@@ -25,7 +26,7 @@ export async function reapAbandonedBookings(): Promise<void> {
     );
     if (!updated) continue;
     const slotsToRelease = booking.groupSize ?? 1;
-    await Event.findByIdAndUpdate(booking.eventId, { $inc: { bookedCount: -slotsToRelease } });
+    await Event.findByIdAndUpdate(booking.eventId, { $inc: { reservedCount: -slotsToRelease } });
     if (booking.tierLabel) {
       await Event.updateOne(
         { _id: booking.eventId, 'pricingTiers.label': booking.tierLabel },

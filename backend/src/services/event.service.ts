@@ -409,11 +409,17 @@ export async function recalculateBookedCount(eventId: string, hostId: string) {
 
   // Sum groupSize across confirmed/checked_in bookings:
   // stag/solo (groupSize=1) → 1 person, group (groupSize=N) → N people, guestlist (groupSize=1) → 1 person.
-  const [agg] = await Booking.aggregate<{ total: number }>([
+  const [confirmedAgg] = await Booking.aggregate<{ total: number }>([
     { $match: { eventId: eventObjId, status: confirmedStatuses } },
     { $group: { _id: null, total: { $sum: '$groupSize' } } },
   ]);
-  const liveCount = agg?.total ?? 0;
+  const liveCount = confirmedAgg?.total ?? 0;
+
+  const [reservedAgg] = await Booking.aggregate<{ total: number }>([
+    { $match: { eventId: eventObjId, status: { $in: ['payment_pending', 'utr_submitted'] } } },
+    { $group: { _id: null, total: { $sum: '$groupSize' } } },
+  ]);
+  const liveReserved = reservedAgg?.total ?? 0;
 
   // Per-tier sold counts (document count — not people count — for tier inventory tracking)
   const tierUpdates: Promise<unknown>[] = event.pricingTiers.map(async (tier) => {
@@ -429,7 +435,7 @@ export async function recalculateBookedCount(eventId: string, hostId: string) {
   });
 
   await Promise.all([
-    Event.findByIdAndUpdate(eventId, { bookedCount: liveCount }),
+    Event.findByIdAndUpdate(eventId, { bookedCount: liveCount, reservedCount: liveReserved }),
     ...tierUpdates,
   ]);
 
