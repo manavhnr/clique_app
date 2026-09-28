@@ -34,16 +34,36 @@ export async function getMyPasses(userId: string) {
     .sort({ createdAt: -1 })
     .limit(200); // bound in-memory categorisation for very large passbooks
 
+  // Compute the real end datetime for an event (date + endTime, or end of day)
+  function eventEndTime(event: { date?: Date; endTime?: string }): Date | null {
+    if (!event?.date) return null;
+    const end = new Date(event.date);
+    if (event.endTime) {
+      const [h, m] = event.endTime.split(':').map(Number);
+      end.setHours(h, m, 0, 0);
+      // crosses midnight: push to next day
+      if (end <= new Date(event.date)) end.setDate(end.getDate() + 1);
+    } else {
+      end.setHours(23, 59, 59, 999);
+    }
+    return end;
+  }
+
   const upcoming = passes.filter((p) => {
-    const event = p.eventId as { date?: Date };
-    return (p.status === 'active' || p.status === 'pending_verification') && event?.date && new Date(event.date) >= now;
+    const event = p.eventId as { date?: Date; endTime?: string };
+    if (p.status !== 'active' && p.status !== 'pending_verification') return false;
+    const end = eventEndTime(event);
+    return end !== null && end >= now;
   });
   const past = passes.filter((p) => {
-    const event = p.eventId as { date?: Date };
+    const event = p.eventId as { date?: Date; endTime?: string };
     // pending_verification passes that missed admin sign-off before the event still belong in past
-    return p.status === 'used'
-      || (p.status === 'active' && event?.date && new Date(event.date) < now)
-      || (p.status === 'pending_verification' && event?.date && new Date(event.date) < now);
+    if (p.status === 'used') return true;
+    const end = eventEndTime(event);
+    return (
+      (p.status === 'active' && end !== null && end < now)
+      || (p.status === 'pending_verification' && end !== null && end < now)
+    );
   });
   const cancelled = passes.filter((p) => p.status === 'cancelled' || p.status === 'expired');
 
