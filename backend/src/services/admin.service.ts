@@ -100,7 +100,7 @@ export async function getEventDetail(eventId: string) {
   if (!event) throw createError('Event not found', 404);
 
   const [bookings, requests] = await Promise.all([
-    Booking.find({ eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } })
+    Booking.find({ eventId })
       .populate({ path: 'userId', select: 'name username profileImage gender age phone city cliquescore connectedSocials' })
       .select('userId status amount tierLabel groupSize passId createdAt')
       .sort({ createdAt: -1 }),
