@@ -10,6 +10,9 @@ import {
   getAdminConfigs, setAdminConfig,
 } from '../services/admin.service';
 import { recalculateBookedCount } from '../services/event.service';
+import { generatePass } from '../services/booking.service';
+import { Booking } from '../models/Booking';
+import { Pass } from '../models/Pass';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
 const parseLimit = (q: unknown) => Math.min(100, Math.max(1, parseInt(String(q ?? 20))));
@@ -74,6 +77,24 @@ export async function unblockEv(req: AuthRequest, res: Response, next: NextFunct
   try {
     await unblockEvent(req.params.eventId, req.user!.userId);
     sendSuccess(res, null, 'Event unblocked');
+  } catch (err) { next(err); }
+}
+
+export async function generatePassForBooking(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { bookingId } = req.params;
+    const booking = await Booking.findById(bookingId);
+    if (!booking) { res.status(404).json({ success: false, message: 'Booking not found' }); return; }
+    if (booking.status !== 'confirmed') { res.status(400).json({ success: false, message: 'Booking must be confirmed before generating a pass' }); return; }
+
+    // Revoke any existing pass for this booking
+    if (booking.passId) {
+      await Pass.findByIdAndUpdate(booking.passId, { status: 'cancelled' });
+    }
+
+    const pass = await generatePass(bookingId, booking.userId.toString(), booking.eventId.toString());
+    await Booking.findByIdAndUpdate(bookingId, { passId: pass._id });
+    sendSuccess(res, { passId: pass._id, qrCodeUrl: pass.qrCodeUrl }, 'Pass generated');
   } catch (err) { next(err); }
 }
 
