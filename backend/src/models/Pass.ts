@@ -35,5 +35,6 @@ const passSchema = new Schema<IPass>(
 
 passSchema.index({ userId: 1, status: 1 });
 passSchema.index({ groupId: 1 });
+passSchema.index({ eventId: 1, status: 1 });
 
 export const Pass = mongoose.model<IPass>('Pass', passSchema);

@@ -160,7 +160,8 @@ export async function verifyPass(qrToken: string, scannerId: string, scannerEven
 // ─── Scan QR Pass (Scanner / Host) ───────────────────────────────────────────
 
 export async function scanPass(qrToken: string, scannerId: string, scannerEventId: string) {
-  await writeAuditLog({
+  // Fire audit log without blocking — scan latency matters more than log ordering
+  void writeAuditLog({
     actorId: scannerId,
     action:  'QR_SCAN_ATTEMPT',
     targetType: 'Pass',
@@ -234,12 +235,13 @@ export async function scanPass(qrToken: string, scannerId: string, scannerEventI
 
     const toUpdate = memberBookings.filter((b) => b.status !== 'checked_in');
     if (toUpdate.length > 0) {
-      await Booking.updateMany(
-        { _id: { $in: toUpdate.map((b) => b._id) } },
-        { status: 'checked_in' }
-      );
-      // Increment checkedInCount by the number of newly checked-in members
-      await Event.findByIdAndUpdate(eventId, { $inc: { checkedInCount: toUpdate.length } });
+      await Promise.all([
+        Booking.updateMany(
+          { _id: { $in: toUpdate.map((b) => b._id) } },
+          { status: 'checked_in' }
+        ),
+        Event.findByIdAndUpdate(eventId, { $inc: { checkedInCount: toUpdate.length } }),
+      ]);
     }
 
     await writeAuditLog({
@@ -270,8 +272,10 @@ export async function scanPass(qrToken: string, scannerId: string, scannerEventI
     { status: 'used', checkedInAt: now, scannedBy: scannerId },
   );
   if (!claimed) throw createError('Pass already used', 409);
-  await Booking.findByIdAndUpdate(pass.bookingId, { status: 'checked_in' });
-  await Event.findByIdAndUpdate(eventId, { $inc: { checkedInCount: 1 } });
+  await Promise.all([
+    Booking.findByIdAndUpdate(pass.bookingId, { status: 'checked_in' }),
+    Event.findByIdAndUpdate(eventId, { $inc: { checkedInCount: 1 } }),
+  ]);
 
   await writeAuditLog({
     actorId:    scannerId,

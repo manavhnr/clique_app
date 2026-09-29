@@ -37,6 +37,7 @@ export default function ScannerModal({ events, onClose, preselectedEventId }: Sc
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef    = useRef<number>(0);
+  const frameCountRef = useRef(0);
   const processingRef = useRef(false);
   const lastTokenRef  = useRef('');
   const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,15 +68,25 @@ export default function ScannerModal({ events, onClose, preselectedEventId }: Sc
       return;
     }
 
+    // Only decode every 4th frame (~15fps) — jsQR on 1280×720 is expensive
+    frameCountRef.current += 1;
+    if (frameCountRef.current % 4 !== 0) {
+      rafRef.current = requestAnimationFrame(scanLoop);
+      return;
+    }
+
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) { rafRef.current = requestAnimationFrame(scanLoop); return; }
 
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Only reallocate the canvas buffer when dimensions actually change
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
     ctx.drawImage(video, 0, 0);
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
 
     if (code && code.data && code.data !== lastTokenRef.current && !processingRef.current) {
       lastTokenRef.current = code.data;
@@ -121,6 +132,7 @@ export default function ScannerModal({ events, onClose, preselectedEventId }: Sc
         video.srcObject = stream;
         await video.play();
       }
+      frameCountRef.current = 0;
       setCameraActive(true);
       rafRef.current = requestAnimationFrame(scanLoop);
     } catch (err) {
