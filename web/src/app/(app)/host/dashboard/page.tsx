@@ -61,10 +61,10 @@ export default function HostDashboardPage() {
   }
 
   const activeEvents = events.filter((e) => e.status === 'published' || e.status === 'draft');
-  const inactiveEvents = events.filter((e) => e.status === 'cancelled' || e.status === 'completed');
+  const pastEvents = events.filter((e) => e.status === 'completed');
+  const cancelledEvents = events.filter((e) => e.status === 'cancelled');
 
-  const liveEvents = events.filter((e) => e.status === 'published').length;
-  const totalRSVPs = activeEvents.reduce((s, e) => s + e.bookedCount, 0);
+  const totalRSVPs = events.reduce((s, e) => s + e.bookedCount, 0);
   const revenue = events.reduce((s, e) => s + (e.revenue ?? 0), 0);
 
   if (loading) return <PageSpinner />;
@@ -83,9 +83,9 @@ export default function HostDashboardPage() {
       {/* The night's figures — one ruled line, not stat tiles */}
       <div className="mb-9 flex flex-wrap items-baseline gap-x-10 gap-y-4 border-b border-line pb-7">
         {[
-          { label: 'LIVE EVENTS', value: String(liveEvents).padStart(2, '0'), accent: liveEvents > 0 },
-          { label: 'TOTAL RSVPS', value: String(totalRSVPs), accent: false },
-          { label: 'REVENUE', value: `₹${revenue.toLocaleString('en-IN')}`, accent: revenue > 0 },
+          { label: 'TOTAL EVENTS', value: String(events.length).padStart(2, '0'), accent: events.length > 0 },
+          { label: 'TOTAL RSVPS', value: String(totalRSVPs), accent: totalRSVPs > 0 },
+          { label: 'TOTAL REVENUE', value: `₹${revenue.toLocaleString('en-IN')}`, accent: revenue > 0 },
         ].map(({ label, value, accent }) => (
           <div key={label} className="flex items-baseline gap-3">
             <span className={`font-display text-4xl font-bold leading-none tracking-[-0.03em] md:text-[44px] ${accent ? 'text-lime' : 'text-paper'}`}>
@@ -96,9 +96,9 @@ export default function HostDashboardPage() {
         ))}
       </div>
 
-      {/* Your events */}
+      {/* Live events */}
       <div className="mb-10">
-        <div className="clique-label mb-2">YOUR EVENTS</div>
+        <div className="clique-label mb-2">LIVE EVENTS</div>
         {activeEvents.length === 0 ? (
           <div className="ledger px-1 py-14">
             <div className="clique-label mb-3.5 !text-[10px] !tracking-[.16em]">№ 000 — BLANK PAGE</div>
@@ -115,8 +115,11 @@ export default function HostDashboardPage() {
         )}
       </div>
 
-      {/* Past / cancelled */}
-      {inactiveEvents.length > 0 && <PastEventsSection events={inactiveEvents} />}
+      {/* Past */}
+      {pastEvents.length > 0 && <CollapsibleEventsSection label="PAST EVENTS" events={pastEvents} />}
+
+      {/* Cancelled */}
+      {cancelledEvents.length > 0 && <CollapsibleEventsSection label="CANCELLED" events={cancelledEvents} />}
 
       {/* Scanner */}
       <div className="mb-10">
@@ -292,7 +295,7 @@ function PayoutsSection({ payoutStatus, upiId, loading, toast, success, onSave, 
 
 // ── Past events ──────────────────────────────────────────────────────────────
 
-function PastEventsSection({ events }: { events: Event[] }) {
+function CollapsibleEventsSection({ label, events }: { label: string; events: Event[] }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="mb-10">
@@ -301,7 +304,7 @@ function PastEventsSection({ events }: { events: Event[] }) {
         aria-expanded={open}
         className={`flex items-center gap-2.5 ${open ? 'mb-3.5' : ''}`}
       >
-        <span className="clique-label">PAST &amp; CANCELLED</span>
+        <span className="clique-label">{label}</span>
         <span className={`inline-block font-mono text-[11px] text-dim transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
         <span className="rounded-full bg-line px-2 py-0.5 font-mono text-[10px] text-dim">{events.length}</span>
       </button>
