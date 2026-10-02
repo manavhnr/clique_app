@@ -65,7 +65,7 @@ export default function HostDashboardPage() {
 
   const liveEvents = events.filter((e) => e.status === 'published').length;
   const totalRSVPs = activeEvents.reduce((s, e) => s + e.bookedCount, 0);
-  const revenue = activeEvents.reduce((s, e) => s + (e.revenue ?? 0), 0);
+  const revenue = events.reduce((s, e) => s + (e.revenue ?? 0), 0);
 
   if (loading) return <PageSpinner />;
 
