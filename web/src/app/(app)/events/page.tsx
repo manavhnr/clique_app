@@ -103,7 +103,7 @@ export default function EventsPage() {
   return (
     <div>
       {/* Masthead */}
-      <div style={{ marginBottom: isMobile ? 18 : 26 }}>
+      <div style={{ marginBottom: isMobile ? 10 : 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span aria-hidden style={{ height: 1, width: 20, background: 'var(--line-2)' }} />
           <div className="clique-label" style={{ whiteSpace: 'nowrap' }}>
@@ -114,7 +114,7 @@ export default function EventsPage() {
             {loading ? '· · ·' : `${String(events.length).padStart(2, '0')} ON THE BOARD`}
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginTop: 16, paddingBottom: isMobile ? 16 : 22, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginTop: 12, paddingBottom: isMobile ? 10 : 22, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
           <h1 style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 'clamp(32px, 9vw, 48px)' : 'clamp(40px, 5vw, 64px)', lineHeight: 0.95, letterSpacing: '-0.03em', margin: 0 }}>
             What&apos;s open<br />
             <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--lime)' }}>right now.</span>
@@ -177,7 +177,7 @@ export default function EventsPage() {
       {loading ? (
         <BoardSkeleton />
       ) : events.length === 0 ? (
-        <div className="ledger" style={{ padding: '64px 8px 72px', textAlign: 'left' }}>
+        <div className="ledger" style={{ padding: '20px 8px 48px', textAlign: 'left' }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.16em', color: 'var(--dim)', marginBottom: 14 }}>№ 000 — BLANK PAGE</div>
           <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: isMobile ? 30 : 40, letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 10 }}>
             Nothing on the board.
