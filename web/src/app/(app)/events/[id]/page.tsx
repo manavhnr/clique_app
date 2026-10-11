@@ -607,9 +607,8 @@ export default function EventDetailPage() {
               {/* Ticket types summary */}
               {hasTicketTypes && (
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 8 }}>TICKETS FROM</div>
                   <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em' }}>
-                    {Math.min(...ticketTypes.map((t) => t.price)) === 0 ? 'Free' : `₹${Math.min(...ticketTypes.map((t) => t.price)).toLocaleString('en-IN')}`}
+                    {Math.min(...ticketTypes.map((t) => t.price)) === 0 ? 'Free' : `₹${Math.min(...ticketTypes.map((t) => t.price)).toLocaleString('en-IN')} onwards`}
                   </div>
                   {selectedTicketType && (
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.08em', marginTop: 4 }}>
