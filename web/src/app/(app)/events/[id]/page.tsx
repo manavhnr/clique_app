@@ -217,6 +217,9 @@ export default function EventDetailPage() {
   const [upiId, setUpiId] = useState('');
   const [upiSubmitting, setUpiSubmitting] = useState(false);
   const [selectedGroupIdx, setSelectedGroupIdx] = useState<number | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [tcOpen, setTcOpen] = useState(false);
 
   useEffect(() => {
     api.get(`/events/${id}`)
@@ -513,12 +516,24 @@ export default function EventDetailPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
 
           {/* About */}
-          {event.description && (
-            <div>
-              <div className="clique-label" style={{ marginBottom: 12 }}>About</div>
-              <p style={{ fontFamily: 'var(--display)', fontSize: 16, lineHeight: 1.65, color: 'var(--cream)', margin: 0, maxWidth: '64ch' }}>{event.description}</p>
-            </div>
-          )}
+          {event.description && (() => {
+            const ABOUT_LIMIT = 160;
+            const needsTrunc = event.description.length > ABOUT_LIMIT;
+            const preview = needsTrunc ? event.description.slice(0, ABOUT_LIMIT).trimEnd() : event.description;
+            return (
+              <div>
+                <div className="clique-label" style={{ marginBottom: 12 }}>About</div>
+                <p style={{ fontFamily: 'var(--display)', fontSize: 16, lineHeight: 1.65, color: 'var(--cream)', margin: 0, maxWidth: '64ch' }}>
+                  {preview}{needsTrunc && <span style={{ color: 'var(--dim)' }}> …</span>}
+                </p>
+                {needsTrunc && (
+                  <button onClick={() => setAboutOpen(true)} style={{ background: 'transparent', border: 'none', padding: 0, marginTop: 8, fontFamily: 'var(--display)', fontSize: 14, color: 'var(--lime)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    Read more <span style={{ fontSize: 12 }}>↓</span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Tags */}
           {(event.vibeTags?.length > 0 || event.musicTags?.length > 0) && (
@@ -578,22 +593,35 @@ export default function EventDetailPage() {
           )}
 
           {/* House rules */}
-          {event.rules && (
-            <div>
-              <div className="clique-label" style={{ marginBottom: 12 }}>House rules</div>
-              <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {event.rules.split(/\n|•|-/).map((r) => r.trim()).filter(Boolean).map((rule, i) => (
-                  <li key={i} style={{ fontFamily: 'var(--display)', fontSize: 15, lineHeight: 1.5, color: 'var(--cream)' }}>{rule}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {event.rules && (() => {
+            const allRules = event.rules!.split(/\n|•|-/).map((r) => r.trim()).filter(Boolean);
+            const RULES_PREVIEW = 3;
+            const previewRules = allRules.slice(0, RULES_PREVIEW);
+            const hasMore = allRules.length > RULES_PREVIEW;
+            return (
+              <div>
+                <div className="clique-label" style={{ marginBottom: 12 }}>House rules</div>
+                <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {previewRules.map((rule, i) => (
+                    <li key={i} style={{ fontFamily: 'var(--display)', fontSize: 15, lineHeight: 1.5, color: 'var(--cream)' }}>{rule}</li>
+                  ))}
+                </ul>
+                {hasMore && (
+                  <button onClick={() => setRulesOpen(true)} style={{ background: 'transparent', border: 'none', padding: 0, marginTop: 10, fontFamily: 'var(--display)', fontSize: 14, color: 'var(--lime)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    View more <span style={{ fontSize: 12 }}>›</span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
-          {/* Refund policy */}
+          {/* Terms and conditions */}
           {event.refundPolicy && (
             <div>
-              <div className="clique-label" style={{ marginBottom: 8 }}>Refund policy</div>
-              <p style={{ fontFamily: 'var(--display)', fontSize: 14, lineHeight: 1.6, color: 'var(--dim)', margin: 0, maxWidth: '62ch' }}>{event.refundPolicy}</p>
+              <button onClick={() => setTcOpen(true)} style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="clique-label" style={{ color: 'var(--cream)', borderBottom: '1px solid var(--line-2)', paddingBottom: 1 }}>Terms and conditions</span>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)' }}>›</span>
+              </button>
             </div>
           )}
 
@@ -783,6 +811,55 @@ export default function EventDetailPage() {
           </div>
         </aside>
       </div>
+
+      {/* About modal */}
+      {aboutOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: 20 }} onClick={() => setAboutOpen(false)}>
+          <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 14, width: '100%', maxWidth: 520, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.7)', animation: 'riseIn .25s cubic-bezier(.4,1.4,.5,1) both', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--line)' }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20 }}>About</div>
+              <button onClick={() => setAboutOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 'none', color: 'var(--dim)', fontSize: 28, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: 24, overflowY: 'auto' }}>
+              <p style={{ fontFamily: 'var(--display)', fontSize: 15, lineHeight: 1.7, color: 'var(--cream)', margin: 0, whiteSpace: 'pre-wrap' }}>{event.description}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* House rules modal */}
+      {rulesOpen && event.rules && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: 20 }} onClick={() => setRulesOpen(false)}>
+          <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 14, width: '100%', maxWidth: 520, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.7)', animation: 'riseIn .25s cubic-bezier(.4,1.4,.5,1) both', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--line)' }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20 }}>House rules</div>
+              <button onClick={() => setRulesOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 'none', color: 'var(--dim)', fontSize: 28, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: 24, overflowY: 'auto' }}>
+              <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {event.rules.split(/\n|•|-/).map((r) => r.trim()).filter(Boolean).map((rule, i) => (
+                  <li key={i} style={{ fontFamily: 'var(--display)', fontSize: 15, lineHeight: 1.55, color: 'var(--cream)' }}>{rule}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Terms and conditions modal */}
+      {tcOpen && event.refundPolicy && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', padding: 20 }} onClick={() => setTcOpen(false)}>
+          <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 14, width: '100%', maxWidth: 520, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.7)', animation: 'riseIn .25s cubic-bezier(.4,1.4,.5,1) both', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--line)' }}>
+              <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20 }}>Terms and conditions</div>
+              <button onClick={() => setTcOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 'none', color: 'var(--dim)', fontSize: 28, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: 24, overflowY: 'auto' }}>
+              <p style={{ fontFamily: 'var(--display)', fontSize: 15, lineHeight: 1.7, color: 'var(--cream)', margin: 0, whiteSpace: 'pre-wrap' }}>{event.refundPolicy}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* UPI Payment modal */}
       {upiModal && (
