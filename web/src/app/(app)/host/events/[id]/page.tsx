@@ -355,7 +355,7 @@ function OverviewTab({ event }: { event: Event }) {
 
       {event.refundPolicy && (
         <div>
-          <div className="clique-label mb-3">REFUND POLICY</div>
+          <div className="clique-label mb-3">TERMS AND CONDITIONS</div>
           <p className="m-0 max-w-[62ch] font-display text-sm leading-relaxed text-cream">{event.refundPolicy}</p>
         </div>
       )}

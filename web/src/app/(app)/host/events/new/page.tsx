@@ -580,7 +580,7 @@ function EventFormContent() {
                 />
               </Field>
 
-              <Field label="REFUND POLICY">
+              <Field label="TERMS AND CONDITIONS">
                 <textarea value={form.refundPolicy} onChange={(e) => set('refundPolicy', e.target.value)}
                   placeholder="e.g. No refunds after 24 hours…" rows={2}
                   style={{ ...inputStyle, resize: 'vertical' as const, lineHeight: 1.4 }}

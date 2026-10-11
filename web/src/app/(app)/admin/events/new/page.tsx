@@ -419,7 +419,7 @@ export default function AdminCreateEventPage() {
             onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')} onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')} />
         </Field>
 
-        <Field label="REFUND POLICY">
+        <Field label="TERMS AND CONDITIONS">
           <textarea value={form.refundPolicy} onChange={(e) => set('refundPolicy', e.target.value)} placeholder="e.g. No refunds after 24 hours…" rows={2}
             style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.4 } as React.CSSProperties}
             onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')} onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')} />

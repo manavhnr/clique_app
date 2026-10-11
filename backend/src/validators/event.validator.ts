@@ -92,7 +92,7 @@ export const createEventSchema = z.object({
     z.array(z.enum(['instagram', 'twitter', 'snapchat', 'facebook', 'linkedin'])).max(5)
   ).default([]),
   ageLimit: optionalInt,
-  refundPolicy: z.string().max(500).optional(),
+  refundPolicy: z.string().optional(),
   status: z.enum(['draft', 'published']).default('draft'),
 });
 
