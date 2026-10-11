@@ -396,8 +396,9 @@ export default function EventDetailPage() {
   const ctaLabel = () => {
     if (isFull) return 'Sold out';
     if (bookLoading) return '…';
-    if (effectivePrice === 0) return 'Get free pass';
     if (selectedGroup) return `Book group · ₹${effectivePrice.toLocaleString('en-IN')}`;
+    if (pricingMode === 'split' && activeTier) return 'Book tickets';
+    if (effectivePrice === 0) return 'Get free pass';
     return `Book tickets · ₹${effectivePrice.toLocaleString('en-IN')}`;
   };
 
@@ -737,7 +738,7 @@ export default function EventDetailPage() {
                     ✓ Request approved — complete booking
                   </div>
                   <button onClick={handleBook} disabled={isFull || bookLoading} style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '15px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, cursor: (isFull || bookLoading) ? 'not-allowed' : 'pointer', opacity: (isFull || bookLoading) ? 0.45 : 1 }}>
-                    {bookLoading ? '…' : event.price === 0 ? 'Get free pass' : 'Book & pay'}
+                    {bookLoading ? '…' : (event.price === 0 && pricingMode !== 'split') ? 'Get free pass' : 'Book & pay'}
                   </button>
                 </>
               ) : isRejected ? (
