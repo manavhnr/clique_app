@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import * as storage from '@/lib/storage';
 import axios from 'axios';
 import { API_BASE_URL } from '@/constants/api';
 
@@ -44,9 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const storedToken = await SecureStore.getItemAsync('auth_token');
-      const storedRefresh = await SecureStore.getItemAsync('auth_refresh_token');
-      const storedUser = await SecureStore.getItemAsync('auth_user');
+      const storedToken = await storage.getItem('auth_token');
+      const storedRefresh = await storage.getItem('auth_refresh_token');
+      const storedUser = await storage.getItem('auth_user');
       if (storedToken && storedUser) {
         // Set cached values immediately so the app can render
         setToken(storedToken);
@@ -60,11 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const freshUser: User = data.data?.user;
           const freshToken: string | undefined = data.data?.token;
           if (freshUser) {
-            await SecureStore.setItemAsync('auth_user', JSON.stringify(freshUser));
+            await storage.setItem('auth_user', JSON.stringify(freshUser));
             setUser(freshUser);
           }
           if (freshToken) {
-            await SecureStore.setItemAsync('auth_token', freshToken);
+            await storage.setItem('auth_token', freshToken);
             setToken(freshToken);
           }
         } catch {
@@ -76,25 +76,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (newToken: string, newRefreshToken: string, newUser: User) => {
-    await SecureStore.setItemAsync('auth_token', newToken);
-    await SecureStore.setItemAsync('auth_refresh_token', newRefreshToken);
-    await SecureStore.setItemAsync('auth_user', JSON.stringify(newUser));
+    await storage.setItem('auth_token', newToken);
+    await storage.setItem('auth_refresh_token', newRefreshToken);
+    await storage.setItem('auth_user', JSON.stringify(newUser));
     setToken(newToken);
     setRefreshToken(newRefreshToken);
     setUser(newUser);
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync('auth_token');
-    await SecureStore.deleteItemAsync('auth_refresh_token');
-    await SecureStore.deleteItemAsync('auth_user');
+    await storage.deleteItem('auth_token');
+    await storage.deleteItem('auth_refresh_token');
+    await storage.deleteItem('auth_user');
     setToken(null);
     setRefreshToken(null);
     setUser(null);
   };
 
   const updateUser = async (updated: User) => {
-    await SecureStore.setItemAsync('auth_user', JSON.stringify(updated));
+    await storage.setItem('auth_user', JSON.stringify(updated));
     setUser(updated);
   };
 
