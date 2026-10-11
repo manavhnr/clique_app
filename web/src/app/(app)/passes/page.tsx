@@ -249,21 +249,23 @@ export default function PassesPage() {
 
   const handleUPISubmit = async () => {
     if (!upiModal) return;
-    if (!utr.trim()) { setUpiError('Enter the UTR / transaction ID.'); return; }
+    const utrVal = utr.trim();
+    if (!utrVal) { setUpiError('Enter the UTR / transaction ID.'); return; }
+    if (utrVal.length < 6) { setUpiError('UTR number must be at least 6 characters.'); return; }
     setUpiError(''); setUpiSubmitting(true);
     try {
-      await api.post('/payments/upi-submit', { bookingId: upiModal.bookingId, utrNumber: utr.trim() });
+      await api.post('/payments/upi-submit', { bookingId: upiModal.bookingId, utrNumber: utrVal });
       setUpiModal(null);
       setLoading(true);
       fetchData();
     } catch (err: unknown) {
-      const e = err as { response?: { status?: number; data?: { message?: string } } };
+      const e = err as { response?: { status?: number; data?: { message?: string; errors?: { message: string }[] } } };
       if (e.response?.status === 409) {
         setUpiModal(null);
         setLoading(true);
         fetchData();
       } else {
-        setUpiError(e.response?.data?.message ?? 'Submission failed');
+        setUpiError(e.response?.data?.errors?.[0]?.message ?? e.response?.data?.message ?? 'Submission failed');
       }
     } finally { setUpiSubmitting(false); }
   };

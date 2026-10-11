@@ -349,23 +349,27 @@ export default function EventDetailPage() {
 
   const handleUPISubmit = async () => {
     if (!upiModal) return;
-    if (!utr.trim() && !upiId.trim()) { setError('Enter your UTR number or the UPI ID you paid from.'); return; }
+    const utrVal = utr.trim();
+    const upiVal = upiId.trim();
+    if (!utrVal && !upiVal) { setError('Enter your UTR number or the UPI ID you paid from.'); return; }
+    if (utrVal && utrVal.length < 6) { setError('UTR number must be at least 6 characters.'); return; }
+    if (upiVal && upiVal.length < 3) { setError('Enter a valid UPI ID (e.g. 9876543210@upi).'); return; }
     setError(''); setUpiSubmitting(true);
     try {
       await api.post('/payments/upi-submit', {
         bookingId: upiModal.bookingId,
-        utrNumber: utr.trim() || undefined,
-        upiId: upiId.trim() || undefined,
+        utrNumber: utrVal || undefined,
+        upiId: upiVal || undefined,
       });
       setUpiModal(null);
       await refreshEvent();
     } catch (err: unknown) {
-      const e = err as { code?: string; response?: { status?: number; data?: { message?: string } } };
+      const e = err as { code?: string; response?: { status?: number; data?: { message?: string; errors?: { message: string }[] } } };
       if (e.response?.status === 409) {
         setUpiModal(null);
         await refreshEvent();
       } else {
-        const msg = e.response?.data?.message ?? 'Submission failed. Please try again.';
+        const msg = e.response?.data?.errors?.[0]?.message ?? e.response?.data?.message ?? 'Submission failed. Please try again.';
         if (msg === 'Booking does not require payment') {
           setUpiModal(null);
           await refreshEvent();
