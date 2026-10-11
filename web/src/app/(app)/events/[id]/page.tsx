@@ -395,7 +395,8 @@ export default function EventDetailPage() {
     </div>
   );
 
-  const imageUrl = event.images?.[0] ? getImageUrl(event.images[0]) : null;
+  const bannerIdx = event.bannerImageIndex ?? 0;
+  const imageUrl = event.images?.[bannerIdx] ? getImageUrl(event.images[bannerIdx]) : (event.images?.[0] ? getImageUrl(event.images[0]) : null);
   const artColor = catColor(event.category);
   const SOCIAL_LABELS: Record<string, string> = { instagram: 'Instagram', twitter: 'Twitter/X', snapchat: 'Snapchat', facebook: 'Facebook', linkedin: 'LinkedIn' };
 
@@ -419,11 +420,11 @@ export default function EventDetailPage() {
 
       {/* Hero image */}
       {imageUrl && (
-        <div style={{ width: '100%', borderRadius: 12, overflow: 'hidden', marginBottom: 28, background: 'var(--card)', aspectRatio: '16/9', position: 'relative' }}>
+        <div style={{ width: '100%', borderRadius: 12, overflow: 'hidden', marginBottom: 28, background: 'var(--card)', position: 'relative' }}>
           <img
             src={imageUrl}
             alt={event.title}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
+            style={{ width: '100%', height: 'auto', display: 'block' }}
           />
           {/* Status overlays on image */}
           {(event.status === 'cancelled' || isFull) && (

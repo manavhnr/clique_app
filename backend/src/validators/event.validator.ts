@@ -61,6 +61,8 @@ const pricingDataField = z.preprocess(
 
 export const createEventSchema = z.object({
   hostId: z.string().optional(),
+  bannerImageIndex: z.coerce.number().int().min(0).default(0),
+  thumbnailImageIndex: z.coerce.number().int().min(0).default(0),
   title: z.string().min(3).max(200),
   description: z.string().min(10).max(3000),
   category: z.enum(['house_party', 'club', 'college', 'private', 'secret', 'concert', 'other']),

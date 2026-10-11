@@ -74,6 +74,8 @@ export interface Event {
   title: string;
   description: string;
   images: string[];
+  bannerImageIndex?: number;
+  thumbnailImageIndex?: number;
   category: 'house_party' | 'club' | 'college' | 'private' | 'concert' | 'other';
   vibeTags: string[];
   musicTags: string[];

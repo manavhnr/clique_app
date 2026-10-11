@@ -105,6 +105,8 @@ function EventFormContent() {
   const [videos, setVideos]               = useState<File[]>([]);
   const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [bannerIdx, setBannerIdx]   = useState(0);
+  const [thumbIdx, setThumbIdx]     = useState(0);
 
   // Ticket types
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([
@@ -158,6 +160,8 @@ function EventFormContent() {
           musicTags: ev.musicTags ?? [],
         });
         setExistingImages(ev.images ?? []);
+        setBannerIdx(ev.bannerImageIndex ?? 0);
+        setThumbIdx(ev.thumbnailImageIndex ?? 0);
         if (ev.ticketTypes?.length) {
           setTicketTypes(ev.ticketTypes.map((t: { label: string; price: number; description?: string; capacity?: number }) => ({
             id: uid(),
@@ -251,6 +255,8 @@ function EventFormContent() {
         })),
       }));
 
+      fd.append('bannerImageIndex', String(bannerIdx));
+      fd.append('thumbnailImageIndex', String(thumbIdx));
       if (publish) fd.set('status', 'published');
       existingImages.forEach((img) => fd.append('existingImages', img));
       images.forEach((img) => fd.append('images', img));
@@ -505,25 +511,43 @@ function EventFormContent() {
               </Field>
 
               <Field label="IMAGES" hint={`${existingImages.length + imagePreviews.length}/5`}>
+                <div style={{ marginBottom: 6, fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.08em' }}>
+                  TAP <span style={{ color: 'var(--lime)', fontWeight: 700 }}>B</span> TO SET BANNER · <span style={{ color: 'var(--gold)', fontWeight: 700 }}>T</span> FOR THUMBNAIL
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '80px' : '100px'}, 1fr))`, gap: isMobile ? 8 : 10 }}>
                   {existingImages.map((src, i) => (
-                    <div key={`ex-${i}`} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--line-2)' }}>
+                    <div key={`ex-${i}`} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--line-2)', outline: bannerIdx === i ? '2px solid var(--lime)' : thumbIdx === i ? '2px solid var(--gold)' : 'none', outlineOffset: 2 }}>
                       <img src={getImageUrl(src)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button type="button" onClick={() => setExistingImages((prev) => prev.filter((_, idx) => idx !== i))}
+                      <button type="button" onClick={() => setExistingImages((prev) => { const next = prev.filter((_, idx) => idx !== i); if (bannerIdx >= next.length) setBannerIdx(Math.max(0, next.length - 1)); if (thumbIdx >= next.length) setThumbIdx(Math.max(0, next.length - 1)); return next; })}
                         style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <X size={11} />
                       </button>
+                      <div style={{ position: 'absolute', bottom: 4, left: 4, right: 4, display: 'flex', gap: 3 }}>
+                        <button type="button" onClick={() => setBannerIdx(i)}
+                          style={{ flex: 1, fontFamily: 'var(--mono)', fontSize: 8, letterSpacing: '.06em', padding: '3px 0', background: bannerIdx === i ? 'var(--lime)' : 'rgba(0,0,0,0.65)', color: bannerIdx === i ? '#000' : 'var(--dim)', border: 'none', borderRadius: 3, cursor: 'pointer', fontWeight: 700 }}>B</button>
+                        <button type="button" onClick={() => setThumbIdx(i)}
+                          style={{ flex: 1, fontFamily: 'var(--mono)', fontSize: 8, letterSpacing: '.06em', padding: '3px 0', background: thumbIdx === i ? 'var(--gold)' : 'rgba(0,0,0,0.65)', color: thumbIdx === i ? '#000' : 'var(--dim)', border: 'none', borderRadius: 3, cursor: 'pointer', fontWeight: 700 }}>T</button>
+                      </div>
                     </div>
                   ))}
-                  {imagePreviews.map((src, i) => (
-                    <div key={`new-${i}`} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--line-2)' }}>
-                      <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button type="button" onClick={() => removeImage(i)}
-                        style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                        <X size={11} />
-                      </button>
-                    </div>
-                  ))}
+                  {imagePreviews.map((src, i) => {
+                    const absIdx = existingImages.length + i;
+                    return (
+                      <div key={`new-${i}`} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--line-2)', outline: bannerIdx === absIdx ? '2px solid var(--lime)' : thumbIdx === absIdx ? '2px solid var(--gold)' : 'none', outlineOffset: 2 }}>
+                        <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button type="button" onClick={() => { removeImage(i); if (bannerIdx === absIdx) setBannerIdx(0); if (thumbIdx === absIdx) setThumbIdx(0); }}
+                          style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                          <X size={11} />
+                        </button>
+                        <div style={{ position: 'absolute', bottom: 4, left: 4, right: 4, display: 'flex', gap: 3 }}>
+                          <button type="button" onClick={() => setBannerIdx(absIdx)}
+                            style={{ flex: 1, fontFamily: 'var(--mono)', fontSize: 8, letterSpacing: '.06em', padding: '3px 0', background: bannerIdx === absIdx ? 'var(--lime)' : 'rgba(0,0,0,0.65)', color: bannerIdx === absIdx ? '#000' : 'var(--dim)', border: 'none', borderRadius: 3, cursor: 'pointer', fontWeight: 700 }}>B</button>
+                          <button type="button" onClick={() => setThumbIdx(absIdx)}
+                            style={{ flex: 1, fontFamily: 'var(--mono)', fontSize: 8, letterSpacing: '.06em', padding: '3px 0', background: thumbIdx === absIdx ? 'var(--gold)' : 'rgba(0,0,0,0.65)', color: thumbIdx === absIdx ? '#000' : 'var(--dim)', border: 'none', borderRadius: 3, cursor: 'pointer', fontWeight: 700 }}>T</button>
+                        </div>
+                      </div>
+                    );
+                  })}
                   {existingImages.length + imagePreviews.length < 5 && (
                     <label
                       style={{ aspectRatio: '1', borderRadius: 10, border: '2px dashed var(--line-2)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', transition: 'border-color .15s ease' }}

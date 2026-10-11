@@ -23,7 +23,8 @@ interface EventCardProps {
  */
 export default function EventCard({ event }: EventCardProps) {
   const host      = typeof event.hostId === 'object' ? event.hostId : null;
-  const imageUrl  = event.images?.[0] ? getImageUrl(event.images[0]) : null;
+  const thumbIdx  = event.thumbnailImageIndex ?? 0;
+  const imageUrl  = event.images?.[thumbIdx] ? getImageUrl(event.images[thumbIdx]) : (event.images?.[0] ? getImageUrl(event.images[0]) : null);
   const isFull = event.bookedCount >= event.capacity;
   const color     = catColor(event.category);
 
@@ -76,6 +77,7 @@ export default function EventCard({ event }: EventCardProps) {
       <div className="col-start-2 flex items-center gap-5 sm:col-start-auto sm:block sm:text-right">
         <div className="font-display text-lg font-bold tracking-[-0.02em] text-paper sm:text-xl">
           {formatPrice(event.price)}
+          <span className="ml-1 font-mono text-[9px] font-normal tracking-[.08em] text-dim">onwards</span>
         </div>
         <div className="flex items-center justify-end sm:mt-1.5">
           <span aria-hidden className="font-mono text-xs text-dim opacity-0 transition-opacity group-hover:opacity-100">→</span>

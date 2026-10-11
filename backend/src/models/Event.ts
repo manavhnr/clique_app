@@ -85,6 +85,8 @@ const eventSchema = new Schema<IEvent>(
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true },
     images: { type: [String], default: [] },
+    bannerImageIndex: { type: Number, default: 0 },
+    thumbnailImageIndex: { type: Number, default: 0 },
     videos: { type: [String], default: [] },
     category: {
       type: String,
