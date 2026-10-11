@@ -469,36 +469,23 @@ export default function EventDetailPage() {
         {/* Meta strip */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 12 : 24, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--line-2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>📅</span>
             <div>
               <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600 }}>{formatDate(event.date)}</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginTop: 1 }}>DATE</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>🕐</span>
             <div>
               <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600 }}>{formatTime(event.startTime)} – {formatTime(event.endTime)}</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginTop: 1 }}>TIME</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>📍</span>
             <div>
               <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600 }}>{event.locationName}</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginTop: 1 }}>
                 {event.exactAddressHiddenBeforeBooking ? 'Address after booking' : (event.address || 'VENUE')}
               </div>
-            </div>
-          </div>
-          {/* Capacity */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>👥</span>
-            <div>
-              <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600 }}>
-                {isFull ? 'Full' : `${spotsLeft} left`}
-              </div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginTop: 1 }}>OF {event.capacity}</div>
             </div>
           </div>
         </div>
@@ -672,18 +659,6 @@ export default function EventDetailPage() {
                 </div>
               )}
 
-              {/* Capacity bar */}
-              {!isFull && spotsLeft <= Math.ceil(event.capacity * 0.2) && spotsLeft > 0 && (
-                <div style={{ marginTop: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--hot)', letterSpacing: '.1em' }}>ALMOST FULL</span>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)' }}>{spotsLeft} spots left</span>
-                  </div>
-                  <div style={{ height: 3, background: 'var(--line-2)', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${filled}%`, background: filled >= 90 ? 'var(--hot)' : 'var(--lime)', borderRadius: 2, transition: 'width .4s ease' }} />
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* CTA area */}
