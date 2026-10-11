@@ -42,6 +42,7 @@ export default function EventsScreen() {
 
   return (
     <View className="flex-1 bg-dark">
+      <View style={{ flex: 1, maxWidth: 860, width: '100%', alignSelf: 'center' }}>
       <View className="px-5 pt-14 pb-4">
         <Text className="text-white text-2xl font-bold mb-4">Events</Text>
 
@@ -95,6 +96,7 @@ export default function EventsScreen() {
           }
         />
       )}
+      </View>
     </View>
   );
 }
