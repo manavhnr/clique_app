@@ -87,7 +87,7 @@ export async function getEventsNearMe(filters: NearMeFilters, requesterId: strin
     .sort(sortOption)
     .skip((page - 1) * limit)
     .limit(Math.min(limit, 50))
-    .select('title images date startTime locationName address price capacity bookedCount privacy category vibeTags hostId isFeatured')
+    .select('title images date startTime locationName address price ticketTypes capacity bookedCount privacy category vibeTags hostId isFeatured thumbnailImageIndex coHosts')
     .populate('hostId', 'name username profileImage isVerifiedHost');
 
   const savedEvents = await SavedEvent.find({
@@ -161,7 +161,7 @@ export async function searchEvents(filters: EventSearchFilters, requesterId: str
     .sort(q ? { score: { $meta: 'textScore' } } : { date: 1 })
     .skip((page - 1) * limit)
     .limit(Math.min(limit, 50))
-    .select('title images date startTime locationName price capacity bookedCount privacy category vibeTags hostId')
+    .select('title images date startTime locationName price ticketTypes capacity bookedCount privacy category vibeTags hostId thumbnailImageIndex coHosts')
     .populate('hostId', 'name username profileImage isVerifiedHost');
 
   const savedEvents = await SavedEvent.find({

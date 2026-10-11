@@ -25,8 +25,11 @@ export default function EventCard({ event }: EventCardProps) {
   const host      = typeof event.hostId === 'object' ? event.hostId : null;
   const thumbIdx  = event.thumbnailImageIndex ?? 0;
   const imageUrl  = event.images?.[thumbIdx] ? getImageUrl(event.images[thumbIdx]) : (event.images?.[0] ? getImageUrl(event.images[0]) : null);
-  const isFull = event.bookedCount >= event.capacity;
+  const isFull    = event.bookedCount >= event.capacity;
   const color     = catColor(event.category);
+  const minPrice  = event.ticketTypes?.length
+    ? Math.min(...event.ticketTypes.map((t) => t.price))
+    : event.price;
 
   return (
     <Link
@@ -67,7 +70,10 @@ export default function EventCard({ event }: EventCardProps) {
           </div>
           <div className="mt-1 truncate font-mono text-[11px] tracking-[.06em] text-cream">
             {event.locationName}
-            {host ? <span className="text-dim"> · by @{host.username}</span> : null}
+            {host ? <span className="text-dim"> · @{host.username}</span> : null}
+            {event.coHosts?.map((c) => (
+              <span key={c.userId} className="text-dim"> · @{c.username}</span>
+            ))}
             {event.endTime ? <span className="text-dim"> · till {fmtHour(event.endTime)}</span> : null}
           </div>
         </div>
@@ -76,7 +82,7 @@ export default function EventCard({ event }: EventCardProps) {
       {/* The damage */}
       <div className="col-start-2 flex items-center gap-5 sm:col-start-auto sm:block sm:text-right">
         <div className="font-display text-lg font-bold tracking-[-0.02em] text-paper sm:text-xl">
-          {formatPrice(event.price)}
+          {formatPrice(minPrice)}
           <span className="ml-1 font-mono text-[9px] font-normal tracking-[.08em] text-dim">onwards</span>
         </div>
         <div className="flex items-center justify-end sm:mt-1.5">

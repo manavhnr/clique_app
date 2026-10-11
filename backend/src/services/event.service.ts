@@ -269,7 +269,7 @@ export async function getPublicEvents(startDate?: Date, endDate?: Date, limit = 
   const events = await Event.find({ status: 'published', date: { $gte: from, $lte: to } })
     .sort({ date: 1, isFeatured: -1 })
     .limit(limit)
-    .select('title category vibeTags date startTime endTime capacity bookedCount images price locationName privacy')
+    .select('title category vibeTags date startTime endTime capacity bookedCount images price ticketTypes locationName privacy coHosts thumbnailImageIndex bannerImageIndex')
     .lean();
 
   // Attach Mon-based dayOfWeek (0=Mon … 6=Sun) so the frontend can position events on the week axis
