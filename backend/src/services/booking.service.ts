@@ -43,7 +43,7 @@ export async function generatePass(bookingId: string, userId: string, eventId: s
 
 // ─── Create Booking ───────────────────────────────────────────────────────────
 
-export async function createBooking(userId: string, eventId: string, tierLabel?: string, groupPricingIndex?: number) {
+export async function createBooking(userId: string, eventId: string, tierLabel?: string, groupPricingIndex?: number, ticketTypeIndex?: number) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
   if (event.status !== 'published') throw createError('Event is not available for booking', 400);
@@ -59,8 +59,22 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     if (!request) throw createError('Access not approved for this private event', 403);
   }
 
-  // Resolve the active tier — first open tier with remaining capacity
-  const hasPhases = event.pricingTiers?.length > 0;
+  // ── Ticket types (new flow) ──────────────────────────────────────────────────
+  const ticketTypesArr = (event.ticketTypes ?? []) as { label: string; price: number; description?: string; capacity?: number; soldCount: number }[];
+  const hasTicketTypes = ticketTypesArr.length > 0;
+  let selectedTicketType: { label: string; price: number; description?: string; capacity?: number; soldCount: number } | null = null;
+  if (hasTicketTypes) {
+    if (ticketTypeIndex === undefined || ticketTypeIndex === null) {
+      throw createError('Please select a ticket type', 400);
+    }
+    const tt = ticketTypesArr[ticketTypeIndex];
+    if (!tt) throw createError('Invalid ticket type', 400);
+    if (tt.capacity && tt.soldCount >= tt.capacity) throw createError('This ticket type is sold out', 409);
+    selectedTicketType = tt;
+  }
+
+  // ── Legacy pricing tier flow ─────────────────────────────────────────────────
+  const hasPhases = !hasTicketTypes && (event.pricingTiers?.length > 0);
   const activeTier = hasPhases
     ? event.pricingTiers.find((t) => t.isOpen && (!t.capacity || t.soldCount < t.capacity))
     : null;
@@ -71,7 +85,7 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
 
   // Group pricing override
   let groupOffer: { label: string; size: number; price: number } | null = null;
-  if (groupPricingIndex !== undefined && groupPricingIndex !== null) {
+  if (!hasTicketTypes && groupPricingIndex !== undefined && groupPricingIndex !== null) {
     const gp = event.groupPricing ?? [];
     if (groupPricingIndex < 0 || groupPricingIndex >= gp.length) {
       throw createError('Invalid group pricing selection', 400);
@@ -83,19 +97,22 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
   const gender = bookingUser?.gender as string | undefined;
   const isSplitEvent = !groupOffer && activeTier && event.pricingMode === 'split';
   const usedMalePriceFallback = isSplitEvent && gender !== 'male' && gender !== 'female';
-  const ticketPrice = groupOffer
-    ? groupOffer.price
-    : activeTier
-      ? event.pricingMode === 'split'
-        ? gender === 'male' ? activeTier.malePrice
-          : gender === 'female' ? activeTier.femalePrice
-          // prefer_not_to_say or unset — always charge male price
-          : activeTier.malePrice
-        : activeTier.commonPrice
-      : event.price;
-  const resolvedTierLabel = groupOffer
-    ? (groupOffer.label || `Group of ${groupOffer.size}`)
-    : activeTier?.label || tierLabel || 'General';
+  const ticketPrice = selectedTicketType
+    ? selectedTicketType.price
+    : groupOffer
+      ? groupOffer.price
+      : activeTier
+        ? event.pricingMode === 'split'
+          ? gender === 'male' ? activeTier.malePrice
+            : gender === 'female' ? activeTier.femalePrice
+            : activeTier.malePrice
+          : activeTier.commonPrice
+        : event.price;
+  const resolvedTierLabel = selectedTicketType
+    ? selectedTicketType.label
+    : groupOffer
+      ? (groupOffer.label || `Group of ${groupOffer.size}`)
+      : activeTier?.label || tierLabel || 'General';
   const tierId = (activeTier as (typeof activeTier & { _id?: unknown }) | null)?._id;
 
   // Apply user-specific discount if one exists for this event
@@ -132,13 +149,19 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
         $expr: { $lte: [{ $add: ['$bookedCount', { $ifNull: ['$reservedCount', 0] }, groupSize] }, '$capacity'] },
       };
       const countField = isFree ? 'bookedCount' : 'reservedCount';
-      const ev = tierId
+      const ev = selectedTicketType
         ? await Event.findOneAndUpdate(
             capacityQuery,
-            { $inc: { [countField]: groupSize, 'pricingTiers.$[tier].soldCount': 1 } },
-            { new: true, arrayFilters: [{ 'tier._id': tierId }], session }
+            { $inc: { [countField]: groupSize, [`ticketTypes.${ticketTypeIndex}.soldCount`]: 1 } },
+            { new: true, session }
           )
-        : await Event.findOneAndUpdate(capacityQuery, { $inc: { [countField]: groupSize } }, { new: true, session });
+        : tierId
+          ? await Event.findOneAndUpdate(
+              capacityQuery,
+              { $inc: { [countField]: groupSize, 'pricingTiers.$[tier].soldCount': 1 } },
+              { new: true, arrayFilters: [{ 'tier._id': tierId }], session }
+            )
+          : await Event.findOneAndUpdate(capacityQuery, { $inc: { [countField]: groupSize } }, { new: true, session });
       if (!ev) throw createError('Event is fully booked', 409);
       updatedEvent = ev;
 

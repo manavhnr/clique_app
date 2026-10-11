@@ -220,6 +220,8 @@ export default function EventDetailPage() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [tcOpen, setTcOpen] = useState(false);
+  const [chooseTicketsOpen, setChooseTicketsOpen] = useState(false);
+  const [selectedTicketTypeIdx, setSelectedTicketTypeIdx] = useState<number | null>(null);
 
   useEffect(() => {
     api.get(`/events/${id}`)
@@ -242,8 +244,10 @@ export default function EventDetailPage() {
   const pricingMode  = ev?.pricingMode ?? 'common';
   const groupPricing = ev?.groupPricing ?? [];
   const selectedGroup = selectedGroupIdx !== null ? (groupPricing[selectedGroupIdx] ?? null) : null;
-  const hasPhases    = allTiers.length > 0;
-  const ticketsAvailable = !hasPhases || !!activeTier;
+  const ticketTypes  = (ev as unknown as { ticketTypes?: { label: string; price: number; description?: string; capacity?: number; soldCount: number }[] })?.ticketTypes ?? [];
+  const hasTicketTypes = ticketTypes.length > 0;
+  const hasPhases    = !hasTicketTypes && allTiers.length > 0;
+  const ticketsAvailable = hasTicketTypes || !hasPhases || !!activeTier;
   const userDiscount = ev?.userDiscount ?? null;
 
   const userRequest  = event?.userRequest as JoinRequest | null;
@@ -259,8 +263,10 @@ export default function EventDetailPage() {
   const paymentPending      = !!(userBooking?.status === 'payment_pending');
   const paymentUnderReview  = !!(userBooking?.status === 'utr_submitted');
 
+  const selectedTicketType = selectedTicketTypeIdx !== null ? (ticketTypes[selectedTicketTypeIdx] ?? null) : null;
   const basePrice = (() => {
     if (!event) return 0;
+    if (selectedTicketType) return selectedTicketType.price;
     if (selectedGroup) return selectedGroup.price;
     if (activeTier) {
       if (pricingMode === 'split') {
@@ -269,6 +275,7 @@ export default function EventDetailPage() {
       }
       return activeTier.commonPrice;
     }
+    if (hasTicketTypes) return Math.min(...ticketTypes.map((t) => t.price));
     return event.price;
   })();
   const effectivePrice = userDiscount
@@ -316,7 +323,8 @@ export default function EventDetailPage() {
     setError(''); setBookLoading(true);
     try {
       const payload: Record<string, unknown> = { eventId: id };
-      if (selectedGroupIdx !== null) payload.groupPricingIndex = selectedGroupIdx;
+      if (selectedTicketTypeIdx !== null) payload.ticketTypeIndex = selectedTicketTypeIdx;
+      else if (selectedGroupIdx !== null) payload.groupPricingIndex = selectedGroupIdx;
       const { data: bookRes } = await api.post('/bookings', payload);
       const createdBooking = bookRes.data?.booking;
       if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
@@ -396,6 +404,8 @@ export default function EventDetailPage() {
   const ctaLabel = () => {
     if (isFull) return 'Sold out';
     if (bookLoading) return '…';
+    if (hasTicketTypes && selectedTicketType) return `Book · ₹${effectivePrice.toLocaleString('en-IN')}`;
+    if (hasTicketTypes) return 'Choose tickets';
     if (selectedGroup) return `Book group · ₹${effectivePrice.toLocaleString('en-IN')}`;
     if (pricingMode === 'split' && activeTier) return 'Book tickets';
     if (effectivePrice === 0) return 'Get free pass';
@@ -552,46 +562,6 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Group pricing */}
-          {groupPricing.length > 0 && (
-            <div>
-              <div className="clique-label" style={{ marginBottom: 12 }}>Group offers</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {groupPricing.map((g, i) => {
-                  const isSelected = selectedGroupIdx === i;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setSelectedGroupIdx(isSelected ? null : i)}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', border: `1px solid ${isSelected ? 'var(--lime)' : 'var(--line-2)'}`, borderRadius: 10, background: isSelected ? 'rgba(201,243,110,0.07)' : 'var(--card)', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all .15s ease' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {isSelected && <span style={{ color: 'var(--lime)', fontSize: 12 }}>✓</span>}
-                        <div>
-                          <span style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 600, color: isSelected ? 'var(--lime)' : 'var(--paper)' }}>{g.label || `Group of ${g.size}`}</span>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginLeft: 10 }}>{g.size} people</span>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                        {userDiscount && g.price > 0 && (
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', textDecoration: 'line-through' }}>₹{g.price.toLocaleString('en-IN')}</span>
-                        )}
-                        <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 17, color: 'var(--lime)' }}>
-                          ₹{applyDiscountToPrice(g.price).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              {selectedGroupIdx !== null && (
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginTop: 8 }}>
-                  Group offer selected · tap again to switch back to individual
-                </div>
-              )}
-            </div>
-          )}
 
           {/* House rules */}
           {event.rules && (() => {
@@ -634,8 +604,22 @@ export default function EventDetailPage() {
 
             {/* Price header */}
             <div style={{ padding: '20px 22px', borderBottom: '1px solid var(--line-2)' }}>
+              {/* Ticket types summary */}
+              {hasTicketTypes && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 8 }}>TICKETS FROM</div>
+                  <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em' }}>
+                    {Math.min(...ticketTypes.map((t) => t.price)) === 0 ? 'Free' : `₹${Math.min(...ticketTypes.map((t) => t.price)).toLocaleString('en-IN')}`}
+                  </div>
+                  {selectedTicketType && (
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.08em', marginTop: 4 }}>
+                      ✓ {selectedTicketType.label} · ₹{effectivePrice.toLocaleString('en-IN')} selected
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Phase pills */}
-              {allTiers.length > 1 && (
+              {!hasTicketTypes && allTiers.length > 1 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
                   {allTiers.map((t, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 8, background: t.isOpen ? 'rgba(201,243,110,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${t.isOpen ? 'rgba(201,243,110,0.25)' : 'var(--line-2)'}`, opacity: t.isOpen ? 1 : 0.5 }}>
@@ -654,49 +638,51 @@ export default function EventDetailPage() {
                 </div>
               )}
 
-              {/* Price display */}
-              {!selectedGroup && pricingMode === 'split' && activeTier ? (
-                <div style={{ display: 'flex', gap: 20 }}>
-                  <div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 4 }}>MALE</div>
-                    {userDiscount && activeTier.malePrice > 0 && (
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', textDecoration: 'line-through' }}>₹{activeTier.malePrice.toLocaleString('en-IN')}</div>
-                    )}
-                    <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>
-                      {activeTier.malePrice === 0 ? 'Free' : `₹${applyDiscountToPrice(activeTier.malePrice).toLocaleString('en-IN')}`}
+              {/* Price display — legacy pricing only */}
+              {!hasTicketTypes && (
+                !selectedGroup && pricingMode === 'split' && activeTier ? (
+                  <div style={{ display: 'flex', gap: 20 }}>
+                    <div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 4 }}>MALE</div>
+                      {userDiscount && activeTier.malePrice > 0 && (
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', textDecoration: 'line-through' }}>₹{activeTier.malePrice.toLocaleString('en-IN')}</div>
+                      )}
+                      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>
+                        {activeTier.malePrice === 0 ? 'Free' : `₹${applyDiscountToPrice(activeTier.malePrice).toLocaleString('en-IN')}`}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 4 }}>FEMALE</div>
+                      {userDiscount && activeTier.femalePrice > 0 && (
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', textDecoration: 'line-through' }}>₹{activeTier.femalePrice.toLocaleString('en-IN')}</div>
+                      )}
+                      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>
+                        {activeTier.femalePrice === 0 ? 'Free' : `₹${applyDiscountToPrice(activeTier.femalePrice).toLocaleString('en-IN')}`}
+                      </div>
                     </div>
                   </div>
+                ) : (
                   <div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 4 }}>FEMALE</div>
-                    {userDiscount && activeTier.femalePrice > 0 && (
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', textDecoration: 'line-through' }}>₹{activeTier.femalePrice.toLocaleString('en-IN')}</div>
-                    )}
-                    <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22 }}>
-                      {activeTier.femalePrice === 0 ? 'Free' : `₹${applyDiscountToPrice(activeTier.femalePrice).toLocaleString('en-IN')}`}
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 6 }}>
+                      {selectedGroup ? `GROUP · ${selectedGroup.size} PEOPLE` : (activeTier ? activeTier.label.toUpperCase() : 'PRICE')}
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 6 }}>
-                    {selectedGroup ? `GROUP · ${selectedGroup.size} PEOPLE` : (activeTier ? activeTier.label.toUpperCase() : 'PRICE')}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                    {userDiscount && basePrice > 0 && (
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--dim)', textDecoration: 'line-through' }}>
-                        ₹{basePrice.toLocaleString('en-IN')}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                      {userDiscount && basePrice > 0 && (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--dim)', textDecoration: 'line-through' }}>
+                          ₹{basePrice.toLocaleString('en-IN')}
+                        </span>
+                      )}
+                      <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 28, letterSpacing: '-0.02em', color: userDiscount ? 'var(--lime)' : 'var(--paper)' }}>
+                        {effectivePrice === 0 ? 'Free' : `₹${effectivePrice.toLocaleString('en-IN')}`}
                       </span>
-                    )}
-                    <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 28, letterSpacing: '-0.02em', color: userDiscount ? 'var(--lime)' : 'var(--paper)' }}>
-                      {effectivePrice === 0 ? 'Free' : `₹${effectivePrice.toLocaleString('en-IN')}`}
-                    </span>
-                  </div>
-                  {userDiscount && (
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.1em', marginTop: 4 }}>
-                      {userDiscount.discountType === 'percentage' ? `${userDiscount.discountValue}% off` : `₹${userDiscount.discountValue} off`} · your price
                     </div>
-                  )}
-                </div>
+                    {userDiscount && (
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.1em', marginTop: 4 }}>
+                        {userDiscount.discountType === 'percentage' ? `${userDiscount.discountValue}% off` : `₹${userDiscount.discountValue} off`} · your price
+                      </div>
+                    )}
+                  </div>
+                )
               )}
 
             </div>
@@ -776,7 +762,13 @@ export default function EventDetailPage() {
                 </div>
               ) : !event.approvalRequired ? (
                 <button
-                  onClick={handleBook}
+                  onClick={() => {
+                    if (hasTicketTypes && selectedTicketTypeIdx === null) {
+                      setChooseTicketsOpen(true);
+                    } else {
+                      handleBook();
+                    }
+                  }}
                   disabled={isFull || bookLoading || event.status !== 'published'}
                   style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '15px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, cursor: (isFull || bookLoading || event.status !== 'published') ? 'not-allowed' : 'pointer', opacity: (isFull || bookLoading || event.status !== 'published') ? 0.45 : 1 }}
                 >
@@ -808,6 +800,75 @@ export default function EventDetailPage() {
           </div>
         </aside>
       </div>
+
+      {/* Choose Tickets modal */}
+      {chooseTicketsOpen && hasTicketTypes && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: 20 }} onClick={() => setChooseTicketsOpen(false)}>
+          <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 14, width: '100%', maxWidth: 560, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.8)', animation: 'riseIn .25s cubic-bezier(.4,1.4,.5,1) both', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--line)' }}>
+              <div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.14em', marginBottom: 4 }}>CHOOSE TICKETS</div>
+                <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18 }}>{event.title}</div>
+              </div>
+              <button onClick={() => setChooseTicketsOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 'none', color: 'var(--dim)', fontSize: 28, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {ticketTypes.map((tt, idx) => {
+                const isSoldOut = !!(tt.capacity && tt.soldCount >= tt.capacity);
+                const isSelected = selectedTicketTypeIdx === idx;
+                return (
+                  <div key={idx} style={{ border: `1px solid ${isSelected ? 'var(--lime)' : 'var(--line-2)'}`, borderRadius: 10, padding: '16px 18px', background: isSelected ? 'rgba(201,243,110,0.05)' : '#0E0C09', opacity: isSoldOut ? 0.45 : 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{tt.label}</div>
+                        <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, color: isSelected ? 'var(--lime)' : 'var(--paper)', marginBottom: tt.description ? 10 : 0 }}>
+                          {tt.price === 0 ? 'Free' : `₹${tt.price.toLocaleString('en-IN')}`}
+                        </div>
+                        {tt.description && (
+                          <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                            {tt.description.split(/[•·]/).filter(Boolean).map((line, i) => (
+                              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 2 }}>
+                                <span style={{ color: 'var(--line-2)' }}>•</span>
+                                <span>{line.trim()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (isSoldOut) return;
+                          setSelectedTicketTypeIdx(isSelected ? null : idx);
+                          if (!isSelected) setChooseTicketsOpen(false);
+                        }}
+                        disabled={isSoldOut}
+                        style={{ flexShrink: 0, background: isSelected ? 'var(--lime)' : 'transparent', color: isSelected ? 'var(--ink)' : 'var(--cream)', border: `1px solid ${isSelected ? 'var(--lime)' : 'var(--line-2)'}`, padding: '8px 18px', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', cursor: isSoldOut ? 'not-allowed' : 'pointer', alignSelf: 'center' }}
+                      >
+                        {isSoldOut ? 'Sold out' : isSelected ? 'Selected ✓' : 'Add'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {selectedTicketTypeIdx !== null && (
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--line)', display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em' }}>SELECTED</div>
+                  <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15 }}>{ticketTypes[selectedTicketTypeIdx]?.label} · ₹{effectivePrice.toLocaleString('en-IN')}</div>
+                </div>
+                <button
+                  onClick={() => { setChooseTicketsOpen(false); handleBook(); }}
+                  disabled={bookLoading}
+                  style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '14px 24px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, cursor: bookLoading ? 'not-allowed' : 'pointer', opacity: bookLoading ? 0.6 : 1 }}
+                >
+                  {bookLoading ? '…' : 'Book now →'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* About modal */}
       {aboutOpen && (

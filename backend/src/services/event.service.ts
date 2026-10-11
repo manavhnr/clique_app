@@ -51,6 +51,7 @@ export async function createEvent(
     pricingMode: data.pricingData?.mode ?? 'common',
     pricingTiers: data.pricingData?.tiers ?? [],
     groupPricing: data.pricingData?.groups ?? [],
+    ticketTypes: data.pricingData?.ticketTypes ?? [],
     capacity: data.capacity,
     privacy: data.privacy,
     approvalRequired: data.approvalRequired,
@@ -152,6 +153,12 @@ export async function updateEvent(
       };
     });
     update.groupPricing = data.pricingData.groups;
+    if (data.pricingData.ticketTypes) {
+      update.ticketTypes = data.pricingData.ticketTypes.map((incoming: { label: string; price: number; description?: string; capacity?: number; soldCount?: number }) => {
+        const existing = (event.ticketTypes ?? []).find((t) => t.label === incoming.label);
+        return { ...incoming, soldCount: existing?.soldCount ?? 0 };
+      });
+    }
   }
   delete update.pricingData;
 

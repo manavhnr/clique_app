@@ -31,8 +31,7 @@ const PREVIEW_COLORS: Record<string, string> = {
   other:       '#E8E1D2',
 };
 
-type PricingTier = { id: string; label: string; commonPrice: string; malePrice: string; femalePrice: string; capacity: string };
-type GroupPrice  = { id: string; label: string; size: string; price: string };
+type TicketType = { id: string; label: string; price: string; description: string; capacity: string };
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -107,12 +106,10 @@ function EventFormContent() {
   const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
 
-  // Pricing state
-  const [pricingMode, setPricingMode] = useState<'common' | 'split'>('common');
-  const [tiers, setTiers] = useState<PricingTier[]>([
-    { id: uid(), label: 'General', commonPrice: '0', malePrice: '0', femalePrice: '0', capacity: '' },
+  // Ticket types
+  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([
+    { id: uid(), label: 'General', price: '0', description: '', capacity: '' },
   ]);
-  const [groupPricing, setGroupPricing] = useState<GroupPrice[]>([]);
 
   const [form, setForm] = useState({
     title: '', description: '', category: 'house_party',
@@ -161,43 +158,36 @@ function EventFormContent() {
           musicTags: ev.musicTags ?? [],
         });
         setExistingImages(ev.images ?? []);
-        if (ev.pricingMode) setPricingMode(ev.pricingMode);
-        if (ev.pricingTiers?.length) {
-          setTiers(ev.pricingTiers.map((t: { label: string; commonPrice: number; malePrice: number; femalePrice: number; capacity?: number }) => ({
+        if (ev.ticketTypes?.length) {
+          setTicketTypes(ev.ticketTypes.map((t: { label: string; price: number; description?: string; capacity?: number }) => ({
             id: uid(),
             label: t.label ?? '',
-            commonPrice: String(t.commonPrice ?? 0),
-            malePrice: String(t.malePrice ?? 0),
-            femalePrice: String(t.femalePrice ?? 0),
+            price: String(t.price ?? 0),
+            description: t.description ?? '',
+            capacity: t.capacity != null ? String(t.capacity) : '',
+          })));
+        } else if (ev.pricingTiers?.length) {
+          // Backwards compat — convert old tiers to ticket types
+          setTicketTypes(ev.pricingTiers.map((t: { label: string; commonPrice: number; capacity?: number }) => ({
+            id: uid(),
+            label: t.label ?? 'General',
+            price: String(t.commonPrice ?? ev.price ?? 0),
+            description: '',
             capacity: t.capacity != null ? String(t.capacity) : '',
           })));
         } else {
-          setTiers([{ id: uid(), label: 'General', commonPrice: String(ev.price ?? 0), malePrice: '0', femalePrice: '0', capacity: '' }]);
-        }
-        if (ev.groupPricing?.length) {
-          setGroupPricing(ev.groupPricing.map((g: { label: string; size: number; price: number }) => ({
-            id: uid(),
-            label: g.label ?? '',
-            size: String(g.size ?? 2),
-            price: String(g.price ?? 0),
-          })));
+          setTicketTypes([{ id: uid(), label: 'General', price: String(ev.price ?? 0), description: '', capacity: '' }]);
         }
       })
       .catch(() => {})
       .finally(() => setEditLoading(false));
   }, [editId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tier helpers
-  const addTier    = () => setTiers((t) => [...t, { id: uid(), label: '', commonPrice: '0', malePrice: '0', femalePrice: '0', capacity: '' }]);
-  const removeTier = (id: string) => setTiers((t) => t.filter((x) => x.id !== id));
-  const updateTier = (id: string, field: keyof PricingTier, val: string) =>
-    setTiers((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
-
-  // Group helpers
-  const addGroup    = () => setGroupPricing((g) => [...g, { id: uid(), label: 'Group of 5', size: '5', price: '0' }]);
-  const removeGroup = (id: string) => setGroupPricing((g) => g.filter((x) => x.id !== id));
-  const updateGroup = (id: string, field: keyof GroupPrice, val: string) =>
-    setGroupPricing((g) => g.map((x) => x.id === id ? { ...x, [field]: val } : x));
+  // Ticket type helpers
+  const addTicket    = () => setTicketTypes((t) => [...t, { id: uid(), label: '', price: '0', description: '', capacity: '' }]);
+  const removeTicket = (id: string) => setTicketTypes((t) => t.filter((x) => x.id !== id));
+  const updateTicket = (id: string, field: keyof TicketType, val: string) =>
+    setTicketTypes((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
 
   const handleImages = (files: FileList | null) => {
     if (!files) return;
@@ -246,12 +236,20 @@ function EventFormContent() {
         }
       });
 
-      // Pricing — send base price for backend compat + full structure
-      const basePrice = pricingMode === 'common'
-        ? (tiers[0]?.commonPrice ?? '0')
-        : (tiers[0]?.malePrice ?? '0');
+      // Pricing — send base price for backend compat + ticket types
+      const basePrice = ticketTypes[0]?.price ?? '0';
       fd.set('price', basePrice);
-      fd.append('pricingData', JSON.stringify({ mode: pricingMode, tiers, groups: groupPricing }));
+      fd.append('pricingData', JSON.stringify({
+        mode: 'common',
+        tiers: [],
+        groups: [],
+        ticketTypes: ticketTypes.map((t) => ({
+          label: t.label,
+          price: Number(t.price) || 0,
+          description: t.description || undefined,
+          capacity: t.capacity ? Number(t.capacity) : undefined,
+        })),
+      }));
 
       if (publish) fd.set('status', 'published');
       existingImages.forEach((img) => fd.append('existingImages', img));
@@ -433,7 +431,7 @@ function EventFormContent() {
                 </div>
               </div>
 
-              {isMobile && form.title && <LivePreview form={form} previewColor={previewColor} tiers={tiers} pricingMode={pricingMode} />}
+              {isMobile && form.title && <LivePreview form={form} previewColor={previewColor} ticketTypes={ticketTypes} />}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: isMobile ? 4 : 8 }}>
                 <button
@@ -490,11 +488,12 @@ function EventFormContent() {
                 />
               </Field>
 
-              <PricingBuilder
+              <TicketTypeBuilder
                 isMobile={isMobile}
-                mode={pricingMode} onModeChange={setPricingMode}
-                tiers={tiers} onAddTier={addTier} onRemoveTier={removeTier} onUpdateTier={updateTier}
-                groups={groupPricing} onAddGroup={addGroup} onRemoveGroup={removeGroup} onUpdateGroup={updateGroup}
+                tickets={ticketTypes}
+                onAdd={addTicket}
+                onRemove={removeTicket}
+                onUpdate={updateTicket}
               />
 
               <Field label="PRIVACY">
@@ -617,7 +616,7 @@ function EventFormContent() {
         {!isMobile && (
           <div style={{ position: 'sticky', top: 36 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.14em', marginBottom: 12 }}>LIVE PREVIEW</div>
-            <LivePreview form={form} previewColor={previewColor} tiers={tiers} pricingMode={pricingMode} />
+            <LivePreview form={form} previewColor={previewColor} ticketTypes={ticketTypes} />
           </div>
         )}
       </div>
@@ -625,30 +624,21 @@ function EventFormContent() {
   );
 }
 
-/* ── Pricing Builder ─────────────────────────────────────────────────────── */
+/* ── Ticket Type Builder ─────────────────────────────────────────────────── */
 
-function PricingBuilder({
-  isMobile, mode, onModeChange,
-  tiers, onAddTier, onRemoveTier, onUpdateTier,
-  groups, onAddGroup, onRemoveGroup, onUpdateGroup,
+function TicketTypeBuilder({
+  isMobile, tickets, onAdd, onRemove, onUpdate,
 }: {
   isMobile: boolean;
-  mode: 'common' | 'split';
-  onModeChange: (m: 'common' | 'split') => void;
-  tiers: PricingTier[];
-  onAddTier: () => void;
-  onRemoveTier: (id: string) => void;
-  onUpdateTier: (id: string, field: keyof PricingTier, val: string) => void;
-  groups: GroupPrice[];
-  onAddGroup: () => void;
-  onRemoveGroup: (id: string) => void;
-  onUpdateGroup: (id: string, field: keyof GroupPrice, val: string) => void;
+  tickets: TicketType[];
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, field: keyof TicketType, val: string) => void;
 }) {
   const card: React.CSSProperties = {
     background: '#0E0C09', border: '1px solid var(--line-2)', borderRadius: 6,
     padding: isMobile ? '14px' : '16px 18px', display: 'flex', flexDirection: 'column', gap: 10,
   };
-
   const addBtn: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 8,
     background: 'transparent', border: '1px dashed var(--line-2)',
@@ -656,7 +646,6 @@ function PricingBuilder({
     fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase',
     cursor: 'pointer', transition: 'border-color .15s ease, color .15s ease',
   };
-
   const removeBtn: React.CSSProperties = {
     width: 26, height: 26, borderRadius: '50%',
     background: 'rgba(255,61,110,0.12)', border: '1px solid rgba(255,61,110,0.25)',
@@ -665,147 +654,70 @@ function PricingBuilder({
   };
 
   return (
-    <Field label="PRICING">
-      {/* Mode toggle */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 2 }}>
-        <Pill on={mode === 'common'} onClick={() => onModeChange('common')}>Common pricing</Pill>
-        <Pill on={mode === 'split'}  onClick={() => onModeChange('split')}>Split M / F</Pill>
+    <Field label="TICKETS">
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginBottom: 4 }}>
+        ADD ONE TICKET TYPE PER ENTRY CATEGORY (e.g. STAG, COUPLE, VIP)
       </div>
-      {mode === 'split' && (
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginBottom: 4 }}>
-          DIFFERENT PRICE FOR GUYS AND GIRLS PER TIER
-        </div>
-      )}
-
-      {/* Tiers */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {tiers.map((tier, idx) => (
-          <div key={tier.id} style={card}>
+        {tickets.map((t, idx) => (
+          <div key={t.id} style={card}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', whiteSpace: 'nowrap' }}>
-                TIER {String(idx + 1).padStart(2, '0')}
+                {String(idx + 1).padStart(2, '0')}
               </span>
               <input
-                value={tier.label} onChange={(e) => onUpdateTier(tier.id, 'label', e.target.value)}
-                placeholder="e.g. Early Bird"
+                value={t.label}
+                onChange={(e) => onUpdate(t.id, 'label', e.target.value)}
+                placeholder="e.g. Female Stag, Couple Entry, VIP"
                 style={{ ...smallInput, flex: 1 }}
                 onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
                 onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
               />
-              {tiers.length > 1 && (
-                <button type="button" onClick={() => onRemoveTier(tier.id)} style={removeBtn}>
-                  <X size={11} />
-                </button>
+              {tickets.length > 1 && (
+                <button type="button" onClick={() => onRemove(t.id)} style={removeBtn}><X size={11} /></button>
               )}
             </div>
 
-            {mode === 'common' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <div style={{ ...labelStyle, fontSize: 9, marginBottom: 5 }}>PRICE (₹)</div>
-                  <input type="number" min="0" inputMode="numeric"
-                    value={tier.commonPrice} onChange={(e) => onUpdateTier(tier.id, 'commonPrice', e.target.value)}
-                    placeholder="0" style={smallInput}
-                    onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-                    onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-                  />
-                </div>
-                <div>
-                  <div style={{ ...labelStyle, fontSize: 9, marginBottom: 5 }}>SPOTS (OPTIONAL)</div>
-                  <input type="number" min="1" inputMode="numeric"
-                    value={tier.capacity} onChange={(e) => onUpdateTier(tier.id, 'capacity', e.target.value)}
-                    placeholder="∞" style={smallInput}
-                    onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-                    onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                <div>
-                  <div style={{ ...labelStyle, fontSize: 9, marginBottom: 5 }}>GUYS (₹)</div>
-                  <input type="number" min="0" inputMode="numeric"
-                    value={tier.malePrice} onChange={(e) => onUpdateTier(tier.id, 'malePrice', e.target.value)}
-                    placeholder="0" style={smallInput}
-                    onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-                    onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-                  />
-                </div>
-                <div>
-                  <div style={{ ...labelStyle, fontSize: 9, marginBottom: 5 }}>GIRLS (₹)</div>
-                  <input type="number" min="0" inputMode="numeric"
-                    value={tier.femalePrice} onChange={(e) => onUpdateTier(tier.id, 'femalePrice', e.target.value)}
-                    placeholder="0" style={smallInput}
-                    onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-                    onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-                  />
-                </div>
-                <div>
-                  <div style={{ ...labelStyle, fontSize: 9, marginBottom: 5 }}>SPOTS</div>
-                  <input type="number" min="1" inputMode="numeric"
-                    value={tier.capacity} onChange={(e) => onUpdateTier(tier.id, 'capacity', e.target.value)}
-                    placeholder="∞" style={smallInput}
-                    onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-                    onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-
-        <button type="button" onClick={onAddTier} style={addBtn}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--lime)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--lime)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--line-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--cream)'; }}
-        >
-          <Plus size={12} /> Add pricing tier
-        </button>
-      </div>
-
-      {/* Group pricing */}
-      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed var(--line-2)' }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.12em', marginBottom: 8 }}>GROUP DEALS</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {groups.length === 0 && (
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em' }}>
-              No group deals yet — e.g. group of 5 at a discount.
-            </div>
-          )}
-          {groups.map((g) => (
-            <div key={g.id} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 100px 28px', gap: 8, alignItems: 'center' }}>
-              <input
-                value={g.label} onChange={(e) => onUpdateGroup(g.id, 'label', e.target.value)}
-                placeholder="Group of 5" style={smallInput}
-                onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-                onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-              />
-              <input type="number" min="2" inputMode="numeric"
-                value={g.size} onChange={(e) => onUpdateGroup(g.id, 'size', e.target.value)}
-                placeholder="5" style={{ ...smallInput, textAlign: 'center' }}
-                onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-                onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-              />
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--dim)', pointerEvents: 'none' }}>₹</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <div style={{ ...labelStyle, fontSize: 9, marginBottom: 5 }}>PRICE (₹)</div>
                 <input type="number" min="0" inputMode="numeric"
-                  value={g.price} onChange={(e) => onUpdateGroup(g.id, 'price', e.target.value)}
-                  placeholder="0" style={{ ...smallInput, paddingLeft: 24 }}
+                  value={t.price} onChange={(e) => onUpdate(t.id, 'price', e.target.value)}
+                  placeholder="0" style={smallInput}
                   onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
                   onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
                 />
               </div>
-              <button type="button" onClick={() => onRemoveGroup(g.id)} style={removeBtn}>
-                <X size={11} />
-              </button>
+              <div>
+                <div style={{ ...labelStyle, fontSize: 9, marginBottom: 5 }}>SPOTS (OPTIONAL)</div>
+                <input type="number" min="1" inputMode="numeric"
+                  value={t.capacity} onChange={(e) => onUpdate(t.id, 'capacity', e.target.value)}
+                  placeholder="∞" style={smallInput}
+                  onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+                  onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+                />
+              </div>
             </div>
-          ))}
-          <button type="button" onClick={onAddGroup} style={addBtn}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--lime)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--lime)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--line-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--cream)'; }}
-          >
-            <Plus size={12} /> Add group deal
-          </button>
-        </div>
+
+            <div>
+              <div style={{ ...labelStyle, fontSize: 9, marginBottom: 5 }}>DESCRIPTION (OPTIONAL)</div>
+              <input
+                value={t.description}
+                onChange={(e) => onUpdate(t.id, 'description', e.target.value)}
+                placeholder="e.g. Cover charge ₹1000 redeemable at bar · Access to Main Floor"
+                style={smallInput}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+              />
+            </div>
+          </div>
+        ))}
+        <button type="button" onClick={onAdd} style={addBtn}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--lime)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--lime)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--line-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--cream)'; }}
+        >
+          <Plus size={12} /> Add ticket type
+        </button>
       </div>
     </Field>
   );
@@ -813,17 +725,14 @@ function PricingBuilder({
 
 /* ── Live preview card ───────────────────────────────────────────────────── */
 
-function LivePreview({ form, previewColor, tiers, pricingMode }: {
+function LivePreview({ form, previewColor, ticketTypes }: {
   form: { title: string; category: string; locationName: string; locationLink: string; date: string; startTime: string; endTime: string; capacity: string; vibeTags: string[] };
   previewColor: string;
-  tiers: PricingTier[];
-  pricingMode: 'common' | 'split';
+  ticketTypes: TicketType[];
 }) {
-  const firstTier = tiers[0];
-  const priceLabel = firstTier
-    ? pricingMode === 'common'
-      ? (Number(firstTier.commonPrice) === 0 ? 'FREE' : `₹${firstTier.commonPrice}`)
-      : `₹${firstTier.malePrice} / ₹${firstTier.femalePrice}`
+  const firstTicket = ticketTypes[0];
+  const priceLabel = firstTicket
+    ? (Number(firstTicket.price) === 0 ? 'FREE' : `₹${firstTicket.price}`)
     : 'FREE';
 
   return (
@@ -852,9 +761,9 @@ function LivePreview({ form, previewColor, tiers, pricingMode }: {
         <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 6 }}>
           {form.startTime || '??:??'} → {form.endTime || '??:??'} · {priceLabel} · {form.capacity} spots
         </div>
-        {tiers.length > 1 && (
+        {ticketTypes.length > 1 && (
           <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 4 }}>
-            {tiers.length} pricing tiers
+            {ticketTypes.length} ticket types
           </div>
         )}
         {form.vibeTags.length > 0 && (

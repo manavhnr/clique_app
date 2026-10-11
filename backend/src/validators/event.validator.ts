@@ -47,6 +47,15 @@ const pricingDataField = z.preprocess(
       size: z.coerce.number().int().min(2).default(2),
       price: z.coerce.number().min(0).default(0),
     })).max(10),
+    ticketTypes: z.array(z.object({
+      label: z.string().max(100),
+      price: z.coerce.number().min(0),
+      description: z.string().max(500).optional(),
+      capacity: z.preprocess(
+        (v) => (v === '' || v === null || v === undefined ? undefined : v),
+        z.coerce.number().int().min(1).optional()
+      ),
+    })).max(20).optional(),
   }).optional()
 ).optional();
 

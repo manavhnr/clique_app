@@ -23,6 +23,15 @@ export interface IGroupPricing {
   price: number;
 }
 
+export interface ITicketType {
+  _id?: mongoose.Types.ObjectId;
+  label: string;
+  price: number;
+  description?: string;
+  capacity?: number;
+  soldCount: number;
+}
+
 export interface IEvent extends Document {
   hostId: mongoose.Types.ObjectId;
   title: string;
@@ -46,6 +55,7 @@ export interface IEvent extends Document {
   pricingMode: 'common' | 'split';
   pricingTiers: IPricingTier[];
   groupPricing: IGroupPricing[];
+  ticketTypes: ITicketType[];
   capacity: number;
   bookedCount: number;
   reservedCount: number;
@@ -115,6 +125,16 @@ const eventSchema = new Schema<IEvent>(
         label: { type: String, default: '' },
         size: { type: Number, default: 2 },
         price: { type: Number, default: 0 },
+      }],
+      default: [],
+    },
+    ticketTypes: {
+      type: [{
+        label: { type: String, required: true },
+        price: { type: Number, required: true, min: 0 },
+        description: { type: String },
+        capacity: { type: Number },
+        soldCount: { type: Number, default: 0 },
       }],
       default: [],
     },
