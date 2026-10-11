@@ -453,16 +453,31 @@ export default function EventDetailPage() {
           </button>
         </div>
 
-        {/* Host */}
+        {/* Host + co-hosts */}
         {host && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-            <span style={{ width: 32, height: 32, borderRadius: '50%', background: artColor, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 700, fontSize: 13, color: 'var(--ink)', flexShrink: 0 }}>
-              {host.name?.[0]?.toUpperCase()}
-            </span>
-            <div>
-              <span style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600 }}>{host.name}</span>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', marginLeft: 8 }}>@{host.username}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 32, height: 32, borderRadius: '50%', background: artColor, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 700, fontSize: 13, color: 'var(--ink)', flexShrink: 0 }}>
+                {host.name?.[0]?.toUpperCase()}
+              </span>
+              <div>
+                <span style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600 }}>{host.name}</span>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', marginLeft: 8 }}>@{host.username}</span>
+              </div>
             </div>
+            {(event.coHosts ?? []).length > 0 && (
+              <>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--line-2)', letterSpacing: '.1em' }}>+</span>
+                {(event.coHosts ?? []).map((ch) => (
+                  <div key={ch.userId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--card)', border: '1px solid var(--line-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', flexShrink: 0 }}>
+                      {ch.username?.[0]?.toUpperCase()}
+                    </span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em' }}>@{ch.username}</span>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
 
