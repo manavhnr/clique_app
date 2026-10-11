@@ -145,6 +145,7 @@ export interface Pass {
   passType?: 'individual' | 'group';
   groupId?: string;
   memberIds?: string[];
+  ticketTypeName?: string;
   qrCodeUrl?: string;
   status: 'pending_verification' | 'active' | 'used' | 'expired' | 'cancelled';
   checkedInAt?: string;

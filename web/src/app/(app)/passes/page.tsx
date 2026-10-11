@@ -81,7 +81,12 @@ function PassQRModal({
           <div style={{ textAlign: 'center', padding: '26px 28px 22px' }}>
             <div className="clique-label">YOUR PASS</div>
             <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em', marginTop: 8, lineHeight: 1 }}>{event.title}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.06em', marginTop: 8 }}>
+            {pass.ticketTypeName && (
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.12em', marginTop: 6, textTransform: 'uppercase' }}>
+                {pass.ticketTypeName}
+              </div>
+            )}
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', letterSpacing: '.06em', marginTop: 6 }}>
               {event.startTime && event.endTime ? `${fmtHour(event.startTime)} → ${fmtHour(event.endTime)}` : formatDate(event.date)}
             </div>
             <div style={{ fontFamily: 'var(--display)', fontSize: 13, color: 'var(--cream)', marginTop: 4 }}>{event.locationName}</div>
@@ -436,7 +441,7 @@ function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
   const stampColor = isPendingVerification ? '#F59E0B' : isActive ? 'var(--lime)' : status === 'used' ? 'var(--dim)' : 'var(--hot)';
   const isGroup = pass.passType === 'group';
   const groupSize = isGroup ? (pass.memberIds?.length ?? 0) : 0;
-  const admitLabel = isGroup && groupSize > 0 ? `Admit ${groupSize}` : 'Admit one';
+  const admitLabel = pass.ticketTypeName || (isGroup && groupSize > 0 ? `Admit ${groupSize}` : 'Admit one');
   const stampLabel = isPendingVerification ? 'Under review' : isActive ? admitLabel : status === 'used' ? 'Checked in' : status;
 
   return (

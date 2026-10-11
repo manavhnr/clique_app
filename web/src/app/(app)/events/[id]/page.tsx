@@ -220,8 +220,6 @@ export default function EventDetailPage() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [tcOpen, setTcOpen] = useState(false);
-  const [chooseTicketsOpen, setChooseTicketsOpen] = useState(false);
-  const [selectedTicketTypeIdx, setSelectedTicketTypeIdx] = useState<number | null>(null);
 
   useEffect(() => {
     api.get(`/events/${id}`)
@@ -263,10 +261,8 @@ export default function EventDetailPage() {
   const paymentPending      = !!(userBooking?.status === 'payment_pending');
   const paymentUnderReview  = !!(userBooking?.status === 'utr_submitted');
 
-  const selectedTicketType = selectedTicketTypeIdx !== null ? (ticketTypes[selectedTicketTypeIdx] ?? null) : null;
   const basePrice = (() => {
     if (!event) return 0;
-    if (selectedTicketType) return selectedTicketType.price;
     if (selectedGroup) return selectedGroup.price;
     if (activeTier) {
       if (pricingMode === 'split') {
@@ -323,8 +319,7 @@ export default function EventDetailPage() {
     setError(''); setBookLoading(true);
     try {
       const payload: Record<string, unknown> = { eventId: id };
-      if (selectedTicketTypeIdx !== null) payload.ticketTypeIndex = selectedTicketTypeIdx;
-      else if (selectedGroupIdx !== null) payload.groupPricingIndex = selectedGroupIdx;
+      if (selectedGroupIdx !== null) payload.groupPricingIndex = selectedGroupIdx;
       const { data: bookRes } = await api.post('/bookings', payload);
       const createdBooking = bookRes.data?.booking;
       if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
@@ -404,7 +399,6 @@ export default function EventDetailPage() {
   const ctaLabel = () => {
     if (isFull) return 'Sold out';
     if (bookLoading) return '…';
-    if (hasTicketTypes && selectedTicketType) return `Book · ₹${effectivePrice.toLocaleString('en-IN')}`;
     if (hasTicketTypes) return 'Choose tickets';
     if (selectedGroup) return `Book group · ₹${effectivePrice.toLocaleString('en-IN')}`;
     if (pricingMode === 'split' && activeTier) return 'Book tickets';
@@ -610,11 +604,9 @@ export default function EventDetailPage() {
                   <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em' }}>
                     {Math.min(...ticketTypes.map((t) => t.price)) === 0 ? 'Free' : `₹${Math.min(...ticketTypes.map((t) => t.price)).toLocaleString('en-IN')} onwards`}
                   </div>
-                  {selectedTicketType && (
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.08em', marginTop: 4 }}>
-                      ✓ {selectedTicketType.label} · ₹{effectivePrice.toLocaleString('en-IN')} selected
-                    </div>
-                  )}
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em', marginTop: 4 }}>
+                    {ticketTypes.length} ticket type{ticketTypes.length !== 1 ? 's' : ''} available
+                  </div>
                 </div>
               )}
               {/* Phase pills */}
@@ -762,8 +754,8 @@ export default function EventDetailPage() {
               ) : !event.approvalRequired ? (
                 <button
                   onClick={() => {
-                    if (hasTicketTypes && selectedTicketTypeIdx === null) {
-                      setChooseTicketsOpen(true);
+                    if (hasTicketTypes) {
+                      router.push(`/events/${id}/tickets`);
                     } else {
                       handleBook();
                     }
@@ -799,75 +791,6 @@ export default function EventDetailPage() {
           </div>
         </aside>
       </div>
-
-      {/* Choose Tickets modal */}
-      {chooseTicketsOpen && hasTicketTypes && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', padding: 20 }} onClick={() => setChooseTicketsOpen(false)}>
-          <div style={{ background: '#14110E', border: '1px solid var(--line-2)', borderRadius: 14, width: '100%', maxWidth: 560, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.8)', animation: 'riseIn .25s cubic-bezier(.4,1.4,.5,1) both', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--line)' }}>
-              <div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.14em', marginBottom: 4 }}>CHOOSE TICKETS</div>
-                <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 18 }}>{event.title}</div>
-              </div>
-              <button onClick={() => setChooseTicketsOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 'none', color: 'var(--dim)', fontSize: 28, cursor: 'pointer', lineHeight: 1 }}>×</button>
-            </div>
-            <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {ticketTypes.map((tt, idx) => {
-                const isSoldOut = !!(tt.capacity && tt.soldCount >= tt.capacity);
-                const isSelected = selectedTicketTypeIdx === idx;
-                return (
-                  <div key={idx} style={{ border: `1px solid ${isSelected ? 'var(--lime)' : 'var(--line-2)'}`, borderRadius: 10, padding: '16px 18px', background: isSelected ? 'rgba(201,243,110,0.05)' : '#0E0C09', opacity: isSoldOut ? 0.45 : 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{tt.label}</div>
-                        <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, color: isSelected ? 'var(--lime)' : 'var(--paper)', marginBottom: tt.description ? 10 : 0 }}>
-                          {tt.price === 0 ? 'Free' : `₹${tt.price.toLocaleString('en-IN')}`}
-                        </div>
-                        {tt.description && (
-                          <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                            {tt.description.split(/[•·]/).filter(Boolean).map((line, i) => (
-                              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 2 }}>
-                                <span style={{ color: 'var(--line-2)' }}>•</span>
-                                <span>{line.trim()}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => {
-                          if (isSoldOut) return;
-                          setSelectedTicketTypeIdx(isSelected ? null : idx);
-                          if (!isSelected) setChooseTicketsOpen(false);
-                        }}
-                        disabled={isSoldOut}
-                        style={{ flexShrink: 0, background: isSelected ? 'var(--lime)' : 'transparent', color: isSelected ? 'var(--ink)' : 'var(--cream)', border: `1px solid ${isSelected ? 'var(--lime)' : 'var(--line-2)'}`, padding: '8px 18px', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', cursor: isSoldOut ? 'not-allowed' : 'pointer', alignSelf: 'center' }}
-                      >
-                        {isSoldOut ? 'Sold out' : isSelected ? 'Selected ✓' : 'Add'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {selectedTicketTypeIdx !== null && (
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--line)', display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em' }}>SELECTED</div>
-                  <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15 }}>{ticketTypes[selectedTicketTypeIdx]?.label} · ₹{effectivePrice.toLocaleString('en-IN')}</div>
-                </div>
-                <button
-                  onClick={() => { setChooseTicketsOpen(false); handleBook(); }}
-                  disabled={bookLoading}
-                  style={{ background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '14px 24px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, cursor: bookLoading ? 'not-allowed' : 'pointer', opacity: bookLoading ? 0.6 : 1 }}
-                >
-                  {bookLoading ? '…' : 'Book now →'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* About modal */}
       {aboutOpen && (

@@ -7,6 +7,7 @@ export interface IPass extends Document {
   passType: 'individual' | 'group';
   groupId?: mongoose.Types.ObjectId;           // ref EventSquad (group passes only)
   memberIds?: mongoose.Types.ObjectId[];       // all member userIds covered (group passes only)
+  ticketTypeName?: string;                     // ticket type label (e.g. "Male Stag", "Couple Entry")
   qrTokenHash: string;
   qrCodeUrl?: string;
   status: 'pending_verification' | 'active' | 'used' | 'expired' | 'cancelled';
@@ -24,6 +25,7 @@ const passSchema = new Schema<IPass>(
     passType:   { type: String, enum: ['individual', 'group'], default: 'individual' },
     groupId:    { type: Schema.Types.ObjectId, ref: 'EventSquad' },
     memberIds:  { type: [Schema.Types.ObjectId], default: undefined },
+    ticketTypeName: { type: String },
     qrTokenHash: { type: String, required: true, unique: true },
     qrCodeUrl:  { type: String },
     status:     { type: String, enum: ['pending_verification', 'active', 'used', 'expired', 'cancelled'], default: 'active' },

@@ -17,10 +17,10 @@ import { getUserActiveDiscount, markDiscountUsed, applyDiscount } from './discou
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-export async function generatePass(bookingId: string, userId: string, eventId: string) {
+export async function generatePass(bookingId: string, userId: string, eventId: string, ticketTypeName?: string) {
   // Create pass record first to get passId
   const tempHash = crypto.randomBytes(16).toString('hex');
-  const pass = await Pass.create({ bookingId, userId, eventId, qrTokenHash: tempHash, status: 'active' });
+  const pass = await Pass.create({ bookingId, userId, eventId, qrTokenHash: tempHash, status: 'active', ...(ticketTypeName ? { ticketTypeName } : {}) });
 
   // JWT payload — signed with JWT_SECRET, contains passId + eventId for scanner validation
   const qrPayload = jwt.sign(
@@ -43,7 +43,14 @@ export async function generatePass(bookingId: string, userId: string, eventId: s
 
 // ─── Create Booking ───────────────────────────────────────────────────────────
 
-export async function createBooking(userId: string, eventId: string, tierLabel?: string, groupPricingIndex?: number, ticketTypeIndex?: number) {
+export async function createBooking(
+  userId: string,
+  eventId: string,
+  tierLabel?: string,
+  groupPricingIndex?: number,
+  ticketTypeIndex?: number,
+  ticketSelections?: Array<{ ticketTypeIndex: number; quantity: number }>,
+) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
   if (event.status !== 'published') throw createError('Event is not available for booking', 400);
@@ -59,9 +66,95 @@ export async function createBooking(userId: string, eventId: string, tierLabel?:
     if (!request) throw createError('Access not approved for this private event', 403);
   }
 
-  // ── Ticket types (new flow) ──────────────────────────────────────────────────
+  // ── Multi-ticket flow (ticketSelections array) ────────────────────────────────
   const ticketTypesArr = (event.ticketTypes ?? []) as { label: string; price: number; description?: string; capacity?: number; soldCount: number }[];
   const hasTicketTypes = ticketTypesArr.length > 0;
+
+  if (hasTicketTypes && ticketSelections && ticketSelections.length > 0) {
+    // Validate each selection
+    type TicketLine = { ticketTypeName: string; quantity: number; unitPrice: number; ticketTypeIndex: number };
+    const lines: TicketLine[] = [];
+    let totalQuantity = 0;
+    for (const sel of ticketSelections) {
+      if (!sel.quantity || sel.quantity < 1) throw createError('Quantity must be at least 1', 400);
+      const tt = ticketTypesArr[sel.ticketTypeIndex];
+      if (!tt) throw createError('Invalid ticket type selection', 400);
+      if (tt.capacity && tt.soldCount + sel.quantity > tt.capacity) {
+        throw createError(`${tt.label} doesn't have enough spots`, 409);
+      }
+      lines.push({ ticketTypeName: tt.label, quantity: sel.quantity, unitPrice: tt.price, ticketTypeIndex: sel.ticketTypeIndex });
+      totalQuantity += sel.quantity;
+    }
+
+    const rawTotal = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+    const activeDiscount = await getUserActiveDiscount(userId, eventId);
+    const finalTotal = activeDiscount ? applyDiscount(rawTotal, activeDiscount) : rawTotal;
+    const isFree = finalTotal === 0;
+    const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
+
+    const session = await mongoose.startSession();
+    let booking: IBooking | null = null;
+    try {
+      await session.withTransaction(async () => {
+        const dup = await Booking.findOne(
+          { userId, eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } },
+          null,
+          { session }
+        );
+        if (dup) throw createError('Already booked this event', 409);
+
+        const countField = isFree ? 'bookedCount' : 'reservedCount';
+        const inc: Record<string, number> = { [countField]: totalQuantity };
+        for (const line of lines) {
+          const key = `ticketTypes.${line.ticketTypeIndex}.soldCount`;
+          inc[key] = (inc[key] ?? 0) + line.quantity;
+        }
+        const capacityQuery = {
+          _id: eventId,
+          status: 'published',
+          $expr: { $lte: [{ $add: ['$bookedCount', { $ifNull: ['$reservedCount', 0] }, totalQuantity] }, '$capacity'] },
+        };
+        const ev = await Event.findOneAndUpdate(capacityQuery, { $inc: inc }, { new: true, session });
+        if (!ev) throw createError('Event is fully booked', 409);
+
+        const tierLabelSummary = lines.map((l) => `${l.quantity}× ${l.ticketTypeName}`).join(', ');
+        const ticketLinesDoc = lines.map((l) => ({ ticketTypeName: l.ticketTypeName, quantity: l.quantity, unitPrice: l.unitPrice }));
+
+        const [created] = await Booking.create(
+          [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: finalTotal, tierLabel: tierLabelSummary, groupSize: totalQuantity, ticketLines: ticketLinesDoc }],
+          { session }
+        );
+        booking = created as unknown as IBooking;
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    if (!booking) throw createError('Booking creation failed', 500);
+    const confirmedBooking = booking as IBooking;
+
+    if (activeDiscount) void markDiscountUsed(activeDiscount._id.toString(), confirmedBooking._id.toString());
+
+    let passes: (Awaited<ReturnType<typeof generatePass>>)[] = [];
+    if (isFree) {
+      for (const line of lines) {
+        for (let i = 0; i < line.quantity; i++) {
+          const p = await generatePass(confirmedBooking._id.toString(), userId, eventId, line.ticketTypeName);
+          passes.push(p);
+        }
+      }
+      if (passes.length > 0) {
+        await Booking.findByIdAndUpdate(confirmedBooking._id, { passId: passes[0]._id });
+      }
+      await incrementEventAttendance(userId);
+      void notifyBookingConfirmed(userId, event.title, passes[0]?._id.toString() ?? '');
+      await writeAuditLog({ actorId: userId, action: 'FREE_BOOKING_CONFIRMED', targetType: 'Booking', targetId: confirmedBooking._id.toString() });
+    }
+
+    return { booking: confirmedBooking, passes: passes.length > 0 ? passes : null };
+  }
+
+  // ── Single-ticket flow (legacy ticketTypeIndex) ───────────────────────────────
   let selectedTicketType: { label: string; price: number; description?: string; capacity?: number; soldCount: number } | null = null;
   if (hasTicketTypes) {
     if (ticketTypeIndex === undefined || ticketTypeIndex === null) {
@@ -230,7 +323,21 @@ export async function confirmBookingAfterPayment(bookingId: string, paymentId: s
   if (!['payment_pending', 'utr_submitted'].includes(booking.status)) throw createError('Booking not in payment_pending state', 400);
 
   const event = await Event.findById(booking.eventId).select('title');
-  const pass = await generatePass(bookingId, booking.userId.toString(), booking.eventId.toString());
+
+  // Multi-ticket: generate one pass per line × quantity
+  const ticketLines = (booking as IBooking).ticketLines;
+  let firstPass: Awaited<ReturnType<typeof generatePass>> | null = null;
+  if (ticketLines && ticketLines.length > 0) {
+    for (const line of ticketLines) {
+      for (let i = 0; i < line.quantity; i++) {
+        const p = await generatePass(bookingId, booking.userId.toString(), booking.eventId.toString(), line.ticketTypeName);
+        if (!firstPass) firstPass = p;
+      }
+    }
+  } else {
+    firstPass = await generatePass(bookingId, booking.userId.toString(), booking.eventId.toString());
+  }
+  const pass = firstPass!;
 
   await Booking.findByIdAndUpdate(bookingId, {
     status: 'confirmed',

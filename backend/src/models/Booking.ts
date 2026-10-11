@@ -8,6 +8,7 @@ export interface IBooking extends Document {
   amount: number;
   tierLabel?: string;
   groupSize: number;
+  ticketLines?: Array<{ ticketTypeName: string; quantity: number; unitPrice: number }>;
   paymentId?: mongoose.Types.ObjectId;
   passId?: mongoose.Types.ObjectId;
   cancellationReason?: string;
@@ -28,6 +29,10 @@ const bookingSchema = new Schema<IBooking>(
     amount: { type: Number, required: true, min: 0 },
     tierLabel: { type: String },
     groupSize: { type: Number, default: 1, min: 1 },
+    ticketLines: {
+      type: [{ ticketTypeName: String, quantity: Number, unitPrice: Number }],
+      default: undefined,
+    },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
     passId: { type: Schema.Types.ObjectId, ref: 'Pass' },
     cancellationReason: { type: String },
