@@ -41,7 +41,7 @@ const pricingDataField = z.preprocess(
         (v) => (v === '' || v === null || v === undefined ? undefined : v),
         z.coerce.number().int().min(1).optional()
       ),
-    })).min(1).max(10),
+    })).max(10),
     groups: z.array(z.object({
       label: z.string().max(100).default(''),
       size: z.coerce.number().int().min(2).default(2),
