@@ -399,7 +399,7 @@ export default function EventDetailPage() {
   };
 
   return (
-    <div style={{ maxWidth: 1080 }}>
+    <div style={{ maxWidth: 1080, margin: '0 auto', width: '100%' }}>
       {/* Back */}
       <Link href="/events" style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.12em', color: 'var(--dim)', textTransform: 'uppercase', display: 'inline-block', marginBottom: 20 }}>
         ← Events
