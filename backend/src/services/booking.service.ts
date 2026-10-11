@@ -294,7 +294,7 @@ export async function createBooking(
   // Free event — generate pass immediately
   let pass = null;
   if (isFree) {
-    pass = await generatePass(confirmedBooking._id.toString(), userId, eventId);
+    pass = await generatePass(confirmedBooking._id.toString(), userId, eventId, selectedTicketType?.label);
     await Booking.findByIdAndUpdate(confirmedBooking._id, { passId: pass._id });
     await incrementEventAttendance(userId);
     void notifyBookingConfirmed(userId, event.title, pass._id.toString());
@@ -335,7 +335,7 @@ export async function confirmBookingAfterPayment(bookingId: string, paymentId: s
       }
     }
   } else {
-    firstPass = await generatePass(bookingId, booking.userId.toString(), booking.eventId.toString());
+    firstPass = await generatePass(bookingId, booking.userId.toString(), booking.eventId.toString(), booking.tierLabel || undefined);
   }
   const pass = firstPass!;
 
