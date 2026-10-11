@@ -238,7 +238,7 @@ export default function PassesPage() {
 
   const handleCompletePayment = (booking: Booking) => {
     setUtr(''); setUpiError('');
-    setUpiModal({ bookingId: booking._id, amount: booking.amount / 100 });
+    setUpiModal({ bookingId: booking._id, amount: booking.amount });
   };
 
   const handleUTRResubmit = (_passId: string, bookingId: string, amount: number) => {
