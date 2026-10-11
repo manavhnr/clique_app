@@ -9,10 +9,11 @@ import {
   listPendingHosts, listAllHosts, listVerifiedHosts, approveHostAdmin, rejectHostAdmin, getHostDashboard,
   getAdminConfigs, setAdminConfig,
 } from '../services/admin.service';
-import { recalculateBookedCount } from '../services/event.service';
+import { createEvent, recalculateBookedCount } from '../services/event.service';
 import { generatePass } from '../services/booking.service';
 import { Booking } from '../models/Booking';
 import { Pass } from '../models/Pass';
+import { User } from '../models/User';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
 const parseLimit = (q: unknown) => Math.min(100, Math.max(1, parseInt(String(q ?? 20))));
@@ -190,5 +191,24 @@ export async function recalculateCount(req: AuthRequest, res: Response, next: Ne
   try {
     const result = await recalculateBookedCount(req.params.eventId);
     sendSuccess(res, result, "Count recalculated");
+  } catch (err) { next(err); }
+}
+
+export async function adminCreateEvent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const hostId = req.body.hostId as string | undefined;
+    if (!hostId) { res.status(400).json({ success: false, message: 'hostId is required' }); return; }
+
+    const host = await User.findById(hostId).select('isVerifiedHost role');
+    if (!host) { res.status(404).json({ success: false, message: 'Host not found' }); return; }
+    if (!host.isVerifiedHost) { res.status(400).json({ success: false, message: 'User is not a verified host' }); return; }
+
+    const filesMap = req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[] } | undefined;
+    const imageFiles = filesMap?.images ?? [];
+    const videoFiles = filesMap?.videos ?? [];
+
+    // req.body has already been validated by the createEventSchema middleware
+    const event = await createEvent(hostId, req.body, imageFiles, videoFiles);
+    sendSuccess(res, { event }, 'Event created by admin', 201);
   } catch (err) { next(err); }
 }

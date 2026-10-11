@@ -4,10 +4,14 @@ import { requireRole } from '../middleware/role.middleware';
 import {
   stats, users, ban, unban, userDetail,
   events, eventDetail, blockEv, unblockEv, removeGuest, recalculateCount, generatePassForBooking,
+  adminCreateEvent,
   reports, resolveRep,
   pendingHosts, allHosts, verifiedHosts, approveHost, rejectHost, hostDashboard,
   getConfig, setConfig,
 } from '../controllers/admin.controller';
+import { uploadMedia } from '../middleware/upload.middleware';
+import { validate } from '../middleware/validate.middleware';
+import { createEventSchema } from '../validators/event.validator';
 
 const router = Router();
 
@@ -19,6 +23,11 @@ router.get('/users/:userId', userDetail);
 router.patch('/users/:userId/ban', ban);
 router.patch('/users/:userId/unban', unban);
 router.get('/events', events);
+router.post('/events',
+  uploadMedia.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 3 }]),
+  validate(createEventSchema),
+  adminCreateEvent
+);
 router.get('/events/:eventId', eventDetail);
 router.patch('/events/:eventId/block', blockEv);
 router.patch('/events/:eventId/unblock', unblockEv);

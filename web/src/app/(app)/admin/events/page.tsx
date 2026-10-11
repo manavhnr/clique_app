@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import api from '@/lib/api';
 import Button from '@/components/ui/Button';
 
@@ -104,11 +105,16 @@ export default function AdminEventsPage() {
   return (
     <div>
       {/* Head */}
-      <div style={{ marginBottom: 28 }}>
-        <div className="clique-label" style={{ marginBottom: 8 }}>ADMIN / EVENTS</div>
-        <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(28px, 4.5vw, 44px)', fontWeight: 800, lineHeight: 0.94, letterSpacing: '-0.03em', margin: 0 }}>
-          Events.
-        </h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, gap: 16 }}>
+        <div>
+          <div className="clique-label" style={{ marginBottom: 8 }}>ADMIN / EVENTS</div>
+          <h1 style={{ fontFamily: 'var(--display)', fontSize: 'clamp(28px, 4.5vw, 44px)', fontWeight: 800, lineHeight: 0.94, letterSpacing: '-0.03em', margin: 0 }}>
+            Events.
+          </h1>
+        </div>
+        <Link href="/admin/events/new" style={{ textDecoration: 'none' }}>
+          <Button size="sm" variant="primary">+ Create Event</Button>
+        </Link>
       </div>
 
       {/* Toast */}
