@@ -37,6 +37,8 @@ export interface IEvent extends Document {
   title: string;
   description: string;
   images: string[];
+  bannerImageIndex: number;
+  thumbnailImageIndex: number;
   videos: string[];
   category: 'house_party' | 'club' | 'college' | 'private' | 'secret' | 'concert' | 'other';
   vibeTags: string[];
