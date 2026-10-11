@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { Payment } from '../models/Payment';
-import { Booking } from '../models/Booking';
+import { Booking, IBooking } from '../models/Booking';
 import { Event } from '../models/Event';
 import { Pass } from '../models/Pass';
 import { createError } from '../middleware/error.middleware';
@@ -202,6 +202,33 @@ export async function handleWebhook(rawBody: Buffer, signature: string) {
   }
 }
 
+// ─── Helper: generate pass(es) for a booking at UTR-submit time ──────────────
+
+async function generatePassesForBooking(
+  booking: IBooking,
+  bookingId: string,
+  userId: string,
+): Promise<string> {
+  const ticketLines = booking.ticketLines;
+  let firstPassId: string | null = null;
+
+  if (ticketLines && ticketLines.length > 0) {
+    for (const line of ticketLines) {
+      for (let i = 0; i < line.quantity; i++) {
+        const p = await generatePass(bookingId, userId, booking.eventId.toString(), line.ticketTypeName);
+        await Pass.findByIdAndUpdate(p._id, { status: 'pending_verification' });
+        if (!firstPassId) firstPassId = p._id.toString();
+      }
+    }
+  } else {
+    const p = await generatePass(bookingId, userId, booking.eventId.toString(), booking.tierLabel || undefined);
+    await Pass.findByIdAndUpdate(p._id, { status: 'pending_verification' });
+    firstPassId = p._id.toString();
+  }
+
+  return firstPassId!;
+}
+
 // ─── Submit UPI Payment ───────────────────────────────────────────────────────
 
 export async function submitUPIPayment(
@@ -247,14 +274,13 @@ export async function submitUPIPayment(
       await Payment.findByIdAndUpdate(orphaned._id, { utrNumber, upiId });
       // Re-generate pass if none exists
       if (!booking.passId) {
-        const pass = await generatePass(bookingId, userId, booking.eventId.toString());
-        await Pass.findByIdAndUpdate(pass._id, { status: 'pending_verification' });
+        const firstPassId = await generatePassesForBooking(booking as IBooking, bookingId, userId);
         await Booking.findByIdAndUpdate(bookingId, {
           status: 'utr_submitted',
-          passId: pass._id,
+          passId: firstPassId,
           paymentId: orphaned._id,
         });
-        return { paymentId: orphaned._id, passId: pass._id, status: 'pending_verification' };
+        return { paymentId: orphaned._id, passId: firstPassId, status: 'pending_verification' };
       }
       await Booking.findByIdAndUpdate(bookingId, { status: 'utr_submitted', paymentId: orphaned._id });
       return { paymentId: orphaned._id, passId: booking.passId, status: 'pending_verification' };
@@ -273,13 +299,12 @@ export async function submitUPIPayment(
     status: 'pending_verification',
   });
 
-  // Generate pass immediately with pending_verification status — QR is withheld until admin confirms
-  const pass = await generatePass(bookingId, userId, booking.eventId.toString());
-  await Pass.findByIdAndUpdate(pass._id, { status: 'pending_verification' });
+  // Generate pass(es) immediately with pending_verification status — QR is withheld until admin confirms
+  const firstPassId = await generatePassesForBooking(booking as IBooking, bookingId, userId);
 
   await Booking.findByIdAndUpdate(bookingId, {
     status: 'utr_submitted',
-    passId: pass._id,
+    passId: firstPassId,
     paymentId: payment._id,
   });
 
@@ -291,7 +316,7 @@ export async function submitUPIPayment(
     metadata: { bookingId, utrNumber, upiId, amount: totalAmount },
   });
 
-  return { paymentId: payment._id, passId: pass._id, status: 'pending_verification' };
+  return { paymentId: payment._id, passId: firstPassId, status: 'pending_verification' };
 }
 
 // ─── Admin: Verify UPI Payment ────────────────────────────────────────────────
@@ -313,22 +338,29 @@ export async function adminVerifyUPIPayment(paymentId: string, adminId: string) 
 
   const eventDoc = await Event.findById(payment.eventId).select('title');
 
-  // Activate the pre-generated pass if it exists; otherwise generate one now.
-  // The latter happens when a booking was manually restored for a user who paid
-  // before the UTR submission bug was fixed.
+  // Activate the pre-generated pass(es) if they exist; otherwise generate one now.
   let pass = null;
   if (booking.passId) {
-    pass = await Pass.findByIdAndUpdate(
-      booking.passId,
-      { status: 'active' },
-      { new: true }
+    // Activate ALL pending_verification passes for this booking (handles multi-ticket)
+    await Pass.updateMany(
+      { bookingId: payment.bookingId, status: 'pending_verification' },
+      { status: 'active' }
     );
+    // Backfill ticketTypeName for any passes that are missing it
+    if (booking.tierLabel) {
+      await Pass.updateMany(
+        { bookingId: payment.bookingId, ticketTypeName: { $exists: false } },
+        { $set: { ticketTypeName: booking.tierLabel } }
+      );
+    }
+    pass = await Pass.findById(booking.passId);
   } else {
     const { generatePass } = await import('./booking.service');
     pass = await generatePass(
       payment.bookingId.toString(),
       payment.userId.toString(),
-      payment.eventId.toString()
+      payment.eventId.toString(),
+      booking.tierLabel || undefined
     );
   }
 
