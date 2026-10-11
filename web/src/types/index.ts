@@ -59,6 +59,15 @@ export interface GroupDeal {
   price: number;
 }
 
+export interface TicketType {
+  _id?: string;
+  label: string;
+  price: number;
+  description?: string;
+  capacity?: number;
+  soldCount: number;
+}
+
 export interface Event {
   _id: string;
   hostId: string | User;
@@ -79,6 +88,7 @@ export interface Event {
   pricingMode?: 'common' | 'split';
   pricingTiers?: PricingTier[];
   groupPricing?: GroupDeal[];
+  ticketTypes?: TicketType[];
   platformFee?: number;
   capacity: number;
   bookedCount: number;

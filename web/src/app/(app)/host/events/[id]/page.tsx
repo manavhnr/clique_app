@@ -9,7 +9,7 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import { PageSpinner } from '@/components/ui/Spinner';
 import ScannerModal from '@/components/ScannerModal';
-import { Event, EventMember, GroupDeal, PricingTier, Squad } from '@/types';
+import { Event, EventMember, TicketType, Squad } from '@/types';
 import { formatDate, formatTime, formatPrice, getImageUrl } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -160,10 +160,19 @@ export default function HostEventPage() {
 // ── Header ───────────────────────────────────────────────────────────────────
 
 function getDisplayPrice(event: Event): string {
-  const tiers: PricingTier[] = event.pricingTiers ?? [];
-  if (tiers.length === 0) return formatPrice(event.price);
-  const min = Math.min(...tiers.flatMap((t) => [t.commonPrice, t.malePrice, t.femalePrice].filter((p) => p > 0)));
-  return `${formatPrice(min)} onwards`;
+  const tickets: TicketType[] = event.ticketTypes ?? [];
+  if (tickets.length > 0) {
+    const prices = tickets.map((t) => t.price).filter((p) => p >= 0);
+    if (prices.length === 0) return formatPrice(0);
+    const min = Math.min(...prices);
+    return tickets.length === 1 ? formatPrice(min) : `${formatPrice(min)} onwards`;
+  }
+  const tiers = event.pricingTiers ?? [];
+  if (tiers.length > 0) {
+    const min = Math.min(...tiers.flatMap((t) => [t.commonPrice, t.malePrice, t.femalePrice].filter((p) => p > 0)));
+    return `${formatPrice(min)} onwards`;
+  }
+  return formatPrice(event.price);
 }
 
 function EventHeader({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
@@ -1131,295 +1140,125 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
 
 // ── Phases tab ───────────────────────────────────────────────────────────────
 
-function PhasesTab({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
-  const tiers: PricingTier[] = event.pricingTiers ?? [];
-  const groups: GroupDeal[]  = event.groupPricing ?? [];
+function PhasesTab({ event }: { event: Event; onRefresh: () => void }) {
+  const tickets: TicketType[] = event.ticketTypes ?? [];
 
-  // Add-phase form state
-  const [pricingMode, setPricingMode] = useState<'common' | 'split'>(event.pricingMode ?? 'common');
-  const [label, setLabel]             = useState('');
-  const [price, setPrice]             = useState('');
-  const [malePrice, setMalePrice]     = useState('');
-  const [femalePrice, setFemalePrice] = useState('');
-  const [capacity, setCapacity]       = useState('');
-  const [adding, setAdding]           = useState(false);
-  const [toggling, setToggling]       = useState<string | null>(null);
-  const [error, setError]             = useState('');
+  if (tickets.length === 0) {
+    return (
+      <div className="ledger px-1 py-12">
+        <div className="clique-label mb-3 !text-[10px] !tracking-[.16em]">№ 000 — NO TICKETS</div>
+        <p className="m-0 font-display text-xl font-bold tracking-[-0.02em] text-paper">No ticket types set.</p>
+        <p className="m-0 mt-2 font-display text-sm leading-relaxed text-cream">
+          Ticket types are configured when creating or editing the event.
+        </p>
+        <Link
+          href={`/host/events/new?edit=${event._id}`}
+          className="mt-4 inline-block font-mono text-[11px] uppercase tracking-[.1em] text-lime transition-colors hover:opacity-80"
+        >
+          Edit event →
+        </Link>
+      </div>
+    );
+  }
 
-  // Group deal form state
-  const [gdLabel, setGdLabel]     = useState('');
-  const [gdSize, setGdSize]       = useState('');
-  const [gdPrice, setGdPrice]     = useState('');
-  const [addingGd, setAddingGd]   = useState(false);
-  const [removingGd, setRemovingGd] = useState<number | null>(null);
-  const [gdError, setGdError]     = useState('');
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!label.trim()) return;
-    if (pricingMode === 'common' && !price.trim()) return;
-    if (pricingMode === 'split' && !malePrice.trim() && !femalePrice.trim()) return;
-    setError(''); setAdding(true);
-    try {
-      await api.post(`/events/${event._id}/tiers`, {
-        label: label.trim(),
-        commonPrice: pricingMode === 'common' ? Number(price) : 0,
-        malePrice:   pricingMode === 'split'  ? Number(malePrice) : 0,
-        femalePrice: pricingMode === 'split'  ? Number(femalePrice) : 0,
-        capacity: capacity ? Number(capacity) : undefined,
-      });
-      setLabel(''); setPrice(''); setMalePrice(''); setFemalePrice(''); setCapacity('');
-      await onRefresh();
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Failed to add phase');
-    } finally { setAdding(false); }
-  };
-
-  const handleToggle = async (tier: PricingTier) => {
-    setError(''); setToggling(tier._id);
-    try {
-      const action = tier.isOpen ? 'close' : 'open';
-      await api.patch(`/events/${event._id}/tiers/${tier._id}/${action}`);
-      await onRefresh();
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Failed to update phase');
-    } finally { setToggling(null); }
-  };
-
-  const handleAddGroupDeal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!gdLabel.trim() || !gdSize.trim() || !gdPrice.trim()) return;
-    setGdError(''); setAddingGd(true);
-    try {
-      await api.post(`/events/${event._id}/group-deals`, {
-        label: gdLabel.trim(),
-        size: Number(gdSize),
-        price: Number(gdPrice),
-      });
-      setGdLabel(''); setGdSize(''); setGdPrice('');
-      await onRefresh();
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setGdError(e.response?.data?.message ?? 'Failed to add group deal');
-    } finally { setAddingGd(false); }
-  };
-
-  const handleRemoveGroupDeal = async (index: number) => {
-    setGdError(''); setRemovingGd(index);
-    try {
-      await api.delete(`/events/${event._id}/group-deals/${index}`);
-      await onRefresh();
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setGdError(e.response?.data?.message ?? 'Failed to remove group deal');
-    } finally { setRemovingGd(null); }
-  };
-
-  const canAdd = !['cancelled', 'completed', 'blocked'].includes(event.status);
+  const totalSold = tickets.reduce((s, t) => s + t.soldCount, 0);
+  const totalCapacity = tickets.every((t) => t.capacity != null)
+    ? tickets.reduce((s, t) => s + (t.capacity ?? 0), 0)
+    : null;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
 
-      {/* ── Ticket phases ── */}
-      <div className="flex flex-col gap-4">
-        {tiers.length === 0 ? (
-          <div className="ledger px-1 py-10">
-            <div className="clique-label mb-3 !text-[10px] !tracking-[.16em]">№ 000 — NO PHASES</div>
-            <p className="m-0 font-display text-xl font-bold tracking-[-0.02em] text-paper">No ticket phases yet.</p>
-            <p className="m-0 mt-2 font-display text-sm leading-relaxed text-cream">
-              Add a phase below — it goes live immediately and attendees can book it.
-            </p>
+      {/* Summary bar */}
+      {tickets.length > 1 && (
+        <div className="flex flex-wrap gap-px overflow-hidden rounded-card border border-line-2">
+          <div className="flex min-w-[120px] flex-1 flex-col gap-1 bg-card px-5 py-4">
+            <span className="clique-label !text-[9px]">TICKET TYPES</span>
+            <span className="font-display text-xl font-bold tracking-[-0.02em] text-paper">{tickets.length}</span>
           </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <div className="clique-label">ALL PHASES</div>
-            {tiers.map((tier, i) => {
-              const isSplit  = tier.malePrice > 0 || tier.femalePrice > 0;
-              const soldOut  = tier.capacity != null && tier.soldCount >= tier.capacity;
-              const spotsLeft = tier.capacity != null ? tier.capacity - tier.soldCount : null;
-              const isBusy   = toggling === tier._id;
-              return (
-                <div key={tier._id} className={`rounded-card border bg-card p-4 ${tier.isOpen ? 'border-lime/30' : 'border-line-2'}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="font-mono text-[9px] tracking-[.14em] text-dim">{String(i + 1).padStart(2, '0')}</span>
-                        <span className="font-display text-base font-bold text-paper">{tier.label}</span>
-                        {tier.isOpen && !soldOut && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-lime/40 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">
-                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-lime" />Live
-                          </span>
-                        )}
-                        {soldOut && (
-                          <span className="rounded-full border border-hot/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-hot">Sold out</span>
-                        )}
-                        {!tier.isOpen && !soldOut && (
-                          <span className="rounded-full border border-line-2 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-dim">Closed</span>
-                        )}
-                        {isSplit && (
-                          <span className="rounded-full border border-line-2 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-dim">M/F split</span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10px] tracking-[.08em] text-cream">
-                        {isSplit ? (
-                          <>
-                            <span>Guys ₹{tier.malePrice.toLocaleString('en-IN')}</span>
-                            <span>Girls ₹{tier.femalePrice.toLocaleString('en-IN')}</span>
-                          </>
-                        ) : (
-                          <span>₹{tier.commonPrice.toLocaleString('en-IN')}</span>
-                        )}
-                        <span>{tier.soldCount} sold{tier.capacity != null ? ` / ${tier.capacity} capacity` : ''}</span>
-                        {spotsLeft != null && !soldOut && <span className={spotsLeft < 10 ? 'text-hot' : ''}>{spotsLeft} left</span>}
-                      </div>
-                    </div>
-                    {canAdd && !soldOut && (
-                      <button
-                        onClick={() => handleToggle(tier)}
-                        disabled={isBusy}
-                        className={`shrink-0 rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.08em] transition-colors disabled:opacity-50 ${
-                          tier.isOpen
-                            ? 'border-hot/30 text-hot hover:bg-hot/10'
-                            : 'border-lime/30 text-lime hover:bg-lime/10'
-                        }`}
-                      >
-                        {isBusy ? '…' : tier.isOpen ? 'Close' : 'Open'}
-                      </button>
+          <div className="flex min-w-[120px] flex-1 flex-col gap-1 bg-card px-5 py-4">
+            <span className="clique-label !text-[9px]">TOTAL SOLD</span>
+            <span className="font-display text-xl font-bold tracking-[-0.02em] text-paper">
+              {totalSold}
+              {totalCapacity != null && (
+                <span className="ml-1.5 font-mono text-sm font-normal text-dim">/ {totalCapacity}</span>
+              )}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Ticket type cards */}
+      <div className="flex flex-col gap-3">
+        <div className="clique-label">TICKET TYPES</div>
+        {tickets.map((ticket, i) => {
+          const soldOut = ticket.capacity != null && ticket.soldCount >= ticket.capacity;
+          const spotsLeft = ticket.capacity != null ? ticket.capacity - ticket.soldCount : null;
+          const fillPct = ticket.capacity ? Math.round((ticket.soldCount / ticket.capacity) * 100) : null;
+
+          return (
+            <div
+              key={ticket._id ?? i}
+              className={`rounded-card border bg-card p-4 ${soldOut ? 'border-hot/20' : 'border-lime/20'}`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-[9px] tracking-[.14em] text-dim">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="font-display text-base font-bold text-paper">{ticket.label}</span>
+                    {soldOut ? (
+                      <span className="rounded-full border border-hot/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-hot">Sold out</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-lime" />
+                        Available
+                      </span>
+                    )}
+                  </div>
+
+                  {ticket.description && (
+                    <p className="m-0 mb-2 font-display text-[13px] leading-relaxed text-cream">{ticket.description}</p>
+                  )}
+
+                  <div className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10px] tracking-[.08em] text-cream">
+                    <span className="font-bold text-paper">
+                      {ticket.price === 0 ? 'Free' : `₹${ticket.price.toLocaleString('en-IN')}`}
+                    </span>
+                    <span>{ticket.soldCount} sold{ticket.capacity != null ? ` / ${ticket.capacity} capacity` : ''}</span>
+                    {spotsLeft != null && !soldOut && (
+                      <span className={spotsLeft < 10 ? 'text-hot' : ''}>{spotsLeft} left</span>
+                    )}
+                    {fillPct != null && (
+                      <span className={fillPct >= 90 ? 'text-hot' : fillPct >= 60 ? 'text-gold' : 'text-dim'}>
+                        {fillPct}% filled
+                      </span>
                     )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
 
-        {/* Add phase form */}
-        {canAdd && (
-          <div className="rounded-card border border-dashed border-line-2 p-5">
-            <div className="clique-label mb-4">ADD A PHASE</div>
-
-            {/* Mode toggle */}
-            <div className="mb-4 flex gap-2">
-              {(['common', 'split'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setPricingMode(m)}
-                  className={`rounded border px-3 py-1 font-mono text-[10px] uppercase tracking-[.1em] transition-colors ${
-                    pricingMode === m
-                      ? 'border-lime/40 bg-lime/10 text-lime'
-                      : 'border-line-2 text-dim hover:border-line-1 hover:text-cream'
-                  }`}
-                >
-                  {m === 'common' ? 'Common pricing' : 'Split M / F'}
-                </button>
-              ))}
-            </div>
-
-            <form onSubmit={handleAdd} className="flex flex-col gap-4">
-              {pricingMode === 'common' ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Phase name *</span>
-                    <input className="clique-input" placeholder="e.g. Early Bird" value={label} onChange={(e) => setLabel(e.target.value)} required />
-                  </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Price (₹) *</span>
-                    <input className="clique-input" type="number" min="0" placeholder="299" value={price} onChange={(e) => setPrice(e.target.value)} required />
-                  </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Capacity (optional)</span>
-                    <input className="clique-input" type="number" min="1" placeholder="50" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
-                  </label>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Phase name *</span>
-                    <input className="clique-input" placeholder="e.g. Early Bird" value={label} onChange={(e) => setLabel(e.target.value)} required />
-                  </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Guys (₹) *</span>
-                    <input className="clique-input" type="number" min="0" placeholder="500" value={malePrice} onChange={(e) => setMalePrice(e.target.value)} required />
-                  </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Girls (₹) *</span>
-                    <input className="clique-input" type="number" min="0" placeholder="300" value={femalePrice} onChange={(e) => setFemalePrice(e.target.value)} required />
-                  </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Capacity (optional)</span>
-                    <input className="clique-input" type="number" min="1" placeholder="50" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
-                  </label>
+              {/* Fill bar */}
+              {ticket.capacity != null && ticket.capacity > 0 && (
+                <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-line">
+                  <div
+                    className={`h-full rounded-full transition-all ${soldOut ? 'bg-hot' : fillPct != null && fillPct >= 60 ? 'bg-gold' : 'bg-lime'}`}
+                    style={{ width: `${Math.min(100, fillPct ?? 0)}%` }}
+                  />
                 </div>
               )}
-              {error && <p className="m-0 font-mono text-xs text-hot">{error}</p>}
-              <Button type="submit" loading={adding} className="self-start">
-                Add phase →
-              </Button>
-            </form>
-          </div>
-        )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* ── Group deals ── */}
-      <div className="flex flex-col gap-4">
-        <div className="clique-label">GROUP DEALS</div>
-
-        {groups.length === 0 ? (
-          <p className="m-0 font-mono text-[10px] tracking-[.06em] text-dim">
-            No group deals yet — e.g. group of 5 at a flat discount.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {groups.map((g, i) => (
-              <div key={i} className="flex items-center justify-between gap-4 rounded-card border border-line-2 bg-card px-4 py-3">
-                <div className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10px] tracking-[.08em] text-cream">
-                  <span className="font-display text-sm font-bold text-paper">{g.label}</span>
-                  <span>Group of {g.size}</span>
-                  <span>₹{g.price.toLocaleString('en-IN')} total</span>
-                </div>
-                {canAdd && (
-                  <button
-                    onClick={() => handleRemoveGroupDeal(i)}
-                    disabled={removingGd === i}
-                    className="shrink-0 rounded border border-hot/30 px-3 py-1 font-mono text-[10px] uppercase tracking-[.08em] text-hot transition-colors hover:bg-hot/10 disabled:opacity-50"
-                  >
-                    {removingGd === i ? '…' : 'Remove'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {canAdd && (
-          <div className="rounded-card border border-dashed border-line-2 p-5">
-            <div className="clique-label mb-4">ADD A GROUP DEAL</div>
-            <form onSubmit={handleAddGroupDeal} className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <label className="flex flex-col gap-1.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Deal name *</span>
-                  <input className="clique-input" placeholder="e.g. Group of 5" value={gdLabel} onChange={(e) => setGdLabel(e.target.value)} required />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Group size *</span>
-                  <input className="clique-input" type="number" min="2" placeholder="5" value={gdSize} onChange={(e) => setGdSize(e.target.value)} required />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[.12em] text-dim">Total price (₹) *</span>
-                  <input className="clique-input" type="number" min="0" placeholder="1999" value={gdPrice} onChange={(e) => setGdPrice(e.target.value)} required />
-                </label>
-              </div>
-              {gdError && <p className="m-0 font-mono text-xs text-hot">{gdError}</p>}
-              <Button type="submit" loading={addingGd} className="self-start">
-                Add group deal →
-              </Button>
-            </form>
-          </div>
-        )}
-      </div>
+      {!['cancelled', 'completed', 'blocked'].includes(event.status) && (
+        <p className="m-0 font-mono text-[10px] tracking-[.06em] text-dim">
+          To add or change ticket types,{' '}
+          <Link href={`/host/events/new?edit=${event._id}`} className="text-lime hover:opacity-80">
+            edit the event →
+          </Link>
+        </p>
+      )}
     </div>
   );
 }
