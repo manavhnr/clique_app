@@ -469,6 +469,11 @@ function PassCard({ pass, onOpen }: { pass: Pass; onOpen: () => void }) {
           <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 23, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--paper)', marginTop: 6, overflowWrap: 'break-word' }}>
             {evt?.title ?? 'Event'}
           </div>
+          {pass.ticketTypeName && (
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.12em', color: 'var(--lime)', marginTop: 6, textTransform: 'uppercase' }}>
+              {pass.ticketTypeName}
+            </div>
+          )}
         </div>
         <span className="stamp" style={{ color: stampColor, flexShrink: 0, marginTop: 2 }}>{stampLabel}</span>
       </div>
