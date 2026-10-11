@@ -626,10 +626,6 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Squad */}
-          {user && !isOwnEvent && (
-            <SquadSection eventId={id} userId={user._id} />
-          )}
         </div>
 
         {/* Right: booking card */}
