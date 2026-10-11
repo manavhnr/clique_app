@@ -419,11 +419,11 @@ export default function EventDetailPage() {
 
       {/* Hero image */}
       {imageUrl && (
-        <div style={{ width: '100%', borderRadius: 12, overflow: 'hidden', marginBottom: 28, background: 'var(--card)', aspectRatio: '16/7', position: 'relative' }}>
+        <div style={{ width: '100%', borderRadius: 12, overflow: 'hidden', marginBottom: 28, background: 'var(--card)', aspectRatio: '16/9', position: 'relative' }}>
           <img
             src={imageUrl}
             alt={event.title}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
           />
           {/* Status overlays on image */}
           {(event.status === 'cancelled' || isFull) && (

@@ -131,7 +131,9 @@ export async function updateEvent(
 ) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  const isHost = event.hostId.toString() === hostId;
+  const isCoHost = event.coHosts?.some((c) => c.userId.toString() === hostId);
+  if (!isHost && !isCoHost) throw createError('Forbidden', 403);
   if (event.status === 'cancelled' || event.status === 'completed') {
     throw createError('Cannot update a cancelled or completed event', 400);
   }
