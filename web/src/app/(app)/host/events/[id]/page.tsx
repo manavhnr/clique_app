@@ -514,6 +514,38 @@ function AttendeeCard({
 
 // ── CSV export ───────────────────────────────────────────────────────────────
 
+function buildEntryLabel(entryType: EntryType, sq: Squad | undefined, groupSize: number | undefined, tierLabel: string | undefined): string {
+  const base = entryType.toUpperCase();
+
+  if (entryType !== 'group' && entryType !== 'mixed') {
+    return sq ? `${base} (${sq.name})` : base;
+  }
+
+  // Squad-based: member count is authoritative
+  if (sq) {
+    const count = sq.members.length;
+    const name = sq.name || '';
+    return count > 0
+      ? (name ? `${base} (${name} · ${count} people)` : `${base} (${count} people)`)
+      : (name ? `${base} (${name})` : base);
+  }
+
+  // GroupOffer-based: groupSize > 1 is set
+  if (groupSize != null && groupSize > 1) {
+    return `${base} (${groupSize} people)`;
+  }
+
+  // Fallback: extract a leading number from tierLabel e.g. "3 Stags", "Group of 4"
+  if (tierLabel) {
+    const m = tierLabel.match(/(\d+)/);
+    if (m && parseInt(m[1], 10) > 1) {
+      return `${base} (${m[1]} people)`;
+    }
+  }
+
+  return base;
+}
+
 function exportGuestsCSV(bookings: Booking[], squads: Squad[], eventTitle: string) {
   const squadByUserId = new Map<string, Squad>();
   for (const sq of squads) {
@@ -534,16 +566,7 @@ function exportGuestsCSV(bookings: Booking[], squads: Squad[], eventTitle: strin
         u?.age != null ? String(u.age) : '',
         u?.city ?? '',
         u?.connectedSocials?.instagram ?? '',
-        (() => {
-          let label = entryType.toUpperCase();
-          if (sq) {
-            const memberCount = sq.members.length;
-            label += memberCount > 0 ? ` (${sq.name} · ${memberCount} people)` : ` (${sq.name})`;
-          } else if ((entryType === 'group') && b.groupSize != null && b.groupSize > 1) {
-            label += ` (${b.groupSize} people)`;
-          }
-          return label;
-        })(),
+        buildEntryLabel(entryType, sq, b.groupSize, b.tierLabel),
         b.status,
         new Date(b.createdAt).toLocaleString('en-IN'),
       ];
