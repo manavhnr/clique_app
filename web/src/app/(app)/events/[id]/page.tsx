@@ -762,15 +762,15 @@ export default function EventDetailPage() {
               ) : !event.approvalRequired ? (
                 <button
                   onClick={() => {
-                    if (!user) {
-                      router.push(`/login?redirect=${encodeURIComponent('/events/' + id + (hasTicketTypes ? '/tickets' : ''))}`);
-                      return;
-                    }
                     if (hasTicketTypes) {
                       router.push(`/events/${id}/tickets`);
-                    } else {
-                      handleBook();
+                      return;
                     }
+                    if (!user) {
+                      router.push(`/login?redirect=${encodeURIComponent('/events/' + id)}`);
+                      return;
+                    }
+                    handleBook();
                   }}
                   disabled={isFull || bookLoading || event.status !== 'published'}
                   style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '15px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, cursor: (isFull || bookLoading || event.status !== 'published') ? 'not-allowed' : 'pointer', opacity: (isFull || bookLoading || event.status !== 'published') ? 0.45 : 1 }}
