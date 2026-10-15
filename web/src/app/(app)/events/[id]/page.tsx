@@ -458,7 +458,10 @@ export default function EventDetailPage() {
             {event.title}
           </h1>
           <button
-            onClick={handleSave}
+            onClick={() => {
+              if (!user) { router.push(`/login?redirect=${encodeURIComponent('/events/' + id)}`); return; }
+              handleSave();
+            }}
             disabled={saveLoading}
             style={{ flexShrink: 0, background: event.saved ? 'rgba(201,243,110,0.12)' : 'transparent', border: `1px solid ${event.saved ? 'var(--lime)' : 'var(--line-2)'}`, color: event.saved ? 'var(--lime)' : 'var(--cream)', padding: '8px 14px', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s ease' }}
           >
@@ -759,6 +762,10 @@ export default function EventDetailPage() {
               ) : !event.approvalRequired ? (
                 <button
                   onClick={() => {
+                    if (!user) {
+                      router.push(`/login?redirect=${encodeURIComponent('/events/' + id + (hasTicketTypes ? '/tickets' : ''))}`);
+                      return;
+                    }
                     if (hasTicketTypes) {
                       router.push(`/events/${id}/tickets`);
                     } else {
@@ -772,7 +779,13 @@ export default function EventDetailPage() {
                 </button>
               ) : (
                 <button
-                  onClick={() => { setError(''); setConfirmOpen(true); }}
+                  onClick={() => {
+                    if (!user) {
+                      router.push(`/login?redirect=${encodeURIComponent('/events/' + id)}`);
+                      return;
+                    }
+                    setError(''); setConfirmOpen(true);
+                  }}
                   disabled={isFull || event.status !== 'published'}
                   style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '15px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, cursor: (isFull || event.status !== 'published') ? 'not-allowed' : 'pointer', opacity: (isFull || event.status !== 'published') ? 0.45 : 1 }}
                 >

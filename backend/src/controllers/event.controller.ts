@@ -40,7 +40,7 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
 
 export async function getEvent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await getEventById(req.params.eventId, req.user!.userId);
+    const result = await getEventById(req.params.eventId, req.user?.userId);
     sendSuccess(res, result);
   } catch (err) { next(err); }
 }

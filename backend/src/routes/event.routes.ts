@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware';
 import { requireVerifiedHost } from '../middleware/role.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { uploadMedia } from '../middleware/upload.middleware';
@@ -38,6 +38,9 @@ const router = Router();
 // No auth required — landing page uses this
 router.get('/public', publicEvents);
 
+// Guest-accessible with optional auth (shared event links)
+router.get('/:eventId', optionalAuthenticate, getEvent);
+
 router.use(authenticate);
 
 // Public reads
@@ -46,7 +49,6 @@ router.get('/near-me', nearMe);
 router.get('/search', eventSearch);
 router.get('/mine', myEvents);
 router.get('/scannable', scannableEvents);
-router.get('/:eventId', getEvent);
 
 // Host-only writes
 router.post('/', requireVerifiedHost,

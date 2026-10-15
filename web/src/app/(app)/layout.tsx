@@ -255,18 +255,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Event detail and ticket pages are publicly browsable — auth is only required to book
+  const isPublicEventPath = /^\/events\/[^/]+(\/tickets)?$/.test(pathname);
+
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      const dest = pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : '';
-      router.replace(`/login${dest}`);
+      if (!isPublicEventPath) {
+        const dest = pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : '';
+        router.replace(`/login${dest}`);
+      }
       return;
     }
     if (!user.hasCompletedSetup) {
       const dest = `?redirect=${encodeURIComponent(pathname)}`;
       router.replace(`/setup${dest}`);
     }
-  }, [isLoading, user, router, pathname]);
+  }, [isLoading, user, router, pathname, isPublicEventPath]);
 
   useEffect(() => {
     const saved = localStorage.getItem('clique_sidebar_collapsed');
@@ -284,8 +289,48 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
   if (isLoading) return <Spinner />;
-  if (!user) return null;
-  if (!user.hasCompletedSetup) return null;
+  if (!user && !isPublicEventPath) return null;
+  if (user && !user.hasCompletedSetup) return null;
+
+  // Guest view: minimal header with login/signup, no sidebar
+  if (!user && isPublicEventPath) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--ink)', display: 'flex', flexDirection: 'column' }}>
+        <header style={{
+          position: 'sticky', top: 0, zIndex: 30,
+          height: 52, flexShrink: 0,
+          background: 'rgba(11,9,7,0.97)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center',
+          padding: '0 20px',
+          gap: 12,
+        }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+            <span style={{ width: 8, height: 8, background: 'var(--lime)', borderRadius: '50%', boxShadow: '0 0 12px var(--lime)', display: 'inline-block', animation: 'pulse 2s ease-in-out infinite' }} />
+            <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.04em' }}>CLIQUE</span>
+          </Link>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Link
+              href={`/login?redirect=${encodeURIComponent(pathname)}`}
+              style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--cream)', padding: '8px 14px', border: '1px solid var(--line-2)', borderRadius: 4, whiteSpace: 'nowrap' }}
+            >
+              Log in
+            </Link>
+            <Link
+              href={`/signup?redirect=${encodeURIComponent(pathname)}`}
+              style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink)', background: 'var(--lime)', padding: '8px 14px', borderRadius: 4, whiteSpace: 'nowrap' }}
+            >
+              Sign up
+            </Link>
+          </div>
+        </header>
+        <main style={{ flex: 1, padding: isMobile ? '20px 16px 60px' : '36px 40px 60px', maxWidth: 1160, width: '100%', margin: '0 auto' }}>
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   const handleLogout = () => { logout(); router.push('/'); };
   const sidebarW = collapsed ? 64 : 240;
@@ -409,7 +454,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <span style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 18, letterSpacing: '-0.04em' }}>CLIQUE</span>
             </Link>
             <Link href="/profile" style={{ display: 'flex', alignItems: 'center' }}>
-              <AvatarInitial name={user.name || 'C'} size={30} />
+              <AvatarInitial name={user?.name || 'C'} size={30} />
             </Link>
           </div>
         )}

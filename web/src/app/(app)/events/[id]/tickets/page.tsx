@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Event } from '@/types';
 import { getImageUrl } from '@/lib/utils';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 function Spinner({ size = 32 }: { size?: number }) {
   return <div style={{ width: size, height: size, border: '2px solid var(--line-2)', borderTopColor: 'var(--lime)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />;
@@ -23,6 +24,7 @@ type Selection = Record<number, number>; // ticketTypeIndex → quantity
 export default function TicketsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuth();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,20 @@ export default function TicketsPage() {
       .catch(() => setEvent(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Restore pending selection saved before login redirect
+  useEffect(() => {
+    if (!user) return;
+    const key = `clique_pending_selection_${id}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const saved = JSON.parse(raw) as Selection;
+        setSelection(saved);
+        localStorage.removeItem(key);
+      }
+    } catch { /* ignore */ }
+  }, [user, id]);
 
   const ev = event as unknown as { ticketTypes?: TicketType[]; userDiscount?: { discountType: 'percentage' | 'absolute'; discountValue: number } | null };
   const ticketTypes: TicketType[] = ev?.ticketTypes ?? [];
@@ -73,6 +89,11 @@ export default function TicketsPage() {
 
   const handleBook = async () => {
     if (!hasSelection || !event) return;
+    if (!user) {
+      try { localStorage.setItem(`clique_pending_selection_${id}`, JSON.stringify(selection)); } catch { /* ignore */ }
+      router.push(`/login?redirect=${encodeURIComponent('/events/' + id + '/tickets')}`);
+      return;
+    }
     setError(''); setBookLoading(true);
     try {
       const ticketSelections = Object.entries(selection).map(([idx, qty]) => ({

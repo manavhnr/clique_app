@@ -70,28 +70,30 @@ export async function createEvent(
   return event;
 }
 
-export async function getEventById(eventId: string, requesterId: string) {
+export async function getEventById(eventId: string, requesterId?: string) {
   const event = await Event.findById(eventId)
     .populate('hostId', 'name username profileImage isVerifiedHost followerCount');
 
   if (!event || event.status === 'blocked') throw createError('Event not found', 404);
 
-  // Fetch the requester's relationship to this event in parallel
-  const [saved, userRequest, userBooking, userDiscount] = await Promise.all([
-    SavedEvent.findOne({ userId: requesterId, eventId }),
-    JoinRequest.findOne({ userId: requesterId, eventId }).select('status rejectionReason createdAt'),
-    Booking.findOne({
-      userId: requesterId,
-      eventId,
-      status: { $nin: ['cancelled', 'refunded', 'rejected'] },
-    }),
-    EventDiscount.findOne({ userId: requesterId, eventId, status: 'active' }).select('discountType discountValue'),
-  ]);
+  // Fetch the requester's relationship to this event in parallel (guests get nulls)
+  const [saved, userRequest, userBooking, userDiscount] = requesterId
+    ? await Promise.all([
+        SavedEvent.findOne({ userId: requesterId, eventId }),
+        JoinRequest.findOne({ userId: requesterId, eventId }).select('status rejectionReason createdAt'),
+        Booking.findOne({
+          userId: requesterId,
+          eventId,
+          status: { $nin: ['cancelled', 'refunded', 'rejected'] },
+        }),
+        EventDiscount.findOne({ userId: requesterId, eventId, status: 'active' }).select('discountType discountValue'),
+      ])
+    : [null, null, null, null];
 
   // Hide exact address for private events until the user has a confirmed booking
   let address = event.address;
   if (event.exactAddressHiddenBeforeBooking) {
-    const hasConfirmed = userBooking && ['confirmed', 'checked_in'].includes(userBooking.status);
+    const hasConfirmed = userBooking && ['confirmed', 'checked_in'].includes((userBooking as any).status);
     if (!hasConfirmed) address = 'Address revealed after booking';
   }
 
@@ -99,7 +101,7 @@ export async function getEventById(eventId: string, requesterId: string) {
   void Event.findByIdAndUpdate(eventId, { $inc: { viewCount: 1 } }).catch(() => {});
 
   // If this is a secret event, record that the requester has unlocked it
-  if (event.privacy === 'secret') {
+  if (event.privacy === 'secret' && requesterId) {
     void User.findByIdAndUpdate(requesterId, { $addToSet: { unlockedSecretEvents: eventId } }).catch(() => {});
   }
 
@@ -116,7 +118,7 @@ export async function getEventById(eventId: string, requesterId: string) {
       userRequest: userRequest || null,
       activeTier,
       userDiscount: userDiscount
-        ? { discountType: userDiscount.discountType, discountValue: userDiscount.discountValue }
+        ? { discountType: (userDiscount as any).discountType, discountValue: (userDiscount as any).discountValue }
         : null,
     },
   };
