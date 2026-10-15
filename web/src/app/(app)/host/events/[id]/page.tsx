@@ -534,7 +534,16 @@ function exportGuestsCSV(bookings: Booking[], squads: Squad[], eventTitle: strin
         u?.age != null ? String(u.age) : '',
         u?.city ?? '',
         u?.connectedSocials?.instagram ?? '',
-        entryType.toUpperCase() + (sq ? ` (${sq.name})` : ''),
+        (() => {
+          let label = entryType.toUpperCase();
+          if (sq) {
+            const memberCount = sq.members.length;
+            label += memberCount > 0 ? ` (${sq.name} · ${memberCount} people)` : ` (${sq.name})`;
+          } else if ((entryType === 'group') && b.groupSize != null && b.groupSize > 1) {
+            label += ` (${b.groupSize} people)`;
+          }
+          return label;
+        })(),
         b.status,
         new Date(b.createdAt).toLocaleString('en-IN'),
       ];
