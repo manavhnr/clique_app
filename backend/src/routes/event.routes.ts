@@ -38,17 +38,17 @@ const router = Router();
 // No auth required — landing page uses this
 router.get('/public', publicEvents);
 
-// Guest-accessible with optional auth (shared event links)
+// Specific routes MUST come before /:eventId to avoid the wildcard swallowing them
+router.get('/feed', authenticate, feed);
+router.get('/near-me', authenticate, nearMe);
+router.get('/search', authenticate, eventSearch);
+router.get('/mine', authenticate, myEvents);
+router.get('/scannable', authenticate, scannableEvents);
+
+// Guest-accessible with optional auth (shared event links) — wildcard last
 router.get('/:eventId', optionalAuthenticate, getEvent);
 
 router.use(authenticate);
-
-// Public reads
-router.get('/feed', feed);
-router.get('/near-me', nearMe);
-router.get('/search', eventSearch);
-router.get('/mine', myEvents);
-router.get('/scannable', scannableEvents);
 
 // Host-only writes
 router.post('/', requireVerifiedHost,
