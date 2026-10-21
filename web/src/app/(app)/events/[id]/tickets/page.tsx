@@ -255,6 +255,7 @@ export default function TicketsPage() {
                       onClick={() => {
                         if (allBooked) return;
                         setExpandedCategoryIdx(isExpanded ? null : ci);
+                        if (isSelectedCat && !isExpanded) setExpandedCategoryIdx(ci);
                       }}
                       disabled={allBooked}
                       style={{
@@ -305,9 +306,14 @@ export default function TicketsPage() {
                               type="button"
                               onClick={() => {
                                 if (slot.isBooked) return;
-                                setSelectedCategoryIdx(ci);
-                                setSelectedSlotIdx(si);
-                                setExpandedCategoryIdx(null);
+                                if (isSlotSelected) {
+                                  setSelectedCategoryIdx(null);
+                                  setSelectedSlotIdx(null);
+                                } else {
+                                  setSelectedCategoryIdx(ci);
+                                  setSelectedSlotIdx(si);
+                                  setExpandedCategoryIdx(null);
+                                }
                               }}
                               disabled={slot.isBooked}
                               style={{
