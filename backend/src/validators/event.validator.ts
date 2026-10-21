@@ -71,6 +71,7 @@ const tableDataField = z.preprocess(
     tables: z.array(z.object({
       label: z.string().max(100),
       description: z.string().max(500).optional(),
+      parentCategory: z.string().max(100).optional(),
       capacity: z.coerce.number().int().min(1),
       price: z.coerce.number().min(0),
       slots: z.array(z.string().min(1).max(50)).min(1).max(50),
