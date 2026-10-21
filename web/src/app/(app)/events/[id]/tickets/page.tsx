@@ -19,6 +19,16 @@ type TicketType = {
   soldCount: number;
 };
 
+type TableType = {
+  _id?: string;
+  label: string;
+  price: number;
+  capacity: number;
+  quantity: number;
+  bookedCount: number;
+  description?: string;
+};
+
 type Selection = Record<number, number>; // ticketTypeIndex → quantity
 
 export default function TicketsPage() {
@@ -31,6 +41,8 @@ export default function TicketsPage() {
   const [selection, setSelection] = useState<Selection>({});
   const [bookLoading, setBookLoading] = useState(false);
   const [error, setError] = useState('');
+  const [tablesOpen, setTablesOpen] = useState(false);
+  const [selectedTableIdx, setSelectedTableIdx] = useState<number | null>(null);
   const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
   const [utr, setUtr] = useState('');
   const [upiId, setUpiId] = useState('');
@@ -57,8 +69,11 @@ export default function TicketsPage() {
     } catch { /* ignore */ }
   }, [user, id]);
 
-  const ev = event as unknown as { ticketTypes?: TicketType[]; userDiscount?: { discountType: 'percentage' | 'absolute'; discountValue: number } | null };
+  const ev = event as unknown as { ticketTypes?: TicketType[]; tables?: TableType[]; hasTableBooking?: boolean; userDiscount?: { discountType: 'percentage' | 'absolute'; discountValue: number } | null };
   const ticketTypes: TicketType[] = ev?.ticketTypes ?? [];
+  const tables: TableType[] = ev?.tables ?? [];
+  const hasTableBooking = !!(ev?.hasTableBooking && tables.length > 0);
+  const selectedTable = selectedTableIdx !== null ? (tables[selectedTableIdx] ?? null) : null;
   const userDiscount = ev?.userDiscount ?? null;
 
   const applyDiscount = (price: number) => {
@@ -74,7 +89,7 @@ export default function TicketsPage() {
     return sum + (tt ? tt.price * qty : 0);
   }, 0);
   const totalAmount = applyDiscount(rawTotal);
-  const hasSelection = totalTickets > 0;
+  const hasSelection = totalTickets > 0 || selectedTableIdx !== null;
 
   const setQty = (idx: number, qty: number) => {
     setSelection((prev) => {
@@ -100,7 +115,9 @@ export default function TicketsPage() {
         ticketTypeIndex: Number(idx),
         quantity: qty,
       }));
-      const { data: bookRes } = await api.post('/bookings', { eventId: id, ticketSelections });
+      const payload: Record<string, unknown> = { eventId: id, ticketSelections };
+      if (selectedTableIdx !== null) payload.tableIndex = selectedTableIdx;
+      const { data: bookRes } = await api.post('/bookings', payload);
       const createdBooking = bookRes.data?.booking;
       if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
         setUtr(''); setUpiId('');
@@ -157,7 +174,7 @@ export default function TicketsPage() {
     </div>
   );
 
-  if (!event || ticketTypes.length === 0) {
+  if (!event || (ticketTypes.length === 0 && !hasTableBooking)) {
     router.replace(`/events/${id}`);
     return null;
   }
@@ -186,6 +203,70 @@ export default function TicketsPage() {
           <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 20, lineHeight: 1.1, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</div>
         </div>
       </div>
+
+      {/* Tables collapsible */}
+      {hasTableBooking && (
+        <div style={{ marginBottom: 8 }}>
+          <button
+            onClick={() => setTablesOpen((o) => !o)}
+            style={{
+              width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '18px 0', background: 'transparent', border: 'none', cursor: 'pointer',
+              borderBottom: '1px solid var(--line-2)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, color: 'var(--paper)' }}>Tables</span>
+              {selectedTable && (
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.08em', background: 'rgba(201,243,110,0.1)', padding: '3px 8px', borderRadius: 4 }}>
+                  {selectedTable.label} selected
+                </span>
+              )}
+            </div>
+            <span style={{ color: 'var(--dim)', fontSize: 12, fontFamily: 'var(--mono)', letterSpacing: '.06em' }}>
+              {tablesOpen ? '▲' : '▼'}
+            </span>
+          </button>
+
+          {tablesOpen && (
+            <div style={{ paddingTop: 12, paddingBottom: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {tables.map((t, i) => {
+                const available = t.quantity - t.bookedCount;
+                const soldOut = available <= 0;
+                const selected = selectedTableIdx === i;
+                return (
+                  <button
+                    key={t._id ?? i}
+                    type="button"
+                    onClick={() => !soldOut && setSelectedTableIdx(selected ? null : i)}
+                    disabled={soldOut}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                      padding: '12px 14px', borderRadius: 8, cursor: soldOut ? 'not-allowed' : 'pointer',
+                      border: `1px solid ${selected ? 'var(--lime)' : 'var(--line-2)'}`,
+                      background: selected ? 'rgba(201,243,110,0.08)' : soldOut ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.03)',
+                      opacity: soldOut ? 0.4 : 1, textAlign: 'left', width: '100%',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: selected ? 'var(--lime)' : 'var(--paper)' }}>{t.label}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>
+                        {t.capacity} seats · {soldOut ? 'Fully booked' : `${available} of ${t.quantity} left`}
+                      </div>
+                      {t.description && (
+                        <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--cream)', marginTop: 4, lineHeight: 1.4 }}>{t.description}</div>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: selected ? 'var(--lime)' : 'var(--paper)', flexShrink: 0, marginLeft: 14, alignSelf: 'center' }}>
+                      {t.price === 0 ? 'Free' : `₹${t.price.toLocaleString('en-IN')}`}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Ticket list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -292,12 +373,24 @@ export default function TicketsPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
         }}>
           <div>
-            <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em', lineHeight: 1 }}>
-              {totalAmount === 0 ? 'Free' : `₹${totalAmount.toLocaleString('en-IN')}`}
-            </div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginTop: 3 }}>
-              {totalTickets} TICKET{totalTickets !== 1 ? 'S' : ''}
-            </div>
+            {(() => {
+              const tablePrice = selectedTable ? (userDiscount && selectedTable.price > 0 ? Math.max(0, userDiscount.discountType === 'percentage' ? Math.round(selectedTable.price * (1 - userDiscount.discountValue / 100)) : selectedTable.price - userDiscount.discountValue) : selectedTable.price) : 0;
+              const grandTotal = totalAmount + tablePrice;
+              const grandItems = [
+                totalTickets > 0 ? `${totalTickets} ticket${totalTickets !== 1 ? 's' : ''}` : null,
+                selectedTable ? selectedTable.label : null,
+              ].filter(Boolean).join(' + ');
+              return (
+                <>
+                  <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                    {grandTotal === 0 ? 'Free' : `₹${grandTotal.toLocaleString('en-IN')}`}
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginTop: 3, textTransform: 'uppercase' }}>
+                    {grandItems}
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <button
             onClick={handleBook}
@@ -311,7 +404,7 @@ export default function TicketsPage() {
               whiteSpace: 'nowrap',
             }}
           >
-            {bookLoading ? '…' : totalAmount === 0 ? 'Get passes →' : 'Book & pay →'}
+            {bookLoading ? '…' : (totalAmount + (selectedTable?.price ?? 0)) === 0 ? 'Get passes →' : 'Book & pay →'}
           </button>
         </div>
       )}

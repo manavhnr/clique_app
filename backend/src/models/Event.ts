@@ -89,7 +89,7 @@ export interface IEvent extends Document {
   hasTableBooking: boolean;
   tables: ITableCategory[];
   hasFloorPlan: boolean;
-  floorPlanImageUrl?: string;
+  floorPlanImages: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -197,7 +197,7 @@ const eventSchema = new Schema<IEvent>(
       default: [],
     },
     hasFloorPlan: { type: Boolean, default: false },
-    floorPlanImageUrl: { type: String },
+    floorPlanImages: { type: [String], default: [] },
   },
   { timestamps: true }
 );

@@ -120,9 +120,9 @@ function EventFormContent() {
     { id: uid(), label: '', description: '', capacity: '4', price: '0', quantity: '1' },
   ]);
   const [hasFloorPlan, setHasFloorPlan] = useState(false);
-  const [floorPlanFile, setFloorPlanFile] = useState<File | null>(null);
-  const [floorPlanPreview, setFloorPlanPreview] = useState<string | null>(null);
-  const [existingFloorPlanUrl, setExistingFloorPlanUrl] = useState<string | null>(null);
+  const [floorPlanFiles, setFloorPlanFiles] = useState<File[]>([]);
+  const [floorPlanPreviews, setFloorPlanPreviews] = useState<string[]>([]);
+  const [existingFloorPlanUrls, setExistingFloorPlanUrls] = useState<string[]>([]);
 
   const [form, setForm] = useState({
     title: '', description: '', category: 'house_party',
@@ -184,9 +184,9 @@ function EventFormContent() {
             quantity: String(t.quantity ?? 1),
           })));
         }
-        if (ev.hasFloorPlan && ev.floorPlanImageUrl) {
+        if (ev.hasFloorPlan && ev.floorPlanImages?.length) {
           setHasFloorPlan(true);
-          setExistingFloorPlanUrl(ev.floorPlanImageUrl);
+          setExistingFloorPlanUrls(ev.floorPlanImages);
         }
         if (ev.ticketTypes?.length) {
           setTicketTypes(ev.ticketTypes.map((t: { label: string; price: number; description?: string; capacity?: number }) => ({
@@ -224,15 +224,24 @@ function EventFormContent() {
   const removeTable = (id: string) => setTables((t) => t.filter((x) => x.id !== id));
   const updateTable = (id: string, field: keyof TableRow, val: string) =>
     setTables((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
-  const handleFloorPlan = (file: File | null) => {
-    setFloorPlanFile(file);
-    if (file) {
+  const MAX_FLOOR_PLANS = 5;
+  const addFloorPlanFiles = (files: FileList | null) => {
+    if (!files) return;
+    const remaining = MAX_FLOOR_PLANS - existingFloorPlanUrls.length - floorPlanFiles.length;
+    const incoming = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, remaining);
+    setFloorPlanFiles((prev) => [...prev, ...incoming]);
+    incoming.forEach((f) => {
       const reader = new FileReader();
-      reader.onload = (e) => setFloorPlanPreview(e.target?.result as string);
-      reader.readAsDataURL(file);
-    } else {
-      setFloorPlanPreview(null);
-    }
+      reader.onload = (e) => setFloorPlanPreviews((prev) => [...prev, e.target?.result as string]);
+      reader.readAsDataURL(f);
+    });
+  };
+  const removeNewFloorPlan = (i: number) => {
+    setFloorPlanFiles((prev) => prev.filter((_, idx) => idx !== i));
+    setFloorPlanPreviews((prev) => prev.filter((_, idx) => idx !== i));
+  };
+  const removeExistingFloorPlan = (i: number) => {
+    setExistingFloorPlanUrls((prev) => prev.filter((_, idx) => idx !== i));
   };
 
   const handleImages = (files: FileList | null) => {
@@ -309,7 +318,8 @@ function EventFormContent() {
         })) : [],
       }));
       fd.append('hasFloorPlan', String(hasFloorPlan));
-      if (floorPlanFile) fd.append('floorPlan', floorPlanFile);
+      floorPlanFiles.forEach((f) => fd.append('floorPlan', f));
+      existingFloorPlanUrls.forEach((url) => fd.append('existingFloorPlanImages', url));
 
       fd.append('bannerImageIndex', String(bannerIdx));
       fd.append('thumbnailImageIndex', String(thumbIdx));
@@ -602,7 +612,7 @@ function EventFormContent() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setHasFloorPlan((v) => !v); if (hasFloorPlan) { setFloorPlanFile(null); setFloorPlanPreview(null); setExistingFloorPlanUrl(null); } }}
+                    onClick={() => { setHasFloorPlan((v) => !v); if (hasFloorPlan) { setFloorPlanFiles([]); setFloorPlanPreviews([]); setExistingFloorPlanUrls([]); } }}
                     style={{
                       width: 40, height: 22, borderRadius: 11, border: 'none',
                       background: hasFloorPlan ? 'var(--lime)' : 'var(--line-2)',
@@ -619,22 +629,42 @@ function EventFormContent() {
                 </div>
                 {hasFloorPlan && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {(floorPlanPreview || existingFloorPlanUrl) ? (
-                      <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
+                    {/* Existing layout images */}
+                    {existingFloorPlanUrls.map((url, i) => (
+                      <div key={`ex-fp-${i}`} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
                         <img
-                          src={floorPlanPreview ?? (existingFloorPlanUrl ? getImageUrl(existingFloorPlanUrl) : '')}
-                          alt="Floor plan"
+                          src={getImageUrl(url)}
+                          alt={`Layout ${i + 1}`}
                           style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 280, objectFit: 'contain', background: '#111' }}
                         />
                         <button
                           type="button"
-                          onClick={() => { setFloorPlanFile(null); setFloorPlanPreview(null); setExistingFloorPlanUrl(null); }}
+                          onClick={() => removeExistingFloorPlan(i)}
                           style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         >
                           <X size={12} />
                         </button>
                       </div>
-                    ) : (
+                    ))}
+                    {/* New layout images staged for upload */}
+                    {floorPlanPreviews.map((preview, i) => (
+                      <div key={`new-fp-${i}`} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
+                        <img
+                          src={preview}
+                          alt={`New layout ${i + 1}`}
+                          style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 280, objectFit: 'contain', background: '#111' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeNewFloorPlan(i)}
+                          style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    {/* Add more button — only shown when under the 5-image limit */}
+                    {existingFloorPlanUrls.length + floorPlanFiles.length < MAX_FLOOR_PLANS && (
                       <label
                         style={{ borderRadius: 8, border: '2px dashed var(--line-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '20px', cursor: 'pointer', transition: 'border-color .15s ease' }}
                         onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--lime)')}
@@ -642,10 +672,12 @@ function EventFormContent() {
                       >
                         <ImageIcon size={16} color="var(--dim)" />
                         <div>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em', display: 'block' }}>UPLOAD FLOOR PLAN</span>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#555', letterSpacing: '.06em' }}>JPEG · PNG · WebP · up to 10 MB</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em', display: 'block' }}>
+                            {existingFloorPlanUrls.length + floorPlanFiles.length === 0 ? 'UPLOAD FLOOR PLAN' : 'ADD ANOTHER LAYOUT'}
+                          </span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#555', letterSpacing: '.06em' }}>JPEG · PNG · WebP · up to {MAX_FLOOR_PLANS} layouts</span>
                         </div>
-                        <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0] ?? null; handleFloorPlan(f); e.target.value = ''; }} />
+                        <input type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display: 'none' }} onChange={(e) => { addFloorPlanFiles(e.target.files); e.target.value = ''; }} />
                       </label>
                     )}
                   </div>

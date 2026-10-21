@@ -123,7 +123,7 @@ export interface Event {
   hasTableBooking?: boolean;
   tables?: TableCategory[];
   hasFloorPlan?: boolean;
-  floorPlanImageUrl?: string;
+  floorPlanImages?: string[];
   saved?: boolean;
   userBooking?: Booking | null;
   userRequest?: JoinRequest | null;

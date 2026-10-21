@@ -33,8 +33,8 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
     const filesMap = req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[]; floorPlan?: Express.Multer.File[] } | undefined;
     const imageFiles = filesMap?.images ?? [];
     const videoFiles = filesMap?.videos ?? [];
-    const floorPlanFile = filesMap?.floorPlan?.[0];
-    const event = await createEvent(req.user!.userId, req.body, imageFiles, videoFiles, floorPlanFile);
+    const floorPlanFiles = filesMap?.floorPlan ?? [];
+    const event = await createEvent(req.user!.userId, req.body, imageFiles, videoFiles, floorPlanFiles);
     sendSuccess(res, { event }, 'Event created', 201);
   } catch (err) { next(err); }
 }
@@ -51,8 +51,8 @@ export async function update(req: AuthRequest, res: Response, next: NextFunction
     const filesMap = req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[]; floorPlan?: Express.Multer.File[] } | undefined;
     const imageFiles = filesMap?.images ?? [];
     const videoFiles = filesMap?.videos ?? [];
-    const floorPlanFile = filesMap?.floorPlan?.[0];
-    const event = await updateEvent(req.params.eventId, req.user!.userId, req.body, imageFiles, videoFiles, floorPlanFile);
+    const floorPlanFiles = filesMap?.floorPlan ?? [];
+    const event = await updateEvent(req.params.eventId, req.user!.userId, req.body, imageFiles, videoFiles, floorPlanFiles);
     sendSuccess(res, { event }, 'Event updated');
   } catch (err) { next(err); }
 }

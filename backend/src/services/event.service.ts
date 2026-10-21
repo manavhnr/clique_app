@@ -23,12 +23,12 @@ export async function createEvent(
   data: CreateEventInput,
   imageFiles: Express.Multer.File[],
   videoFiles: Express.Multer.File[] = [],
-  floorPlanFile?: Express.Multer.File
+  floorPlanFiles: Express.Multer.File[] = []
 ) {
-  const [images, videos, floorPlanImageUrl] = await Promise.all([
+  const [images, videos, floorPlanImages] = await Promise.all([
     Promise.all(imageFiles.map((f) => uploadFile(f, 'clique/events/images'))),
     Promise.all(videoFiles.map((f) => uploadFile(f, 'clique/events/videos'))),
-    floorPlanFile ? uploadFile(floorPlanFile, 'clique/events/floorplans') : Promise.resolve(undefined),
+    Promise.all(floorPlanFiles.map((f) => uploadFile(f, 'clique/events/floorplans'))),
   ]);
 
   const event = await Event.create({
@@ -64,8 +64,8 @@ export async function createEvent(
     status: data.status,
     hasTableBooking: data.tableData?.enabled ?? false,
     tables: data.tableData?.tables?.map((t) => ({ ...t, bookedCount: 0 })) ?? [],
-    hasFloorPlan: data.hasFloorPlan && !!floorPlanImageUrl,
-    floorPlanImageUrl: floorPlanImageUrl ?? undefined,
+    hasFloorPlan: data.hasFloorPlan && floorPlanImages.length > 0,
+    floorPlanImages,
   });
 
   if (data.status === 'published') {
@@ -136,7 +136,7 @@ export async function updateEvent(
   data: UpdateEventInput,
   imageFiles: Express.Multer.File[] = [],
   videoFiles: Express.Multer.File[] = [],
-  floorPlanFile?: Express.Multer.File
+  floorPlanFiles: Express.Multer.File[] = []
 ) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
@@ -183,16 +183,20 @@ export async function updateEvent(
   }
   delete update.tableData;
 
-  // Floor plan image
-  if (floorPlanFile) {
-    const floorPlanImageUrl = await uploadFile(floorPlanFile, 'clique/events/floorplans');
-    update.floorPlanImageUrl = floorPlanImageUrl;
-    update.hasFloorPlan = true;
-  } else if (data.hasFloorPlan === false) {
+  // Floor plan images
+  if (data.hasFloorPlan === false) {
     update.hasFloorPlan = false;
-    update.floorPlanImageUrl = undefined;
+    update.floorPlanImages = [];
+  } else {
+    const keptFloorPlans: string[] = (data as { existingFloorPlanImages?: string[] }).existingFloorPlanImages ?? (event.floorPlanImages ?? []);
+    const newFloorPlanUrls = floorPlanFiles.length > 0
+      ? await Promise.all(floorPlanFiles.map((f) => uploadFile(f, 'clique/events/floorplans')))
+      : [];
+    update.floorPlanImages = [...keptFloorPlans, ...newFloorPlanUrls];
+    update.hasFloorPlan = (update.floorPlanImages as string[]).length > 0;
   }
   delete update.hasFloorPlan;
+  delete (update as Record<string, unknown>).existingFloorPlanImages;
 
   // Merge kept images with any newly uploaded ones
   if (imageFiles.length > 0) {

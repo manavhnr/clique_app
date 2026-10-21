@@ -129,6 +129,14 @@ export const updateEventSchema = createEventSchema.partial().omit({ status: true
     },
     z.array(z.string()).optional()
   ),
+  existingFloorPlanImages: z.preprocess(
+    (v) => {
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string' && v !== '') return [v];
+      return undefined;
+    },
+    z.array(z.string()).optional()
+  ),
 });
 
 export const cancelEventSchema = z.object({
