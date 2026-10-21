@@ -251,7 +251,7 @@ export default function TicketsPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: selected ? 'var(--lime)' : 'var(--paper)' }}>{t.label}</div>
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>
-                        {t.capacity} seats · {soldOut ? 'Fully booked' : `${available} of ${t.quantity} left`}
+                        {t.capacity} pax · {soldOut ? 'Fully booked' : `${available} of ${t.quantity} left`}
                       </div>
                       {t.description && (
                         <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--cream)', marginTop: 4, lineHeight: 1.4 }}>{t.description}</div>
