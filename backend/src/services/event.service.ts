@@ -63,7 +63,13 @@ export async function createEvent(
     refundPolicy: data.refundPolicy,
     status: data.status,
     hasTableBooking: data.tableData?.enabled ?? false,
-    tables: data.tableData?.tables?.map((t) => ({ ...t, bookedCount: 0 })) ?? [],
+    tables: data.tableData?.tables?.map((t: { label: string; description?: string; capacity: number; price: number; slots: string[] }) => ({
+      label: t.label,
+      description: t.description,
+      capacity: t.capacity,
+      price: t.price,
+      slots: t.slots.map((slotLabel: string) => ({ label: slotLabel, isBooked: false })),
+    })) ?? [],
     hasFloorPlan: data.hasFloorPlan && floorPlanImages.length > 0,
     floorPlanImages,
   });
@@ -176,9 +182,19 @@ export async function updateEvent(
   // Table booking
   if (data.tableData !== undefined) {
     update.hasTableBooking = data.tableData?.enabled ?? false;
-    update.tables = (data.tableData?.tables ?? []).map((incoming: { label: string; description?: string; capacity: number; price: number; quantity: number }) => {
+    update.tables = (data.tableData?.tables ?? []).map((incoming: { label: string; description?: string; capacity: number; price: number; slots: string[] }) => {
       const existing = (event.tables ?? []).find((t) => t.label === incoming.label);
-      return { ...incoming, bookedCount: existing?.bookedCount ?? 0 };
+      const existingSlots = existing?.slots ?? [];
+      return {
+        label: incoming.label,
+        description: incoming.description,
+        capacity: incoming.capacity,
+        price: incoming.price,
+        slots: incoming.slots.map((slotLabel: string) => {
+          const existingSlot = existingSlots.find((s: { label: string; isBooked: boolean }) => s.label === slotLabel);
+          return { label: slotLabel, isBooked: existingSlot?.isBooked ?? false };
+        }),
+      };
     });
   }
   delete update.tableData;

@@ -73,7 +73,7 @@ const tableDataField = z.preprocess(
       description: z.string().max(500).optional(),
       capacity: z.coerce.number().int().min(1),
       price: z.coerce.number().min(0),
-      quantity: z.coerce.number().int().min(1),
+      slots: z.array(z.string().min(1).max(50)).min(1).max(50),
     })).max(20),
   }).optional()
 ).optional();

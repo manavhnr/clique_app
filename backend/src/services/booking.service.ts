@@ -50,7 +50,8 @@ export async function createBooking(
   groupPricingIndex?: number,
   ticketTypeIndex?: number,
   ticketSelections?: Array<{ ticketTypeIndex: number; quantity: number }>,
-  tableIndex?: number,
+  tableCategoryIndex?: number,
+  tableSlotIndex?: number,
 ) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
@@ -62,14 +63,17 @@ export async function createBooking(
   if (existing) throw createError('Already booked this event', 409);
 
   // ── Table booking flow ────────────────────────────────────────────────────────
-  if (tableIndex !== undefined && tableIndex !== null) {
+  if (tableCategoryIndex !== undefined && tableCategoryIndex !== null && tableSlotIndex !== undefined && tableSlotIndex !== null) {
     if (!event.hasTableBooking) throw createError('This event does not have table booking', 400);
-    const table = (event.tables ?? [])[tableIndex];
-    if (!table) throw createError('Invalid table selection', 400);
-    if (table.bookedCount >= table.quantity) throw createError(`${table.label} is fully booked`, 409);
+    const category = (event.tables ?? [])[tableCategoryIndex];
+    if (!category) throw createError('Invalid table category selection', 400);
+    const slot = (category.slots ?? [])[tableSlotIndex];
+    if (!slot) throw createError('Invalid table slot selection', 400);
+    if (slot.isBooked) throw createError(`${slot.label} is already booked`, 409);
 
-    const isFree = table.price === 0;
+    const isFree = category.price === 0;
     const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
+    const tierLabel = `${category.label} — ${slot.label}`;
 
     const session = await mongoose.startSession();
     let booking: IBooking | null = null;
@@ -86,21 +90,19 @@ export async function createBooking(
           {
             _id: eventId,
             status: 'published',
-            [`tables.${tableIndex}.bookedCount`]: { $lt: table.quantity },
+            [`tables.${tableCategoryIndex}.slots.${tableSlotIndex}.isBooked`]: false,
             $expr: { $lte: [{ $add: ['$bookedCount', { $ifNull: ['$reservedCount', 0] }, 1] }, '$capacity'] },
           },
           {
-            $inc: {
-              [isFree ? 'bookedCount' : 'reservedCount']: 1,
-              [`tables.${tableIndex}.bookedCount`]: 1,
-            },
+            $set: { [`tables.${tableCategoryIndex}.slots.${tableSlotIndex}.isBooked`]: true },
+            $inc: { [isFree ? 'bookedCount' : 'reservedCount']: 1 },
           },
           { new: true, session }
         );
-        if (!ev) throw createError('Table is no longer available', 409);
+        if (!ev) throw createError('Table slot is no longer available', 409);
 
         const [created] = await Booking.create(
-          [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: table.price, tierLabel: table.label, groupSize: 1 }],
+          [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: category.price, tierLabel, groupSize: 1 }],
           { session }
         );
         booking = created as unknown as IBooking;
@@ -114,7 +116,7 @@ export async function createBooking(
 
     let pass = null;
     if (isFree) {
-      pass = await generatePass(confirmedBooking._id.toString(), userId, eventId, table.label);
+      pass = await generatePass(confirmedBooking._id.toString(), userId, eventId, tierLabel);
       await Booking.findByIdAndUpdate(confirmedBooking._id, { passId: pass._id });
       await incrementEventAttendance(userId);
       void notifyBookingConfirmed(userId, event.title, pass._id.toString());

@@ -6,13 +6,17 @@ export interface IEventMember {
   addedAt: Date;
 }
 
+export interface ITableSlot {
+  label: string;
+  isBooked: boolean;
+}
+
 export interface ITableCategory {
   label: string;
   description?: string;
   capacity: number;
   price: number;
-  quantity: number;
-  bookedCount: number;
+  slots: ITableSlot[];
 }
 
 export interface IPricingTier {
@@ -191,8 +195,13 @@ const eventSchema = new Schema<IEvent>(
         description: { type: String },
         capacity: { type: Number, required: true, min: 1 },
         price: { type: Number, required: true, min: 0 },
-        quantity: { type: Number, required: true, min: 1 },
-        bookedCount: { type: Number, default: 0 },
+        slots: {
+          type: [{
+            label: { type: String, required: true },
+            isBooked: { type: Boolean, default: false },
+          }],
+          default: [],
+        },
       }],
       default: [],
     },

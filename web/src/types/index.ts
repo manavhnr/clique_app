@@ -68,14 +68,18 @@ export interface TicketType {
   soldCount: number;
 }
 
+export interface TableSlot {
+  label: string;
+  isBooked: boolean;
+}
+
 export interface TableCategory {
   _id?: string;
   label: string;
   description?: string;
   capacity: number;
   price: number;
-  quantity: number;
-  bookedCount: number;
+  slots: TableSlot[];
 }
 
 export interface Event {

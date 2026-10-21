@@ -19,14 +19,18 @@ type TicketType = {
   soldCount: number;
 };
 
+type TableSlot = {
+  label: string;
+  isBooked: boolean;
+};
+
 type TableType = {
   _id?: string;
   label: string;
   price: number;
   capacity: number;
-  quantity: number;
-  bookedCount: number;
   description?: string;
+  slots: TableSlot[];
 };
 
 type Selection = Record<number, number>; // ticketTypeIndex → quantity
@@ -42,7 +46,9 @@ export default function TicketsPage() {
   const [bookLoading, setBookLoading] = useState(false);
   const [error, setError] = useState('');
   const [tablesOpen, setTablesOpen] = useState(false);
-  const [selectedTableIdx, setSelectedTableIdx] = useState<number | null>(null);
+  const [expandedCategoryIdx, setExpandedCategoryIdx] = useState<number | null>(null);
+  const [selectedCategoryIdx, setSelectedCategoryIdx] = useState<number | null>(null);
+  const [selectedSlotIdx, setSelectedSlotIdx] = useState<number | null>(null);
   const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
   const [utr, setUtr] = useState('');
   const [upiId, setUpiId] = useState('');
@@ -73,7 +79,8 @@ export default function TicketsPage() {
   const ticketTypes: TicketType[] = ev?.ticketTypes ?? [];
   const tables: TableType[] = ev?.tables ?? [];
   const hasTableBooking = !!(ev?.hasTableBooking && tables.length > 0);
-  const selectedTable = selectedTableIdx !== null ? (tables[selectedTableIdx] ?? null) : null;
+  const selectedCategory = selectedCategoryIdx !== null ? (tables[selectedCategoryIdx] ?? null) : null;
+  const selectedSlot = selectedCategory && selectedSlotIdx !== null ? (selectedCategory.slots[selectedSlotIdx] ?? null) : null;
   const userDiscount = ev?.userDiscount ?? null;
 
   const applyDiscount = (price: number) => {
@@ -89,7 +96,7 @@ export default function TicketsPage() {
     return sum + (tt ? tt.price * qty : 0);
   }, 0);
   const totalAmount = applyDiscount(rawTotal);
-  const hasSelection = totalTickets > 0 || selectedTableIdx !== null;
+  const hasSelection = totalTickets > 0 || (selectedCategoryIdx !== null && selectedSlotIdx !== null);
 
   const setQty = (idx: number, qty: number) => {
     setSelection((prev) => {
@@ -116,7 +123,10 @@ export default function TicketsPage() {
         quantity: qty,
       }));
       const payload: Record<string, unknown> = { eventId: id, ticketSelections };
-      if (selectedTableIdx !== null) payload.tableIndex = selectedTableIdx;
+      if (selectedCategoryIdx !== null && selectedSlotIdx !== null) {
+        payload.tableCategoryIndex = selectedCategoryIdx;
+        payload.tableSlotIndex = selectedSlotIdx;
+      }
       const { data: bookRes } = await api.post('/bookings', payload);
       const createdBooking = bookRes.data?.booking;
       if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
@@ -207,6 +217,7 @@ export default function TicketsPage() {
       {/* Tables collapsible */}
       {hasTableBooking && (
         <div style={{ marginBottom: 8 }}>
+          {/* Section toggle */}
           <button
             onClick={() => setTablesOpen((o) => !o)}
             style={{
@@ -217,9 +228,9 @@ export default function TicketsPage() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, color: 'var(--paper)' }}>Tables</span>
-              {selectedTable && (
+              {selectedCategory && selectedSlot && (
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.08em', background: 'rgba(201,243,110,0.1)', padding: '3px 8px', borderRadius: 4 }}>
-                  {selectedTable.label} selected
+                  {selectedCategory.label} · {selectedSlot.label}
                 </span>
               )}
             </div>
@@ -229,38 +240,94 @@ export default function TicketsPage() {
           </button>
 
           {tablesOpen && (
-            <div style={{ paddingTop: 12, paddingBottom: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {tables.map((t, i) => {
-                const available = t.quantity - t.bookedCount;
-                const soldOut = available <= 0;
-                const selected = selectedTableIdx === i;
+            <div style={{ paddingTop: 12, paddingBottom: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {tables.map((cat, ci) => {
+                const availableSlots = cat.slots.filter((s) => !s.isBooked).length;
+                const allBooked = availableSlots === 0;
+                const isExpanded = expandedCategoryIdx === ci;
+                const isSelectedCat = selectedCategoryIdx === ci;
+
                 return (
-                  <button
-                    key={t._id ?? i}
-                    type="button"
-                    onClick={() => !soldOut && setSelectedTableIdx(selected ? null : i)}
-                    disabled={soldOut}
-                    style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                      padding: '12px 14px', borderRadius: 8, cursor: soldOut ? 'not-allowed' : 'pointer',
-                      border: `1px solid ${selected ? 'var(--lime)' : 'var(--line-2)'}`,
-                      background: selected ? 'rgba(201,243,110,0.08)' : soldOut ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.03)',
-                      opacity: soldOut ? 0.4 : 1, textAlign: 'left', width: '100%',
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: selected ? 'var(--lime)' : 'var(--paper)' }}>{t.label}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>
-                        {t.capacity} pax · {soldOut ? 'Fully booked' : `${available} of ${t.quantity} left`}
+                  <div key={cat._id ?? ci}>
+                    {/* Category row */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (allBooked) return;
+                        setExpandedCategoryIdx(isExpanded ? null : ci);
+                      }}
+                      disabled={allBooked}
+                      style={{
+                        width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '12px 14px', borderRadius: isExpanded ? '8px 8px 0 0' : 8,
+                        cursor: allBooked ? 'not-allowed' : 'pointer',
+                        border: `1px solid ${isSelectedCat ? 'var(--lime)' : isExpanded ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`,
+                        borderBottom: isExpanded ? 'none' : undefined,
+                        background: isSelectedCat ? 'rgba(201,243,110,0.08)' : isExpanded ? 'rgba(201,243,110,0.04)' : 'rgba(255,255,255,0.03)',
+                        opacity: allBooked ? 0.4 : 1, textAlign: 'left',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: isSelectedCat ? 'var(--lime)' : 'var(--paper)' }}>
+                          {cat.label}
+                        </div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>
+                          {cat.capacity} pax · {allBooked ? 'Fully booked' : `${availableSlots} of ${cat.slots.length} available`}
+                          {isSelectedCat && selectedSlot ? ` · ${selectedSlot.label} selected` : ''}
+                        </div>
+                        {cat.description && (
+                          <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--cream)', marginTop: 4, lineHeight: 1.4 }}>{cat.description}</div>
+                        )}
                       </div>
-                      {t.description && (
-                        <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--cream)', marginTop: 4, lineHeight: 1.4 }}>{t.description}</div>
-                      )}
-                    </div>
-                    <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: selected ? 'var(--lime)' : 'var(--paper)', flexShrink: 0, marginLeft: 14, alignSelf: 'center' }}>
-                      {t.price === 0 ? 'Free' : `₹${t.price.toLocaleString('en-IN')}`}
-                    </div>
-                  </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, marginLeft: 14 }}>
+                        <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: isSelectedCat ? 'var(--lime)' : 'var(--paper)' }}>
+                          {cat.price === 0 ? 'Free' : `₹${cat.price.toLocaleString('en-IN')}`}
+                        </span>
+                        {!allBooked && (
+                          <span style={{ color: 'var(--dim)', fontSize: 11, fontFamily: 'var(--mono)' }}>{isExpanded ? '▲' : '▶'}</span>
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Slot picker */}
+                    {isExpanded && (
+                      <div style={{
+                        border: `1px solid rgba(201,243,110,0.3)`, borderTop: 'none',
+                        borderRadius: '0 0 8px 8px', padding: '12px 14px',
+                        background: 'rgba(201,243,110,0.02)',
+                        display: 'flex', flexWrap: 'wrap', gap: 8,
+                      }}>
+                        {cat.slots.map((slot, si) => {
+                          const isSlotSelected = isSelectedCat && selectedSlotIdx === si;
+                          return (
+                            <button
+                              key={si}
+                              type="button"
+                              onClick={() => {
+                                if (slot.isBooked) return;
+                                setSelectedCategoryIdx(ci);
+                                setSelectedSlotIdx(si);
+                                setExpandedCategoryIdx(null);
+                              }}
+                              disabled={slot.isBooked}
+                              style={{
+                                padding: '8px 16px', borderRadius: 6,
+                                border: `1px solid ${isSlotSelected ? 'var(--lime)' : slot.isBooked ? 'var(--line-2)' : 'var(--line-2)'}`,
+                                background: isSlotSelected ? 'var(--lime)' : slot.isBooked ? 'transparent' : 'rgba(255,255,255,0.04)',
+                                color: isSlotSelected ? 'var(--ink)' : slot.isBooked ? 'var(--dim)' : 'var(--paper)',
+                                fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, letterSpacing: '.06em',
+                                cursor: slot.isBooked ? 'not-allowed' : 'pointer',
+                                opacity: slot.isBooked ? 0.4 : 1,
+                                textDecoration: slot.isBooked ? 'line-through' : 'none',
+                              }}
+                            >
+                              {slot.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -374,11 +441,11 @@ export default function TicketsPage() {
         }}>
           <div>
             {(() => {
-              const tablePrice = selectedTable ? (userDiscount && selectedTable.price > 0 ? Math.max(0, userDiscount.discountType === 'percentage' ? Math.round(selectedTable.price * (1 - userDiscount.discountValue / 100)) : selectedTable.price - userDiscount.discountValue) : selectedTable.price) : 0;
+              const tablePrice = selectedCategory ? (userDiscount && selectedCategory.price > 0 ? Math.max(0, userDiscount.discountType === 'percentage' ? Math.round(selectedCategory.price * (1 - userDiscount.discountValue / 100)) : selectedCategory.price - userDiscount.discountValue) : selectedCategory.price) : 0;
               const grandTotal = totalAmount + tablePrice;
               const grandItems = [
                 totalTickets > 0 ? `${totalTickets} ticket${totalTickets !== 1 ? 's' : ''}` : null,
-                selectedTable ? selectedTable.label : null,
+                selectedCategory && selectedSlot ? `${selectedCategory.label} · ${selectedSlot.label}` : null,
               ].filter(Boolean).join(' + ');
               return (
                 <>
@@ -404,7 +471,7 @@ export default function TicketsPage() {
               whiteSpace: 'nowrap',
             }}
           >
-            {bookLoading ? '…' : (totalAmount + (selectedTable?.price ?? 0)) === 0 ? 'Get passes →' : 'Book & pay →'}
+            {bookLoading ? '…' : (totalAmount + (selectedCategory?.price ?? 0)) === 0 ? 'Get passes →' : 'Book & pay →'}
           </button>
         </div>
       )}

@@ -32,7 +32,7 @@ const PREVIEW_COLORS: Record<string, string> = {
 };
 
 type TicketType = { id: string; label: string; price: string; description: string; capacity: string };
-type TableRow = { id: string; label: string; description: string; capacity: string; price: string; quantity: string };
+type TableRow = { id: string; label: string; description: string; capacity: string; price: string; slots: string };
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -117,7 +117,7 @@ function EventFormContent() {
   // Table booking
   const [hasTableBooking, setHasTableBooking] = useState(false);
   const [tables, setTables] = useState<TableRow[]>([
-    { id: uid(), label: '', description: '', capacity: '4', price: '0', quantity: '1' },
+    { id: uid(), label: '', description: '', capacity: '4', price: '0', slots: '' },
   ]);
   const [hasFloorPlan, setHasFloorPlan] = useState(false);
   const [floorPlanFiles, setFloorPlanFiles] = useState<File[]>([]);
@@ -175,13 +175,13 @@ function EventFormContent() {
         setThumbIdx(ev.thumbnailImageIndex ?? 0);
         if (ev.hasTableBooking && ev.tables?.length) {
           setHasTableBooking(true);
-          setTables(ev.tables.map((t: { label: string; description?: string; capacity: number; price: number; quantity: number }) => ({
+          setTables(ev.tables.map((t: { label: string; description?: string; capacity: number; price: number; slots: { label: string }[] }) => ({
             id: uid(),
             label: t.label ?? '',
             description: t.description ?? '',
             capacity: String(t.capacity ?? 4),
             price: String(t.price ?? 0),
-            quantity: String(t.quantity ?? 1),
+            slots: (t.slots ?? []).map((s: { label: string }) => s.label).join(', '),
           })));
         }
         if (ev.hasFloorPlan && ev.floorPlanImages?.length) {
@@ -220,7 +220,7 @@ function EventFormContent() {
     setTicketTypes((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
 
   // Table helpers
-  const addTable    = () => setTables((t) => [...t, { id: uid(), label: '', description: '', capacity: '4', price: '0', quantity: '1' }]);
+  const addTable    = () => setTables((t) => [...t, { id: uid(), label: '', description: '', capacity: '4', price: '0', slots: '' }]);
   const removeTable = (id: string) => setTables((t) => t.filter((x) => x.id !== id));
   const updateTable = (id: string, field: keyof TableRow, val: string) =>
     setTables((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
@@ -314,7 +314,7 @@ function EventFormContent() {
           description: t.description || undefined,
           capacity: Number(t.capacity) || 1,
           price: Number(t.price) || 0,
-          quantity: Number(t.quantity) || 1,
+          slots: t.slots.split(',').map((s) => s.trim()).filter(Boolean),
         })) : [],
       }));
       fd.append('hasFloorPlan', String(hasFloorPlan));
@@ -982,7 +982,7 @@ function TableBuilder({
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>PRICE (₹)</div>
               <input type="number" min="0" inputMode="numeric"
@@ -993,7 +993,7 @@ function TableBuilder({
               />
             </div>
             <div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>SEATS / TABLE</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>PAX / TABLE</div>
               <input type="number" min="1" inputMode="numeric"
                 value={t.capacity} onChange={(e) => onUpdate(t.id, 'capacity', e.target.value)}
                 placeholder="4" style={smallInput}
@@ -1001,15 +1001,23 @@ function TableBuilder({
                 onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
               />
             </div>
-            <div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>QUANTITY</div>
-              <input type="number" min="1" inputMode="numeric"
-                value={t.quantity} onChange={(e) => onUpdate(t.id, 'quantity', e.target.value)}
-                placeholder="1" style={smallInput}
-                onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
-                onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
-              />
-            </div>
+          </div>
+
+          <div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>TABLE NUMBERS (COMMA-SEPARATED)</div>
+            <input
+              value={t.slots}
+              onChange={(e) => onUpdate(t.id, 'slots', e.target.value)}
+              placeholder="e.g. A1, A2, A3, A4, A5"
+              style={smallInput}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+            />
+            {t.slots.trim() && (
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', marginTop: 5 }}>
+                {t.slots.split(',').map((s) => s.trim()).filter(Boolean).length} tables in this category
+              </div>
+            )}
           </div>
 
           <div>
