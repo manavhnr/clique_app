@@ -202,7 +202,7 @@ export async function getHostDashboard(hostUserId: string) {
     .select('name username profileImage bio city cliquescore followerCount followingCount postCount isVerifiedHost upiId payoutStatus createdAt');
   if (!host || !host.isVerifiedHost) throw createError('Verified host not found', 404);
 
-  const events = await Event.find({ hostId: hostUserId })
+  const events = await Event.find({ $or: [{ hostId: hostUserId }, { 'coHosts.userId': hostUserId }] })
     .select('title images date startTime status capacity bookedCount checkedInCount revenue price category locationName privacy')
     .sort({ createdAt: -1 });
 
