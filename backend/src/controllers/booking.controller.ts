@@ -8,8 +8,14 @@ const parseLimit = (q: unknown) => Math.min(50, Math.max(1, parseInt(String(q ??
 
 export async function create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { eventId, tierLabel, groupPricingIndex, ticketTypeIndex, ticketSelections, tableCategoryIndex, tableSlotIndex } = req.body;
-    const result = await createBooking(req.user!.userId, eventId, tierLabel, groupPricingIndex, ticketTypeIndex, ticketSelections, tableCategoryIndex, tableSlotIndex);
+    const { eventId, tierLabel, groupPricingIndex, ticketTypeIndex, ticketSelections, tableCategoryIndex, tableSlotIndex, tableSelections } = req.body;
+    // Normalise to multi-table format: prefer tableSelections array, fall back to legacy single indices
+    const resolvedTableSelections: Array<{ tableCategoryIndex: number; tableSlotIndex: number }> | undefined =
+      tableSelections ??
+      (tableCategoryIndex !== undefined && tableSlotIndex !== undefined
+        ? [{ tableCategoryIndex, tableSlotIndex }]
+        : undefined);
+    const result = await createBooking(req.user!.userId, eventId, tierLabel, groupPricingIndex, ticketTypeIndex, ticketSelections, resolvedTableSelections);
     const message = result.pass ? 'Booking confirmed. Pass generated.' : 'Booking created. Complete payment to confirm.';
     sendSuccess(res, result, message, 201);
   } catch (err) { next(err); }

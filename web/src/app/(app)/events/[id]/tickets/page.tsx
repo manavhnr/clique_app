@@ -49,8 +49,7 @@ export default function TicketsPage() {
   const [tablesOpen, setTablesOpen] = useState(false);
   const [expandedParentCategory, setExpandedParentCategory] = useState<string | null>(null);
   const [expandedCategoryIdx, setExpandedCategoryIdx] = useState<number | null>(null);
-  const [selectedCategoryIdx, setSelectedCategoryIdx] = useState<number | null>(null);
-  const [selectedSlotIdx, setSelectedSlotIdx] = useState<number | null>(null);
+  const [selectedTableSlots, setSelectedTableSlots] = useState<Array<{ categoryIdx: number; slotIdx: number }>>([]);
   const [upiModal, setUpiModal] = useState<{ bookingId: string; amount: number } | null>(null);
   const [utr, setUtr] = useState('');
   const [upiId, setUpiId] = useState('');
@@ -81,9 +80,20 @@ export default function TicketsPage() {
   const ticketTypes: TicketType[] = ev?.ticketTypes ?? [];
   const tables: TableType[] = ev?.tables ?? [];
   const hasTableBooking = !!(ev?.hasTableBooking && tables.length > 0);
-  const selectedCategory = selectedCategoryIdx !== null ? (tables[selectedCategoryIdx] ?? null) : null;
-  const selectedSlot = selectedCategory && selectedSlotIdx !== null ? (selectedCategory.slots[selectedSlotIdx] ?? null) : null;
   const userDiscount = ev?.userDiscount ?? null;
+
+  const isSlotSelected = (categoryIdx: number, slotIdx: number) =>
+    selectedTableSlots.some((s) => s.categoryIdx === categoryIdx && s.slotIdx === slotIdx);
+
+  const toggleSlot = (categoryIdx: number, slotIdx: number) => {
+    setSelectedTableSlots((prev) => {
+      const exists = prev.some((s) => s.categoryIdx === categoryIdx && s.slotIdx === slotIdx);
+      if (exists) return prev.filter((s) => !(s.categoryIdx === categoryIdx && s.slotIdx === slotIdx));
+      return [...prev, { categoryIdx, slotIdx }];
+    });
+  };
+
+  const tableTotal = selectedTableSlots.reduce((sum, s) => sum + (tables[s.categoryIdx]?.price ?? 0), 0);
 
   const applyDiscount = (price: number) => {
     if (!userDiscount || price === 0) return price;
@@ -98,7 +108,7 @@ export default function TicketsPage() {
     return sum + (tt ? tt.price * qty : 0);
   }, 0);
   const totalAmount = applyDiscount(rawTotal);
-  const hasSelection = totalTickets > 0 || (selectedCategoryIdx !== null && selectedSlotIdx !== null);
+  const hasSelection = totalTickets > 0 || selectedTableSlots.length > 0;
 
   const setQty = (idx: number, qty: number) => {
     setSelection((prev) => {
@@ -125,9 +135,11 @@ export default function TicketsPage() {
         quantity: qty,
       }));
       const payload: Record<string, unknown> = { eventId: id, ticketSelections };
-      if (selectedCategoryIdx !== null && selectedSlotIdx !== null) {
-        payload.tableCategoryIndex = selectedCategoryIdx;
-        payload.tableSlotIndex = selectedSlotIdx;
+      if (selectedTableSlots.length > 0) {
+        payload.tableSelections = selectedTableSlots.map((s) => ({
+          tableCategoryIndex: s.categoryIdx,
+          tableSlotIndex: s.slotIdx,
+        }));
       }
       const { data: bookRes } = await api.post('/bookings', payload);
       const createdBooking = bookRes.data?.booking;
@@ -227,7 +239,8 @@ export default function TicketsPage() {
           const availableSlots = cat.slots.filter((s) => !s.isBooked).length;
           const allBooked = availableSlots === 0;
           const isExpanded = expandedCategoryIdx === ci;
-          const isSelectedCat = selectedCategoryIdx === ci;
+          const selectedInCat = selectedTableSlots.filter((s) => s.categoryIdx === ci);
+          const hasAnySelected = selectedInCat.length > 0;
           return (
             <div key={cat._id ?? ci}>
               <button
@@ -235,33 +248,32 @@ export default function TicketsPage() {
                 onClick={() => {
                   if (allBooked) return;
                   setExpandedCategoryIdx(isExpanded ? null : ci);
-                  if (isSelectedCat && !isExpanded) setExpandedCategoryIdx(ci);
                 }}
                 disabled={allBooked}
                 style={{
                   width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '12px 14px', borderRadius: isExpanded ? '8px 8px 0 0' : 8,
                   cursor: allBooked ? 'not-allowed' : 'pointer',
-                  border: `1px solid ${isSelectedCat ? 'var(--lime)' : isExpanded ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`,
+                  border: `1px solid ${hasAnySelected ? 'var(--lime)' : isExpanded ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`,
                   borderBottom: isExpanded ? 'none' : undefined,
-                  background: isSelectedCat ? 'rgba(201,243,110,0.08)' : isExpanded ? 'rgba(201,243,110,0.04)' : 'rgba(255,255,255,0.03)',
+                  background: hasAnySelected ? 'rgba(201,243,110,0.08)' : isExpanded ? 'rgba(201,243,110,0.04)' : 'rgba(255,255,255,0.03)',
                   opacity: allBooked ? 0.4 : 1, textAlign: 'left',
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: isSelectedCat ? 'var(--lime)' : 'var(--paper)' }}>
+                  <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: hasAnySelected ? 'var(--lime)' : 'var(--paper)' }}>
                     {cat.label}
                   </div>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>
                     {cat.capacity} pax · {allBooked ? 'Fully booked' : `${availableSlots} of ${cat.slots.length} available`}
-                    {isSelectedCat && selectedSlot ? ` · ${selectedSlot.label} selected` : ''}
+                    {selectedInCat.length > 0 ? ` · ${selectedInCat.length} selected` : ''}
                   </div>
                   {cat.description && (
                     <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--cream)', marginTop: 4, lineHeight: 1.4 }}>{cat.description}</div>
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, marginLeft: 14 }}>
-                  <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: isSelectedCat ? 'var(--lime)' : 'var(--paper)' }}>
+                  <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: hasAnySelected ? 'var(--lime)' : 'var(--paper)' }}>
                     {cat.price === 0 ? 'Free' : `₹${cat.price.toLocaleString('en-IN')}`}
                   </span>
                   {!allBooked && (
@@ -277,28 +289,18 @@ export default function TicketsPage() {
                   display: 'flex', flexWrap: 'wrap', gap: 8,
                 }}>
                   {cat.slots.map((slot, si) => {
-                    const isSlotSelected = isSelectedCat && selectedSlotIdx === si;
+                    const selected = isSlotSelected(ci, si);
                     return (
                       <button
                         key={si}
                         type="button"
-                        onClick={() => {
-                          if (slot.isBooked) return;
-                          if (isSlotSelected) {
-                            setSelectedCategoryIdx(null);
-                            setSelectedSlotIdx(null);
-                          } else {
-                            setSelectedCategoryIdx(ci);
-                            setSelectedSlotIdx(si);
-                            setExpandedCategoryIdx(null);
-                          }
-                        }}
+                        onClick={() => { if (!slot.isBooked) toggleSlot(ci, si); }}
                         disabled={slot.isBooked}
                         style={{
                           padding: '8px 16px', borderRadius: 6,
-                          border: `1px solid ${isSlotSelected ? 'var(--lime)' : 'var(--line-2)'}`,
-                          background: isSlotSelected ? 'var(--lime)' : slot.isBooked ? 'transparent' : 'rgba(255,255,255,0.04)',
-                          color: isSlotSelected ? 'var(--ink)' : slot.isBooked ? 'var(--dim)' : 'var(--paper)',
+                          border: `1px solid ${selected ? 'var(--lime)' : 'var(--line-2)'}`,
+                          background: selected ? 'var(--lime)' : slot.isBooked ? 'transparent' : 'rgba(255,255,255,0.04)',
+                          color: selected ? 'var(--ink)' : slot.isBooked ? 'var(--dim)' : 'var(--paper)',
                           fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, letterSpacing: '.06em',
                           cursor: slot.isBooked ? 'not-allowed' : 'pointer',
                           opacity: slot.isBooked ? 0.4 : 1,
@@ -328,9 +330,9 @@ export default function TicketsPage() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, color: 'var(--paper)' }}>Tables</span>
-                {selectedCategory && selectedSlot && (
+                {selectedTableSlots.length > 0 && (
                   <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.08em', background: 'rgba(201,243,110,0.1)', padding: '3px 8px', borderRadius: 4 }}>
-                    {selectedCategory.label} · {selectedSlot.label}
+                    {selectedTableSlots.length} table{selectedTableSlots.length !== 1 ? 's' : ''} selected
                   </span>
                 )}
               </div>
@@ -348,7 +350,7 @@ export default function TicketsPage() {
                       .map((t, i) => ({ table: t, originalIdx: i }))
                       .filter(({ table }) => (table.parentCategory ?? 'Other') === parentName);
                     const isParentExpanded = expandedParentCategory === parentName;
-                    const hasSelectedInParent = groupTables.some(({ originalIdx }) => originalIdx === selectedCategoryIdx);
+                    const hasSelectedInParent = groupTables.some(({ originalIdx }) => selectedTableSlots.some((s) => s.categoryIdx === originalIdx));
 
                     return (
                       <div key={parentName}>
@@ -373,11 +375,14 @@ export default function TicketsPage() {
                             <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: hasSelectedInParent ? 'var(--lime)' : 'var(--paper)' }}>
                               {parentName}
                             </span>
-                            {hasSelectedInParent && selectedSlot && (
-                              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.06em', background: 'rgba(201,243,110,0.1)', padding: '2px 7px', borderRadius: 4 }}>
-                                {selectedCategory?.label} · {selectedSlot.label}
-                              </span>
-                            )}
+                            {hasSelectedInParent && (() => {
+                              const count = groupTables.reduce((n, { originalIdx }) => n + selectedTableSlots.filter((s) => s.categoryIdx === originalIdx).length, 0);
+                              return (
+                                <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.06em', background: 'rgba(201,243,110,0.1)', padding: '2px 7px', borderRadius: 4 }}>
+                                  {count} table{count !== 1 ? 's' : ''} selected
+                                </span>
+                              );
+                            })()}
                           </div>
                           <span style={{ color: 'var(--dim)', fontSize: 11, fontFamily: 'var(--mono)' }}>
                             {isParentExpanded ? '▲' : '▼'}
@@ -517,11 +522,10 @@ export default function TicketsPage() {
         }}>
           <div>
             {(() => {
-              const tablePrice = selectedCategory ? (userDiscount && selectedCategory.price > 0 ? Math.max(0, userDiscount.discountType === 'percentage' ? Math.round(selectedCategory.price * (1 - userDiscount.discountValue / 100)) : selectedCategory.price - userDiscount.discountValue) : selectedCategory.price) : 0;
-              const grandTotal = totalAmount + tablePrice;
+              const grandTotal = totalAmount + tableTotal;
               const grandItems = [
                 totalTickets > 0 ? `${totalTickets} ticket${totalTickets !== 1 ? 's' : ''}` : null,
-                selectedCategory && selectedSlot ? `${selectedCategory.label} · ${selectedSlot.label}` : null,
+                selectedTableSlots.length > 0 ? `${selectedTableSlots.length} table${selectedTableSlots.length !== 1 ? 's' : ''}` : null,
               ].filter(Boolean).join(' + ');
               return (
                 <>
@@ -547,7 +551,7 @@ export default function TicketsPage() {
               whiteSpace: 'nowrap',
             }}
           >
-            {bookLoading ? '…' : (totalAmount + (selectedCategory?.price ?? 0)) === 0 ? 'Get passes →' : 'Book & pay →'}
+            {bookLoading ? '…' : (totalAmount + tableTotal) === 0 ? 'Get passes →' : 'Book & pay →'}
           </button>
         </div>
       )}

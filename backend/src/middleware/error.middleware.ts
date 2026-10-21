@@ -13,6 +13,16 @@ export function errorHandler(
   let statusCode = err.statusCode ?? 500;
   let message = err.message;
 
+  // Multer file-size / field-count limits
+  const multerCode = (err as { code?: string }).code;
+  if (multerCode === 'LIMIT_FILE_SIZE') {
+    statusCode = 400;
+    message = 'File is too large';
+  } else if (multerCode === 'LIMIT_UNEXPECTED_FILE') {
+    statusCode = 400;
+    message = 'Unexpected file field';
+  }
+
   // Map common Mongoose errors to sane client-facing statuses
   const name = (err as { name?: string }).name;
   if (name === 'CastError') {
@@ -30,7 +40,7 @@ export function errorHandler(
   }
 
   if (statusCode === 500) {
-    console.error(err);
+    console.error('[500]', err.message, err.stack);
     message = 'Internal server error';
   }
 

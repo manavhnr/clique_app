@@ -12,6 +12,14 @@ export const createBookingSchema = z.object({
     })
   ).optional(),
   tableIndex: z.number().int().min(0).optional(),
+  tableCategoryIndex: z.number().int().min(0).optional(),
+  tableSlotIndex: z.number().int().min(0).optional(),
+  tableSelections: z.array(
+    z.object({
+      tableCategoryIndex: z.number().int().min(0),
+      tableSlotIndex: z.number().int().min(0),
+    })
+  ).max(20).optional(),
 });
 
 export const cancelBookingSchema = z.object({

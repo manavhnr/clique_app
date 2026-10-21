@@ -245,9 +245,24 @@ function EventFormContent() {
     setExistingFloorPlanUrls((prev) => prev.filter((_, idx) => idx !== i));
   };
 
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+
   const handleImages = (files: FileList | null) => {
     if (!files) return;
-    const newFiles = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, 5 - images.length);
+    const rejected: string[] = [];
+    const accepted: File[] = [];
+    Array.from(files).forEach((f) => {
+      if (!ALLOWED_IMAGE_TYPES.includes(f.type)) {
+        rejected.push(`${f.name} (unsupported type — use JPEG, PNG, or WebP)`);
+      } else if (f.size > MAX_IMAGE_BYTES) {
+        rejected.push(`${f.name} (too large — max 10 MB)`);
+      } else {
+        accepted.push(f);
+      }
+    });
+    if (rejected.length) setError(rejected.join(', '));
+    const newFiles = accepted.slice(0, 5 - images.length);
     setImages((prev) => [...prev, ...newFiles].slice(0, 5));
     newFiles.forEach((f) => {
       const reader = new FileReader();
@@ -331,14 +346,15 @@ function EventFormContent() {
       videos.forEach((vid) => fd.append('videos', vid));
 
       let eventId: string;
+      const uploadCfg = { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120_000 };
       if (isEditing) {
-        const { data } = await api.put(`/events/${editId}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        const { data } = await api.put(`/events/${editId}`, fd, uploadCfg);
         eventId = data.data.event._id;
         if (publish && data.data.event?.status !== 'published') {
           await api.patch(`/events/${eventId}/publish`);
         }
       } else {
-        const { data } = await api.post('/events', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        const { data } = await api.post('/events', fd, uploadCfg);
         eventId = data.data.event._id;
         if (publish && data.data.event?.status !== 'published') {
           await api.patch(`/events/${eventId}/publish`);
@@ -348,11 +364,15 @@ function EventFormContent() {
       setDone(true);
       setTimeout(() => router.push(`/host/events/${eventId}`), 1500);
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string; errors?: { field: string; message: string }[] } } };
-      const fieldErrors = e.response?.data?.errors;
-      setError(fieldErrors?.length
-        ? fieldErrors.map((fe) => `${fe.field}: ${fe.message}`).join(' · ')
-        : (e.response?.data?.message ?? (isEditing ? 'Failed to update event' : 'Failed to create event')));
+      const e = err as { code?: string; response?: { data?: { message?: string; errors?: { field: string; message: string }[] } } };
+      if (e.code === 'ECONNABORTED') {
+        setError('Upload timed out — try a smaller image or check your connection');
+      } else {
+        const fieldErrors = e.response?.data?.errors;
+        setError(fieldErrors?.length
+          ? fieldErrors.map((fe) => `${fe.field}: ${fe.message}`).join(' · ')
+          : (e.response?.data?.message ?? (isEditing ? 'Failed to update event' : 'Failed to create event')));
+      }
     } finally {
       setLoading(false);
     }
