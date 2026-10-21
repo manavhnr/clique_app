@@ -15,7 +15,7 @@ const CLAUSES = [
   {
     num: '02',
     title: 'Payments & payouts',
-    body: 'You receive 95% of ticket revenue. Payouts settle T+1 business days after each event closes. Platform fees are non-refundable.',
+    body: 'You receive 95% of ticket revenue — Clique takes 5%. Payouts settle T+1 business days after each event closes. Platform fees are non-refundable.',
   },
   {
     num: '03',

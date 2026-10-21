@@ -22,7 +22,7 @@ const FLOW_PLACEHOLDER = `1. User selects a paid event and taps "Book"
 5. Admin clicks "Verify payment" → booking confirmed → QR pass generated instantly
 6. User opens Passes tab and sees active QR pass
 7. Host scans QR at the door → pass marked used → booking status → checked_in
-8. Revenue is paid out to host via UPI (T+1 days, 95/5 split)`;
+8. Revenue is paid out to host via UPI (T+1 days, 95% host / 5% Clique)`;
 
 const ABOUT_PLACEHOLDER = `Clique is a social-first nightlife application for discovering and attending house parties, club nights, and exclusive events.
 

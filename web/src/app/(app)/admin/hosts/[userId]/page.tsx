@@ -184,7 +184,7 @@ function AdminPayoutsSection({ payoutStatus, upiId }: { payoutStatus: 'not_start
         {isActive && (
           <div className="flex flex-wrap gap-6 border-t border-line pt-4">
             {[
-              { label: 'PAYOUT SPLIT', value: '95 / 5' },
+              { label: 'PAYOUT SPLIT', value: '95% host · 5% Clique' },
               { label: 'SETTLEMENT', value: 'T+1 days' },
             ].map(({ label, value }) => (
               <div key={label}>
