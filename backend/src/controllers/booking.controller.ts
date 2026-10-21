@@ -8,8 +8,8 @@ const parseLimit = (q: unknown) => Math.min(50, Math.max(1, parseInt(String(q ??
 
 export async function create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { eventId, tierLabel, groupPricingIndex, ticketTypeIndex, ticketSelections } = req.body;
-    const result = await createBooking(req.user!.userId, eventId, tierLabel, groupPricingIndex, ticketTypeIndex, ticketSelections);
+    const { eventId, tierLabel, groupPricingIndex, ticketTypeIndex, ticketSelections, tableIndex } = req.body;
+    const result = await createBooking(req.user!.userId, eventId, tierLabel, groupPricingIndex, ticketTypeIndex, ticketSelections, tableIndex);
     const message = result.pass ? 'Booking confirmed. Pass generated.' : 'Booking created. Complete payment to confirm.';
     sendSuccess(res, result, message, 201);
   } catch (err) { next(err); }

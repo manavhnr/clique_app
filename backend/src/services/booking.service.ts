@@ -50,6 +50,7 @@ export async function createBooking(
   groupPricingIndex?: number,
   ticketTypeIndex?: number,
   ticketSelections?: Array<{ ticketTypeIndex: number; quantity: number }>,
+  tableIndex?: number,
 ) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
@@ -59,6 +60,69 @@ export async function createBooking(
   // Duplicate booking check
   const existing = await Booking.findOne({ userId, eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } });
   if (existing) throw createError('Already booked this event', 409);
+
+  // ── Table booking flow ────────────────────────────────────────────────────────
+  if (tableIndex !== undefined && tableIndex !== null) {
+    if (!event.hasTableBooking) throw createError('This event does not have table booking', 400);
+    const table = (event.tables ?? [])[tableIndex];
+    if (!table) throw createError('Invalid table selection', 400);
+    if (table.bookedCount >= table.quantity) throw createError(`${table.label} is fully booked`, 409);
+
+    const isFree = table.price === 0;
+    const bookingStatus = isFree ? 'confirmed' : 'payment_pending';
+
+    const session = await mongoose.startSession();
+    let booking: IBooking | null = null;
+    try {
+      await session.withTransaction(async () => {
+        const dup = await Booking.findOne(
+          { userId, eventId, status: { $nin: ['cancelled', 'refunded', 'rejected'] } },
+          null,
+          { session }
+        );
+        if (dup) throw createError('Already booked this event', 409);
+
+        const ev = await Event.findOneAndUpdate(
+          {
+            _id: eventId,
+            status: 'published',
+            [`tables.${tableIndex}.bookedCount`]: { $lt: table.quantity },
+            $expr: { $lte: [{ $add: ['$bookedCount', { $ifNull: ['$reservedCount', 0] }, 1] }, '$capacity'] },
+          },
+          {
+            $inc: {
+              [isFree ? 'bookedCount' : 'reservedCount']: 1,
+              [`tables.${tableIndex}.bookedCount`]: 1,
+            },
+          },
+          { new: true, session }
+        );
+        if (!ev) throw createError('Table is no longer available', 409);
+
+        const [created] = await Booking.create(
+          [{ userId, eventId, hostId: event.hostId, status: bookingStatus, amount: table.price, tierLabel: table.label, groupSize: 1 }],
+          { session }
+        );
+        booking = created as unknown as IBooking;
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    if (!booking) throw createError('Booking creation failed', 500);
+    const confirmedBooking = booking as IBooking;
+
+    let pass = null;
+    if (isFree) {
+      pass = await generatePass(confirmedBooking._id.toString(), userId, eventId, table.label);
+      await Booking.findByIdAndUpdate(confirmedBooking._id, { passId: pass._id });
+      await incrementEventAttendance(userId);
+      void notifyBookingConfirmed(userId, event.title, pass._id.toString());
+      await writeAuditLog({ actorId: userId, action: 'FREE_BOOKING_CONFIRMED', targetType: 'Booking', targetId: confirmedBooking._id.toString() });
+    }
+
+    return { booking: confirmedBooking, pass };
+  }
 
   // Private event — must have approved request
   if (event.privacy === 'private' && event.approvalRequired) {

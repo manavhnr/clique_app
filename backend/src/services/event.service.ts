@@ -22,11 +22,13 @@ export async function createEvent(
   hostId: string,
   data: CreateEventInput,
   imageFiles: Express.Multer.File[],
-  videoFiles: Express.Multer.File[] = []
+  videoFiles: Express.Multer.File[] = [],
+  floorPlanFile?: Express.Multer.File
 ) {
-  const [images, videos] = await Promise.all([
+  const [images, videos, floorPlanImageUrl] = await Promise.all([
     Promise.all(imageFiles.map((f) => uploadFile(f, 'clique/events/images'))),
     Promise.all(videoFiles.map((f) => uploadFile(f, 'clique/events/videos'))),
+    floorPlanFile ? uploadFile(floorPlanFile, 'clique/events/floorplans') : Promise.resolve(undefined),
   ]);
 
   const event = await Event.create({
@@ -60,6 +62,10 @@ export async function createEvent(
     ageLimit: data.ageLimit,
     refundPolicy: data.refundPolicy,
     status: data.status,
+    hasTableBooking: data.tableData?.enabled ?? false,
+    tables: data.tableData?.tables?.map((t) => ({ ...t, bookedCount: 0 })) ?? [],
+    hasFloorPlan: data.hasFloorPlan && !!floorPlanImageUrl,
+    floorPlanImageUrl: floorPlanImageUrl ?? undefined,
   });
 
   if (data.status === 'published') {
@@ -129,7 +135,8 @@ export async function updateEvent(
   hostId: string,
   data: UpdateEventInput,
   imageFiles: Express.Multer.File[] = [],
-  videoFiles: Express.Multer.File[] = []
+  videoFiles: Express.Multer.File[] = [],
+  floorPlanFile?: Express.Multer.File
 ) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
@@ -165,6 +172,27 @@ export async function updateEvent(
     }
   }
   delete update.pricingData;
+
+  // Table booking
+  if (data.tableData !== undefined) {
+    update.hasTableBooking = data.tableData?.enabled ?? false;
+    update.tables = (data.tableData?.tables ?? []).map((incoming: { label: string; description?: string; capacity: number; price: number; quantity: number }) => {
+      const existing = (event.tables ?? []).find((t) => t.label === incoming.label);
+      return { ...incoming, bookedCount: existing?.bookedCount ?? 0 };
+    });
+  }
+  delete update.tableData;
+
+  // Floor plan image
+  if (floorPlanFile) {
+    const floorPlanImageUrl = await uploadFile(floorPlanFile, 'clique/events/floorplans');
+    update.floorPlanImageUrl = floorPlanImageUrl;
+    update.hasFloorPlan = true;
+  } else if (data.hasFloorPlan === false) {
+    update.hasFloorPlan = false;
+    update.floorPlanImageUrl = undefined;
+  }
+  delete update.hasFloorPlan;
 
   // Merge kept images with any newly uploaded ones
   if (imageFiles.length > 0) {

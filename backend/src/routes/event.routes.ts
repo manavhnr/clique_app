@@ -52,10 +52,10 @@ router.use(authenticate);
 
 // Host-only writes
 router.post('/', requireVerifiedHost,
-  uploadMedia.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 3 }]),
+  uploadMedia.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 3 }, { name: 'floorPlan', maxCount: 1 }]),
   validate(createEventSchema), create);
 router.put('/:eventId', requireVerifiedHost,
-  uploadMedia.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 3 }]),
+  uploadMedia.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 3 }, { name: 'floorPlan', maxCount: 1 }]),
   validate(updateEventSchema), update);
 router.patch('/:eventId/publish', requireVerifiedHost, publish);
 router.patch('/:eventId/cancel', cancel);   // host or admin — enforced in service

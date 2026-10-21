@@ -59,6 +59,25 @@ const pricingDataField = z.preprocess(
   }).optional()
 ).optional();
 
+const tableDataField = z.preprocess(
+  (v) => {
+    if (typeof v === 'string' && v !== '') {
+      try { return JSON.parse(v); } catch { return undefined; }
+    }
+    return v ?? undefined;
+  },
+  z.object({
+    enabled: z.boolean().default(false),
+    tables: z.array(z.object({
+      label: z.string().max(100),
+      description: z.string().max(500).optional(),
+      capacity: z.coerce.number().int().min(1),
+      price: z.coerce.number().min(0),
+      quantity: z.coerce.number().int().min(1),
+    })).max(20),
+  }).optional()
+).optional();
+
 export const createEventSchema = z.object({
   hostId: z.string().optional(),
   bannerImageIndex: z.coerce.number().int().min(0).default(0),
@@ -97,6 +116,8 @@ export const createEventSchema = z.object({
   ageLimit: optionalInt,
   refundPolicy: z.string().optional(),
   status: z.enum(['draft', 'published']).default('draft'),
+  tableData: tableDataField,
+  hasFloorPlan: boolField.default(false),
 });
 
 export const updateEventSchema = createEventSchema.partial().omit({ status: true }).extend({

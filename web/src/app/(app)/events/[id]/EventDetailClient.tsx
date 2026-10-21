@@ -247,6 +247,10 @@ export default function EventDetailClient() {
   const hasPhases    = !hasTicketTypes && allTiers.length > 0;
   const ticketsAvailable = hasTicketTypes || !hasPhases || !!activeTier;
   const userDiscount = ev?.userDiscount ?? null;
+  const tables       = event?.tables ?? [];
+  const hasTableBooking = !!(event?.hasTableBooking && tables.length > 0);
+  const [selectedTableIdx, setSelectedTableIdx] = useState<number | null>(null);
+  const selectedTable = selectedTableIdx !== null ? (tables[selectedTableIdx] ?? null) : null;
 
   const userRequest  = event?.userRequest as JoinRequest | null;
   const userBooking  = event?.userBooking as any;
@@ -320,6 +324,7 @@ export default function EventDetailClient() {
     try {
       const payload: Record<string, unknown> = { eventId: id };
       if (selectedGroupIdx !== null) payload.groupPricingIndex = selectedGroupIdx;
+      if (selectedTableIdx !== null) payload.tableIndex = selectedTableIdx;
       const { data: bookRes } = await api.post('/bookings', payload);
       const createdBooking = bookRes.data?.booking;
       if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
@@ -404,6 +409,8 @@ export default function EventDetailClient() {
   const ctaLabel = () => {
     if (isFull) return 'Sold out';
     if (bookLoading) return '…';
+    if (selectedTable) return selectedTable.price === 0 ? `Reserve ${selectedTable.label} · Free` : `Reserve ${selectedTable.label} · ₹${selectedTable.price.toLocaleString('en-IN')}`;
+    if (hasTableBooking && !bookingConfirmed) return 'Select a table above';
     if (hasTicketTypes) return 'Choose tickets';
     if (selectedGroup) return `Book group · ₹${effectivePrice.toLocaleString('en-IN')}`;
     if (pricingMode === 'split' && activeTier) return 'Book tickets';
@@ -598,6 +605,18 @@ export default function EventDetailClient() {
             </div>
           )}
 
+          {/* Floor plan */}
+          {event.hasFloorPlan && event.floorPlanImageUrl && (
+            <div>
+              <div className="clique-label" style={{ marginBottom: 12 }}>Floor plan</div>
+              <img
+                src={getImageUrl(event.floorPlanImageUrl)}
+                alt="Floor plan"
+                style={{ width: '100%', height: 'auto', borderRadius: 10, border: '1px solid var(--line-2)', display: 'block', maxHeight: 400, objectFit: 'contain', background: '#111' }}
+              />
+            </div>
+          )}
+
         </div>
 
         {/* Right: booking card */}
@@ -685,6 +704,48 @@ export default function EventDetailClient() {
               )}
 
             </div>
+
+            {/* Table selector */}
+            {hasTableBooking && !bookingConfirmed && event.status !== 'cancelled' && !isOwnEvent && (
+              <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--line-2)' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 10 }}>RESERVE A TABLE</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {tables.map((t, i) => {
+                    const available = t.quantity - t.bookedCount;
+                    const soldOut = available <= 0;
+                    const selected = selectedTableIdx === i;
+                    return (
+                      <button
+                        key={t._id ?? i}
+                        type="button"
+                        onClick={() => !soldOut && setSelectedTableIdx(selected ? null : i)}
+                        disabled={soldOut}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                          padding: '10px 14px', borderRadius: 8, cursor: soldOut ? 'not-allowed' : 'pointer',
+                          border: `1px solid ${selected ? 'var(--lime)' : soldOut ? 'var(--line-2)' : 'var(--line-2)'}`,
+                          background: selected ? 'rgba(201,243,110,0.08)' : soldOut ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.03)',
+                          opacity: soldOut ? 0.45 : 1, textAlign: 'left', width: '100%',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: selected ? 'var(--lime)' : 'var(--paper)' }}>{t.label}</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>
+                            {t.capacity} seats · {soldOut ? 'Fully booked' : `${available} of ${t.quantity} left`}
+                          </div>
+                          {t.description && (
+                            <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--cream)', marginTop: 4, lineHeight: 1.4 }}>{t.description}</div>
+                          )}
+                        </div>
+                        <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em', color: selected ? 'var(--lime)' : 'var(--paper)', flexShrink: 0, marginLeft: 12 }}>
+                          {t.price === 0 ? 'Free' : `₹${t.price.toLocaleString('en-IN')}`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* CTA area */}
             <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>

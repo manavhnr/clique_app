@@ -30,10 +30,11 @@ const parseLimit = (q: unknown) => Math.min(50, Math.max(1, parseInt(String(q ??
 
 export async function create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const filesMap = req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[] } | undefined;
+    const filesMap = req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[]; floorPlan?: Express.Multer.File[] } | undefined;
     const imageFiles = filesMap?.images ?? [];
     const videoFiles = filesMap?.videos ?? [];
-    const event = await createEvent(req.user!.userId, req.body, imageFiles, videoFiles);
+    const floorPlanFile = filesMap?.floorPlan?.[0];
+    const event = await createEvent(req.user!.userId, req.body, imageFiles, videoFiles, floorPlanFile);
     sendSuccess(res, { event }, 'Event created', 201);
   } catch (err) { next(err); }
 }
@@ -47,10 +48,11 @@ export async function getEvent(req: AuthRequest, res: Response, next: NextFuncti
 
 export async function update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const filesMap = req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[] } | undefined;
+    const filesMap = req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[]; floorPlan?: Express.Multer.File[] } | undefined;
     const imageFiles = filesMap?.images ?? [];
     const videoFiles = filesMap?.videos ?? [];
-    const event = await updateEvent(req.params.eventId, req.user!.userId, req.body, imageFiles, videoFiles);
+    const floorPlanFile = filesMap?.floorPlan?.[0];
+    const event = await updateEvent(req.params.eventId, req.user!.userId, req.body, imageFiles, videoFiles, floorPlanFile);
     sendSuccess(res, { event }, 'Event updated');
   } catch (err) { next(err); }
 }

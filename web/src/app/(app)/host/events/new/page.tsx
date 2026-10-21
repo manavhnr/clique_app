@@ -32,6 +32,7 @@ const PREVIEW_COLORS: Record<string, string> = {
 };
 
 type TicketType = { id: string; label: string; price: string; description: string; capacity: string };
+type TableRow = { id: string; label: string; description: string; capacity: string; price: string; quantity: string };
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -113,6 +114,16 @@ function EventFormContent() {
     { id: uid(), label: 'General', price: '0', description: '', capacity: '' },
   ]);
 
+  // Table booking
+  const [hasTableBooking, setHasTableBooking] = useState(false);
+  const [tables, setTables] = useState<TableRow[]>([
+    { id: uid(), label: '', description: '', capacity: '4', price: '0', quantity: '1' },
+  ]);
+  const [hasFloorPlan, setHasFloorPlan] = useState(false);
+  const [floorPlanFile, setFloorPlanFile] = useState<File | null>(null);
+  const [floorPlanPreview, setFloorPlanPreview] = useState<string | null>(null);
+  const [existingFloorPlanUrl, setExistingFloorPlanUrl] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     title: '', description: '', category: 'house_party',
     date: '', startTime: '', endTime: '',
@@ -162,6 +173,21 @@ function EventFormContent() {
         setExistingImages(ev.images ?? []);
         setBannerIdx(ev.bannerImageIndex ?? 0);
         setThumbIdx(ev.thumbnailImageIndex ?? 0);
+        if (ev.hasTableBooking && ev.tables?.length) {
+          setHasTableBooking(true);
+          setTables(ev.tables.map((t: { label: string; description?: string; capacity: number; price: number; quantity: number }) => ({
+            id: uid(),
+            label: t.label ?? '',
+            description: t.description ?? '',
+            capacity: String(t.capacity ?? 4),
+            price: String(t.price ?? 0),
+            quantity: String(t.quantity ?? 1),
+          })));
+        }
+        if (ev.hasFloorPlan && ev.floorPlanImageUrl) {
+          setHasFloorPlan(true);
+          setExistingFloorPlanUrl(ev.floorPlanImageUrl);
+        }
         if (ev.ticketTypes?.length) {
           setTicketTypes(ev.ticketTypes.map((t: { label: string; price: number; description?: string; capacity?: number }) => ({
             id: uid(),
@@ -192,6 +218,22 @@ function EventFormContent() {
   const removeTicket = (id: string) => setTicketTypes((t) => t.filter((x) => x.id !== id));
   const updateTicket = (id: string, field: keyof TicketType, val: string) =>
     setTicketTypes((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
+
+  // Table helpers
+  const addTable    = () => setTables((t) => [...t, { id: uid(), label: '', description: '', capacity: '4', price: '0', quantity: '1' }]);
+  const removeTable = (id: string) => setTables((t) => t.filter((x) => x.id !== id));
+  const updateTable = (id: string, field: keyof TableRow, val: string) =>
+    setTables((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
+  const handleFloorPlan = (file: File | null) => {
+    setFloorPlanFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => setFloorPlanPreview(e.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setFloorPlanPreview(null);
+    }
+  };
 
   const handleImages = (files: FileList | null) => {
     if (!files) return;
@@ -254,6 +296,20 @@ function EventFormContent() {
           capacity: t.capacity ? Number(t.capacity) : undefined,
         })),
       }));
+
+      // Table booking
+      fd.append('tableData', JSON.stringify({
+        enabled: hasTableBooking,
+        tables: hasTableBooking ? tables.map((t) => ({
+          label: t.label,
+          description: t.description || undefined,
+          capacity: Number(t.capacity) || 1,
+          price: Number(t.price) || 0,
+          quantity: Number(t.quantity) || 1,
+        })) : [],
+      }));
+      fd.append('hasFloorPlan', String(hasFloorPlan));
+      if (floorPlanFile) fd.append('floorPlan', floorPlanFile);
 
       fd.append('bannerImageIndex', String(bannerIdx));
       fd.append('thumbnailImageIndex', String(thumbIdx));
@@ -502,6 +558,100 @@ function EventFormContent() {
                 onUpdate={updateTicket}
               />
 
+              {/* Table booking toggle */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '16px 18px', borderRadius: 6, border: '1px solid var(--line-2)', background: '#0E0C09' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={labelStyle}>TABLE BOOKING</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>Sell table reservations — VIP, standard, etc.</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setHasTableBooking((v) => !v)}
+                    style={{
+                      width: 40, height: 22, borderRadius: 11, border: 'none',
+                      background: hasTableBooking ? 'var(--lime)' : 'var(--line-2)',
+                      position: 'relative', cursor: 'pointer', flexShrink: 0, transition: 'background .2s',
+                    }}
+                  >
+                    <span style={{
+                      position: 'absolute', top: 3, left: hasTableBooking ? 21 : 3,
+                      width: 16, height: 16, borderRadius: '50%',
+                      background: hasTableBooking ? 'var(--ink)' : 'var(--dim)',
+                      transition: 'left .2s',
+                    }} />
+                  </button>
+                </div>
+                {hasTableBooking && (
+                  <TableBuilder
+                    isMobile={isMobile}
+                    tables={tables}
+                    onAdd={addTable}
+                    onRemove={removeTable}
+                    onUpdate={updateTable}
+                  />
+                )}
+              </div>
+
+              {/* Floor plan toggle */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '16px 18px', borderRadius: 6, border: '1px solid var(--line-2)', background: '#0E0C09' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={labelStyle}>FLOOR / TABLE PLAN</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>Upload a layout image so guests can see where they&apos;re sitting.</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setHasFloorPlan((v) => !v); if (hasFloorPlan) { setFloorPlanFile(null); setFloorPlanPreview(null); setExistingFloorPlanUrl(null); } }}
+                    style={{
+                      width: 40, height: 22, borderRadius: 11, border: 'none',
+                      background: hasFloorPlan ? 'var(--lime)' : 'var(--line-2)',
+                      position: 'relative', cursor: 'pointer', flexShrink: 0, transition: 'background .2s',
+                    }}
+                  >
+                    <span style={{
+                      position: 'absolute', top: 3, left: hasFloorPlan ? 21 : 3,
+                      width: 16, height: 16, borderRadius: '50%',
+                      background: hasFloorPlan ? 'var(--ink)' : 'var(--dim)',
+                      transition: 'left .2s',
+                    }} />
+                  </button>
+                </div>
+                {hasFloorPlan && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {(floorPlanPreview || existingFloorPlanUrl) ? (
+                      <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
+                        <img
+                          src={floorPlanPreview ?? (existingFloorPlanUrl ? getImageUrl(existingFloorPlanUrl) : '')}
+                          alt="Floor plan"
+                          style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 280, objectFit: 'contain', background: '#111' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => { setFloorPlanFile(null); setFloorPlanPreview(null); setExistingFloorPlanUrl(null); }}
+                          style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <label
+                        style={{ borderRadius: 8, border: '2px dashed var(--line-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '20px', cursor: 'pointer', transition: 'border-color .15s ease' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--lime)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line-2)')}
+                      >
+                        <ImageIcon size={16} color="var(--dim)" />
+                        <div>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em', display: 'block' }}>UPLOAD FLOOR PLAN</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#555', letterSpacing: '.06em' }}>JPEG · PNG · WebP · up to 10 MB</span>
+                        </div>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0] ?? null; handleFloorPlan(f); e.target.value = ''; }} />
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <Field label="PRIVACY">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   <Pill on={form.privacy === 'public'}  onClick={() => { set('privacy', 'public'); set('approvalRequired', false); }}>Public</Pill>
@@ -744,6 +894,112 @@ function TicketTypeBuilder({
         </button>
       </div>
     </Field>
+  );
+}
+
+/* ── Table Builder ───────────────────────────────────────────────────────── */
+
+function TableBuilder({
+  isMobile, tables, onAdd, onRemove, onUpdate,
+}: {
+  isMobile: boolean;
+  tables: TableRow[];
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, field: keyof TableRow, val: string) => void;
+}) {
+  const card: React.CSSProperties = {
+    background: '#111', border: '1px solid var(--line-2)', borderRadius: 6,
+    padding: isMobile ? '14px' : '16px 18px', display: 'flex', flexDirection: 'column', gap: 10,
+  };
+  const addBtn: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 8,
+    background: 'transparent', border: '1px dashed var(--line-2)',
+    color: 'var(--cream)', padding: '10px 16px', borderRadius: 6,
+    fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase',
+    cursor: 'pointer', transition: 'border-color .15s ease, color .15s ease',
+  };
+  const removeBtn: React.CSSProperties = {
+    width: 26, height: 26, borderRadius: '50%',
+    background: 'rgba(255,61,110,0.12)', border: '1px solid rgba(255,61,110,0.25)',
+    color: 'var(--hot)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', flexShrink: 0,
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.08em' }}>
+        ADD ONE CATEGORY PER TABLE TYPE (e.g. VIP BOOTH, STANDARD, CORNER)
+      </div>
+      {tables.map((t, idx) => (
+        <div key={t.id} style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', whiteSpace: 'nowrap' }}>
+              {String(idx + 1).padStart(2, '0')}
+            </span>
+            <input
+              value={t.label}
+              onChange={(e) => onUpdate(t.id, 'label', e.target.value)}
+              placeholder="e.g. VIP Booth, Standard Table, Corner Booth"
+              style={{ ...smallInput, flex: 1 }}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+            />
+            {tables.length > 1 && (
+              <button type="button" onClick={() => onRemove(t.id)} style={removeBtn}><X size={11} /></button>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>PRICE (₹)</div>
+              <input type="number" min="0" inputMode="numeric"
+                value={t.price} onChange={(e) => onUpdate(t.id, 'price', e.target.value)}
+                placeholder="0" style={smallInput}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+              />
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>SEATS / TABLE</div>
+              <input type="number" min="1" inputMode="numeric"
+                value={t.capacity} onChange={(e) => onUpdate(t.id, 'capacity', e.target.value)}
+                placeholder="4" style={smallInput}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+              />
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>QUANTITY</div>
+              <input type="number" min="1" inputMode="numeric"
+                value={t.quantity} onChange={(e) => onUpdate(t.id, 'quantity', e.target.value)}
+                placeholder="1" style={smallInput}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>DESCRIPTION (OPTIONAL)</div>
+            <input
+              value={t.description}
+              onChange={(e) => onUpdate(t.id, 'description', e.target.value)}
+              placeholder="e.g. Includes bottle service · Seafacing · Seats up to 6"
+              style={smallInput}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+            />
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={onAdd} style={addBtn}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--lime)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--lime)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--line-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--cream)'; }}
+      >
+        <Plus size={12} /> Add table category
+      </button>
+    </div>
   );
 }
 

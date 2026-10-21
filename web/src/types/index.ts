@@ -68,6 +68,16 @@ export interface TicketType {
   soldCount: number;
 }
 
+export interface TableCategory {
+  _id?: string;
+  label: string;
+  description?: string;
+  capacity: number;
+  price: number;
+  quantity: number;
+  bookedCount: number;
+}
+
 export interface Event {
   _id: string;
   hostId: string | User;
@@ -110,6 +120,10 @@ export interface Event {
   viewCount?: number;
   coHosts?: EventMember[];
   scanners?: EventMember[];
+  hasTableBooking?: boolean;
+  tables?: TableCategory[];
+  hasFloorPlan?: boolean;
+  floorPlanImageUrl?: string;
   saved?: boolean;
   userBooking?: Booking | null;
   userRequest?: JoinRequest | null;

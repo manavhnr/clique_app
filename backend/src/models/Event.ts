@@ -6,6 +6,15 @@ export interface IEventMember {
   addedAt: Date;
 }
 
+export interface ITableCategory {
+  label: string;
+  description?: string;
+  capacity: number;
+  price: number;
+  quantity: number;
+  bookedCount: number;
+}
+
 export interface IPricingTier {
   _id?: mongoose.Types.ObjectId;
   label: string;
@@ -77,6 +86,10 @@ export interface IEvent extends Document {
   viewCount: number;
   coHosts: IEventMember[];
   scanners: IEventMember[];
+  hasTableBooking: boolean;
+  tables: ITableCategory[];
+  hasFloorPlan: boolean;
+  floorPlanImageUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -171,6 +184,20 @@ const eventSchema = new Schema<IEvent>(
       type: [{ userId: { type: Schema.Types.ObjectId, ref: 'User' }, username: String, addedAt: { type: Date, default: Date.now } }],
       default: [],
     },
+    hasTableBooking: { type: Boolean, default: false },
+    tables: {
+      type: [{
+        label: { type: String, required: true },
+        description: { type: String },
+        capacity: { type: Number, required: true, min: 1 },
+        price: { type: Number, required: true, min: 0 },
+        quantity: { type: Number, required: true, min: 1 },
+        bookedCount: { type: Number, default: 0 },
+      }],
+      default: [],
+    },
+    hasFloorPlan: { type: Boolean, default: false },
+    floorPlanImageUrl: { type: String },
   },
   { timestamps: true }
 );

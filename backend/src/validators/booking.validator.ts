@@ -11,6 +11,7 @@ export const createBookingSchema = z.object({
       quantity: z.number().int().min(1),
     })
   ).optional(),
+  tableIndex: z.number().int().min(0).optional(),
 });
 
 export const cancelBookingSchema = z.object({
