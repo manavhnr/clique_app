@@ -14,6 +14,7 @@ export interface ITableSlot {
 export interface ITableCategory {
   label: string;
   description?: string;
+  parentCategory?: string;
   capacity: number;
   price: number;
   slots: ITableSlot[];
@@ -193,6 +194,7 @@ const eventSchema = new Schema<IEvent>(
       type: [{
         label: { type: String, required: true },
         description: { type: String },
+        parentCategory: { type: String },
         capacity: { type: Number, required: true, min: 1 },
         price: { type: Number, required: true, min: 0 },
         slots: {

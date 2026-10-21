@@ -32,7 +32,7 @@ const PREVIEW_COLORS: Record<string, string> = {
 };
 
 type TicketType = { id: string; label: string; price: string; description: string; capacity: string };
-type TableRow = { id: string; label: string; description: string; capacity: string; price: string; slots: string };
+type TableRow = { id: string; label: string; description: string; capacity: string; price: string; slots: string; parentCategory: string };
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -117,7 +117,7 @@ function EventFormContent() {
   // Table booking
   const [hasTableBooking, setHasTableBooking] = useState(false);
   const [tables, setTables] = useState<TableRow[]>([
-    { id: uid(), label: '', description: '', capacity: '4', price: '0', slots: '' },
+    { id: uid(), label: '', description: '', capacity: '4', price: '0', slots: '', parentCategory: '' },
   ]);
   const [hasFloorPlan, setHasFloorPlan] = useState(false);
   const [floorPlanFiles, setFloorPlanFiles] = useState<File[]>([]);
@@ -175,10 +175,11 @@ function EventFormContent() {
         setThumbIdx(ev.thumbnailImageIndex ?? 0);
         if (ev.hasTableBooking && ev.tables?.length) {
           setHasTableBooking(true);
-          setTables(ev.tables.map((t: { label: string; description?: string; capacity: number; price: number; slots: { label: string }[] }) => ({
+          setTables(ev.tables.map((t: { label: string; description?: string; parentCategory?: string; capacity: number; price: number; slots: { label: string }[] }) => ({
             id: uid(),
             label: t.label ?? '',
             description: t.description ?? '',
+            parentCategory: t.parentCategory ?? '',
             capacity: String(t.capacity ?? 4),
             price: String(t.price ?? 0),
             slots: (t.slots ?? []).map((s: { label: string }) => s.label).join(', '),
@@ -220,7 +221,7 @@ function EventFormContent() {
     setTicketTypes((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
 
   // Table helpers
-  const addTable    = () => setTables((t) => [...t, { id: uid(), label: '', description: '', capacity: '4', price: '0', slots: '' }]);
+  const addTable    = () => setTables((t) => [...t, { id: uid(), label: '', description: '', capacity: '4', price: '0', slots: '', parentCategory: '' }]);
   const removeTable = (id: string) => setTables((t) => t.filter((x) => x.id !== id));
   const updateTable = (id: string, field: keyof TableRow, val: string) =>
     setTables((t) => t.map((x) => x.id === id ? { ...x, [field]: val } : x));
@@ -312,6 +313,7 @@ function EventFormContent() {
         tables: hasTableBooking ? tables.map((t) => ({
           label: t.label,
           description: t.description || undefined,
+          parentCategory: t.parentCategory || undefined,
           capacity: Number(t.capacity) || 1,
           price: Number(t.price) || 0,
           slots: t.slots.split(',').map((s) => s.trim()).filter(Boolean),
@@ -1018,6 +1020,18 @@ function TableBuilder({
                 {t.slots.split(',').map((s) => s.trim()).filter(Boolean).length} tables in this category
               </div>
             )}
+          </div>
+
+          <div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 5 }}>PARENT SECTION (OPTIONAL)</div>
+            <input
+              value={t.parentCategory}
+              onChange={(e) => onUpdate(t.id, 'parentCategory', e.target.value)}
+              placeholder="e.g. Secret Story, Bhola &amp; Blonde"
+              style={smallInput}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--lime)')}
+              onBlur={(e) => (e.target.style.borderColor = 'var(--line-2)')}
+            />
           </div>
 
           <div>

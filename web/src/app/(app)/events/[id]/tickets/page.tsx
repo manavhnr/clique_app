@@ -30,6 +30,7 @@ type TableType = {
   price: number;
   capacity: number;
   description?: string;
+  parentCategory?: string;
   slots: TableSlot[];
 };
 
@@ -46,6 +47,7 @@ export default function TicketsPage() {
   const [bookLoading, setBookLoading] = useState(false);
   const [error, setError] = useState('');
   const [tablesOpen, setTablesOpen] = useState(false);
+  const [expandedParentCategory, setExpandedParentCategory] = useState<string | null>(null);
   const [expandedCategoryIdx, setExpandedCategoryIdx] = useState<number | null>(null);
   const [selectedCategoryIdx, setSelectedCategoryIdx] = useState<number | null>(null);
   const [selectedSlotIdx, setSelectedSlotIdx] = useState<number | null>(null);
@@ -215,131 +217,199 @@ export default function TicketsPage() {
       </div>
 
       {/* Tables collapsible */}
-      {hasTableBooking && (
-        <div style={{ marginBottom: 8 }}>
-          {/* Section toggle */}
-          <button
-            onClick={() => setTablesOpen((o) => !o)}
-            style={{
-              width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '18px 0', background: 'transparent', border: 'none', cursor: 'pointer',
-              borderBottom: '1px solid var(--line-2)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, color: 'var(--paper)' }}>Tables</span>
-              {selectedCategory && selectedSlot && (
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.08em', background: 'rgba(201,243,110,0.1)', padding: '3px 8px', borderRadius: 4 }}>
-                  {selectedCategory.label} · {selectedSlot.label}
-                </span>
+      {hasTableBooking && (() => {
+        const hasParentCategories = tables.some((t) => t.parentCategory);
+        const parentOrder = hasParentCategories
+          ? Array.from(new Set(tables.map((t) => t.parentCategory ?? 'Other')))
+          : [];
+
+        const renderCategoryRow = (cat: TableType, ci: number) => {
+          const availableSlots = cat.slots.filter((s) => !s.isBooked).length;
+          const allBooked = availableSlots === 0;
+          const isExpanded = expandedCategoryIdx === ci;
+          const isSelectedCat = selectedCategoryIdx === ci;
+          return (
+            <div key={cat._id ?? ci}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (allBooked) return;
+                  setExpandedCategoryIdx(isExpanded ? null : ci);
+                  if (isSelectedCat && !isExpanded) setExpandedCategoryIdx(ci);
+                }}
+                disabled={allBooked}
+                style={{
+                  width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '12px 14px', borderRadius: isExpanded ? '8px 8px 0 0' : 8,
+                  cursor: allBooked ? 'not-allowed' : 'pointer',
+                  border: `1px solid ${isSelectedCat ? 'var(--lime)' : isExpanded ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`,
+                  borderBottom: isExpanded ? 'none' : undefined,
+                  background: isSelectedCat ? 'rgba(201,243,110,0.08)' : isExpanded ? 'rgba(201,243,110,0.04)' : 'rgba(255,255,255,0.03)',
+                  opacity: allBooked ? 0.4 : 1, textAlign: 'left',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: isSelectedCat ? 'var(--lime)' : 'var(--paper)' }}>
+                    {cat.label}
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>
+                    {cat.capacity} pax · {allBooked ? 'Fully booked' : `${availableSlots} of ${cat.slots.length} available`}
+                    {isSelectedCat && selectedSlot ? ` · ${selectedSlot.label} selected` : ''}
+                  </div>
+                  {cat.description && (
+                    <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--cream)', marginTop: 4, lineHeight: 1.4 }}>{cat.description}</div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, marginLeft: 14 }}>
+                  <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: isSelectedCat ? 'var(--lime)' : 'var(--paper)' }}>
+                    {cat.price === 0 ? 'Free' : `₹${cat.price.toLocaleString('en-IN')}`}
+                  </span>
+                  {!allBooked && (
+                    <span style={{ color: 'var(--dim)', fontSize: 11, fontFamily: 'var(--mono)' }}>{isExpanded ? '▲' : '▶'}</span>
+                  )}
+                </div>
+              </button>
+              {isExpanded && (
+                <div style={{
+                  border: `1px solid rgba(201,243,110,0.3)`, borderTop: 'none',
+                  borderRadius: '0 0 8px 8px', padding: '12px 14px',
+                  background: 'rgba(201,243,110,0.02)',
+                  display: 'flex', flexWrap: 'wrap', gap: 8,
+                }}>
+                  {cat.slots.map((slot, si) => {
+                    const isSlotSelected = isSelectedCat && selectedSlotIdx === si;
+                    return (
+                      <button
+                        key={si}
+                        type="button"
+                        onClick={() => {
+                          if (slot.isBooked) return;
+                          if (isSlotSelected) {
+                            setSelectedCategoryIdx(null);
+                            setSelectedSlotIdx(null);
+                          } else {
+                            setSelectedCategoryIdx(ci);
+                            setSelectedSlotIdx(si);
+                            setExpandedCategoryIdx(null);
+                          }
+                        }}
+                        disabled={slot.isBooked}
+                        style={{
+                          padding: '8px 16px', borderRadius: 6,
+                          border: `1px solid ${isSlotSelected ? 'var(--lime)' : 'var(--line-2)'}`,
+                          background: isSlotSelected ? 'var(--lime)' : slot.isBooked ? 'transparent' : 'rgba(255,255,255,0.04)',
+                          color: isSlotSelected ? 'var(--ink)' : slot.isBooked ? 'var(--dim)' : 'var(--paper)',
+                          fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, letterSpacing: '.06em',
+                          cursor: slot.isBooked ? 'not-allowed' : 'pointer',
+                          opacity: slot.isBooked ? 0.4 : 1,
+                          textDecoration: slot.isBooked ? 'line-through' : 'none',
+                        }}
+                      >
+                        {slot.label}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
-            <span style={{ color: 'var(--dim)', fontSize: 12, fontFamily: 'var(--mono)', letterSpacing: '.06em' }}>
-              {tablesOpen ? '▲' : '▼'}
-            </span>
-          </button>
+          );
+        };
 
-          {tablesOpen && (
-            <div style={{ paddingTop: 12, paddingBottom: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {tables.map((cat, ci) => {
-                const availableSlots = cat.slots.filter((s) => !s.isBooked).length;
-                const allBooked = availableSlots === 0;
-                const isExpanded = expandedCategoryIdx === ci;
-                const isSelectedCat = selectedCategoryIdx === ci;
+        return (
+          <div style={{ marginBottom: 8 }}>
+            {/* Section toggle */}
+            <button
+              onClick={() => setTablesOpen((o) => !o)}
+              style={{
+                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '18px 0', background: 'transparent', border: 'none', cursor: 'pointer',
+                borderBottom: '1px solid var(--line-2)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 16, color: 'var(--paper)' }}>Tables</span>
+                {selectedCategory && selectedSlot && (
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.08em', background: 'rgba(201,243,110,0.1)', padding: '3px 8px', borderRadius: 4 }}>
+                    {selectedCategory.label} · {selectedSlot.label}
+                  </span>
+                )}
+              </div>
+              <span style={{ color: 'var(--dim)', fontSize: 12, fontFamily: 'var(--mono)', letterSpacing: '.06em' }}>
+                {tablesOpen ? '▲' : '▼'}
+              </span>
+            </button>
 
-                return (
-                  <div key={cat._id ?? ci}>
-                    {/* Category row */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (allBooked) return;
-                        setExpandedCategoryIdx(isExpanded ? null : ci);
-                        if (isSelectedCat && !isExpanded) setExpandedCategoryIdx(ci);
-                      }}
-                      disabled={allBooked}
-                      style={{
-                        width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '12px 14px', borderRadius: isExpanded ? '8px 8px 0 0' : 8,
-                        cursor: allBooked ? 'not-allowed' : 'pointer',
-                        border: `1px solid ${isSelectedCat ? 'var(--lime)' : isExpanded ? 'rgba(201,243,110,0.3)' : 'var(--line-2)'}`,
-                        borderBottom: isExpanded ? 'none' : undefined,
-                        background: isSelectedCat ? 'rgba(201,243,110,0.08)' : isExpanded ? 'rgba(201,243,110,0.04)' : 'rgba(255,255,255,0.03)',
-                        opacity: allBooked ? 0.4 : 1, textAlign: 'left',
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600, color: isSelectedCat ? 'var(--lime)' : 'var(--paper)' }}>
-                          {cat.label}
-                        </div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', marginTop: 3 }}>
-                          {cat.capacity} pax · {allBooked ? 'Fully booked' : `${availableSlots} of ${cat.slots.length} available`}
-                          {isSelectedCat && selectedSlot ? ` · ${selectedSlot.label} selected` : ''}
-                        </div>
-                        {cat.description && (
-                          <div style={{ fontFamily: 'var(--display)', fontSize: 12, color: 'var(--cream)', marginTop: 4, lineHeight: 1.4 }}>{cat.description}</div>
+            {tablesOpen && (
+              <div style={{ paddingTop: 12, paddingBottom: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {hasParentCategories ? (
+                  /* Grouped view: parent category → table categories → slots */
+                  parentOrder.map((parentName) => {
+                    const groupTables = tables
+                      .map((t, i) => ({ table: t, originalIdx: i }))
+                      .filter(({ table }) => (table.parentCategory ?? 'Other') === parentName);
+                    const isParentExpanded = expandedParentCategory === parentName;
+                    const hasSelectedInParent = groupTables.some(({ originalIdx }) => originalIdx === selectedCategoryIdx);
+
+                    return (
+                      <div key={parentName}>
+                        {/* Parent category row */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = isParentExpanded ? null : parentName;
+                            setExpandedParentCategory(next);
+                            if (!isParentExpanded) setExpandedCategoryIdx(null);
+                          }}
+                          style={{
+                            width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '13px 16px', borderRadius: isParentExpanded ? '8px 8px 0 0' : 8,
+                            cursor: 'pointer', textAlign: 'left',
+                            border: `1px solid ${hasSelectedInParent ? 'var(--lime)' : isParentExpanded ? 'rgba(201,243,110,0.4)' : 'var(--line-2)'}`,
+                            borderBottom: isParentExpanded ? 'none' : undefined,
+                            background: hasSelectedInParent ? 'rgba(201,243,110,0.1)' : isParentExpanded ? 'rgba(201,243,110,0.05)' : 'rgba(255,255,255,0.04)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: hasSelectedInParent ? 'var(--lime)' : 'var(--paper)' }}>
+                              {parentName}
+                            </span>
+                            {hasSelectedInParent && selectedSlot && (
+                              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--lime)', letterSpacing: '.06em', background: 'rgba(201,243,110,0.1)', padding: '2px 7px', borderRadius: 4 }}>
+                                {selectedCategory?.label} · {selectedSlot.label}
+                              </span>
+                            )}
+                          </div>
+                          <span style={{ color: 'var(--dim)', fontSize: 11, fontFamily: 'var(--mono)' }}>
+                            {isParentExpanded ? '▲' : '▼'}
+                          </span>
+                        </button>
+
+                        {/* Table categories within this parent */}
+                        {isParentExpanded && (
+                          <div style={{
+                            border: `1px solid rgba(201,243,110,0.3)`, borderTop: 'none',
+                            borderRadius: '0 0 8px 8px',
+                            padding: '10px 12px',
+                            background: 'rgba(201,243,110,0.01)',
+                            display: 'flex', flexDirection: 'column', gap: 6,
+                          }}>
+                            {groupTables.map(({ table, originalIdx }) =>
+                              renderCategoryRow(table, originalIdx)
+                            )}
+                          </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, marginLeft: 14 }}>
-                        <span style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: isSelectedCat ? 'var(--lime)' : 'var(--paper)' }}>
-                          {cat.price === 0 ? 'Free' : `₹${cat.price.toLocaleString('en-IN')}`}
-                        </span>
-                        {!allBooked && (
-                          <span style={{ color: 'var(--dim)', fontSize: 11, fontFamily: 'var(--mono)' }}>{isExpanded ? '▲' : '▶'}</span>
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Slot picker */}
-                    {isExpanded && (
-                      <div style={{
-                        border: `1px solid rgba(201,243,110,0.3)`, borderTop: 'none',
-                        borderRadius: '0 0 8px 8px', padding: '12px 14px',
-                        background: 'rgba(201,243,110,0.02)',
-                        display: 'flex', flexWrap: 'wrap', gap: 8,
-                      }}>
-                        {cat.slots.map((slot, si) => {
-                          const isSlotSelected = isSelectedCat && selectedSlotIdx === si;
-                          return (
-                            <button
-                              key={si}
-                              type="button"
-                              onClick={() => {
-                                if (slot.isBooked) return;
-                                if (isSlotSelected) {
-                                  setSelectedCategoryIdx(null);
-                                  setSelectedSlotIdx(null);
-                                } else {
-                                  setSelectedCategoryIdx(ci);
-                                  setSelectedSlotIdx(si);
-                                  setExpandedCategoryIdx(null);
-                                }
-                              }}
-                              disabled={slot.isBooked}
-                              style={{
-                                padding: '8px 16px', borderRadius: 6,
-                                border: `1px solid ${isSlotSelected ? 'var(--lime)' : slot.isBooked ? 'var(--line-2)' : 'var(--line-2)'}`,
-                                background: isSlotSelected ? 'var(--lime)' : slot.isBooked ? 'transparent' : 'rgba(255,255,255,0.04)',
-                                color: isSlotSelected ? 'var(--ink)' : slot.isBooked ? 'var(--dim)' : 'var(--paper)',
-                                fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, letterSpacing: '.06em',
-                                cursor: slot.isBooked ? 'not-allowed' : 'pointer',
-                                opacity: slot.isBooked ? 0.4 : 1,
-                                textDecoration: slot.isBooked ? 'line-through' : 'none',
-                              }}
-                            >
-                              {slot.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                    );
+                  })
+                ) : (
+                  /* Flat view (no parent categories) */
+                  tables.map((cat, ci) => renderCategoryRow(cat, ci))
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Ticket list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>

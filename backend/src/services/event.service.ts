@@ -63,9 +63,10 @@ export async function createEvent(
     refundPolicy: data.refundPolicy,
     status: data.status,
     hasTableBooking: data.tableData?.enabled ?? false,
-    tables: data.tableData?.tables?.map((t: { label: string; description?: string; capacity: number; price: number; slots: string[] }) => ({
+    tables: data.tableData?.tables?.map((t: { label: string; description?: string; parentCategory?: string; capacity: number; price: number; slots: string[] }) => ({
       label: t.label,
       description: t.description,
+      parentCategory: t.parentCategory,
       capacity: t.capacity,
       price: t.price,
       slots: t.slots.map((slotLabel: string) => ({ label: slotLabel, isBooked: false })),
@@ -182,12 +183,13 @@ export async function updateEvent(
   // Table booking
   if (data.tableData !== undefined) {
     update.hasTableBooking = data.tableData?.enabled ?? false;
-    update.tables = (data.tableData?.tables ?? []).map((incoming: { label: string; description?: string; capacity: number; price: number; slots: string[] }) => {
+    update.tables = (data.tableData?.tables ?? []).map((incoming: { label: string; description?: string; parentCategory?: string; capacity: number; price: number; slots: string[] }) => {
       const existing = (event.tables ?? []).find((t) => t.label === incoming.label);
       const existingSlots = existing?.slots ?? [];
       return {
         label: incoming.label,
         description: incoming.description,
+        parentCategory: incoming.parentCategory,
         capacity: incoming.capacity,
         price: incoming.price,
         slots: incoming.slots.map((slotLabel: string) => {
