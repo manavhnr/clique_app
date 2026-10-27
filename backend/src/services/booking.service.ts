@@ -399,6 +399,105 @@ export async function createBooking(
   return { booking: confirmedBooking, pass };
 }
 
+// ─── Update Ticket Selection (payment_pending only) ──────────────────────────
+
+export async function updateBookingSelection(
+  bookingId: string,
+  userId: string,
+  ticketSelections: Array<{ ticketTypeIndex: number; quantity: number }>,
+) {
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw createError('Booking not found', 404);
+  if (booking.userId.toString() !== userId) throw createError('Forbidden', 403);
+  if (booking.status !== 'payment_pending') throw createError('Can only update selection on a payment_pending booking', 400);
+
+  const event = await Event.findById(booking.eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.status !== 'published') throw createError('Event is no longer available', 400);
+
+  const ticketTypesArr = (event.ticketTypes ?? []) as { label: string; price: number; description?: string; capacity?: number; soldCount: number }[];
+  if (ticketTypesArr.length === 0) throw createError('This event does not use ticket types', 400);
+  if (!ticketSelections || ticketSelections.length === 0) throw createError('No tickets selected', 400);
+
+  // Validate new selections and build lines
+  type TicketLine = { ticketTypeName: string; quantity: number; unitPrice: number; ticketTypeIndex: number };
+  const newLines: TicketLine[] = [];
+  let newTotalQty = 0;
+  for (const sel of ticketSelections) {
+    if (!sel.quantity || sel.quantity < 1) throw createError('Quantity must be at least 1', 400);
+    const tt = ticketTypesArr[sel.ticketTypeIndex];
+    if (!tt) throw createError('Invalid ticket type selection', 400);
+    newLines.push({ ticketTypeName: tt.label, quantity: sel.quantity, unitPrice: tt.price, ticketTypeIndex: sel.ticketTypeIndex });
+    newTotalQty += sel.quantity;
+  }
+
+  const oldLines = booking.ticketLines ?? [];
+  const oldTotalQty = booking.groupSize;
+  const reservedDelta = newTotalQty - oldTotalQty;
+
+  // Per-ticket-type capacity check against the snapshot (adjusted for old booking contribution)
+  for (const newLine of newLines) {
+    const tt = ticketTypesArr[newLine.ticketTypeIndex];
+    if (tt.capacity) {
+      const oldQtyForType = oldLines.find((l) => l.ticketTypeName === tt.label)?.quantity ?? 0;
+      const effectiveSoldCount = tt.soldCount - oldQtyForType + newLine.quantity;
+      if (effectiveSoldCount > tt.capacity) throw createError(`${tt.label} doesn't have enough spots`, 409);
+    }
+  }
+
+  // Build $inc: undo old soldCounts, apply new soldCounts, adjust reservedCount
+  const inc: Record<string, number> = {};
+  for (const oldLine of oldLines) {
+    const idx = ticketTypesArr.findIndex((t) => t.label === oldLine.ticketTypeName);
+    if (idx !== -1) inc[`ticketTypes.${idx}.soldCount`] = (inc[`ticketTypes.${idx}.soldCount`] ?? 0) - oldLine.quantity;
+  }
+  for (const newLine of newLines) {
+    const key = `ticketTypes.${newLine.ticketTypeIndex}.soldCount`;
+    inc[key] = (inc[key] ?? 0) + newLine.quantity;
+  }
+  if (reservedDelta !== 0) inc.reservedCount = reservedDelta;
+
+  // Re-apply the same discount that was used when this booking was created (if any)
+  const { EventDiscount } = await import('../models/EventDiscount');
+  const usedDiscount = await EventDiscount.findOne({ bookingId, status: 'used' });
+  const rawNewTotal = newLines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+  const newTotal = usedDiscount ? applyDiscount(rawNewTotal, usedDiscount) : rawNewTotal;
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      if (reservedDelta > 0) {
+        // Capacity guard: only needed when growing the reservation
+        const ev = await Event.findOneAndUpdate(
+          {
+            _id: booking.eventId,
+            status: 'published',
+            $expr: { $lte: [{ $add: ['$bookedCount', { $ifNull: ['$reservedCount', 0] }, reservedDelta] }, '$capacity'] },
+          },
+          { $inc: inc },
+          { new: true, session },
+        );
+        if (!ev) throw createError('Event is fully booked', 409);
+      } else {
+        await Event.findByIdAndUpdate(booking.eventId, { $inc: inc }, { session });
+      }
+
+      const tierLabelSummary = newLines.map((l) => `${l.quantity}× ${l.ticketTypeName}`).join(', ');
+      const ticketLinesDoc = newLines.map((l) => ({ ticketTypeName: l.ticketTypeName, quantity: l.quantity, unitPrice: l.unitPrice }));
+      await Booking.findByIdAndUpdate(
+        bookingId,
+        { amount: newTotal, tierLabel: tierLabelSummary, groupSize: newTotalQty, ticketLines: ticketLinesDoc },
+        { session },
+      );
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  const updated = await Booking.findById(bookingId);
+  return { booking: updated };
+}
+
 // ─── Confirm Booking (called after payment verified) ─────────────────────────
 
 export async function confirmBookingAfterPayment(bookingId: string, paymentId: string) {

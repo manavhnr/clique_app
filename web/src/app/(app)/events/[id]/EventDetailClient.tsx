@@ -349,17 +349,8 @@ export default function EventDetailClient() {
     setUpiModal({ bookingId: userBooking._id, amount: userBooking.amount });
   };
 
-  const handleChangeSelection = async () => {
-    if (!userBooking || !event) return;
-    setError(''); setBookLoading(true);
-    try {
-      await api.patch(`/bookings/${userBooking._id}/cancel`);
-      router.push(`/events/${id}/tickets`);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Could not cancel booking. Please try again.');
-      setBookLoading(false);
-    }
+  const handleChangeSelection = () => {
+    router.push(`/events/${id}/tickets`);
   };
 
   const handleUPISubmit = async () => {

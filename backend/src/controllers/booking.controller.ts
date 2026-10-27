@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendSuccess } from '../utils/response';
-import { createBooking, cancelBooking, getMyBookings, getEventBookings, addToGuestlist, hostRemoveGuest } from '../services/booking.service';
+import { createBooking, cancelBooking, getMyBookings, getEventBookings, addToGuestlist, hostRemoveGuest, updateBookingSelection } from '../services/booking.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
 const parseLimit = (q: unknown) => Math.min(50, Math.max(1, parseInt(String(q ?? 20))));
@@ -27,6 +27,13 @@ export async function myBookings(req: AuthRequest, res: Response, next: NextFunc
     const limit = parseLimit(req.query.limit);
     const result = await getMyBookings(req.user!.userId, page, limit);
     sendSuccess(res, result);
+  } catch (err) { next(err); }
+}
+
+export async function updateSelection(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await updateBookingSelection(req.params.bookingId, req.user!.userId, req.body.ticketSelections);
+    sendSuccess(res, result, 'Ticket selection updated');
   } catch (err) { next(err); }
 }
 

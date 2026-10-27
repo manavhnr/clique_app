@@ -57,7 +57,21 @@ export default function TicketsPage() {
 
   useEffect(() => {
     api.get(`/events/${id}`)
-      .then(({ data }) => setEvent(data.data.event))
+      .then(({ data }) => {
+        const ev = data.data.event;
+        setEvent(ev);
+        // Pre-populate selection from an existing payment_pending booking
+        const pending = ev?.userBooking;
+        if (pending?.status === 'payment_pending' && pending?.ticketLines?.length > 0) {
+          const types: TicketType[] = ev?.ticketTypes ?? [];
+          const pre: Selection = {};
+          for (const line of pending.ticketLines as { ticketTypeName: string; quantity: number }[]) {
+            const idx = types.findIndex((t) => t.label === line.ticketTypeName);
+            if (idx !== -1) pre[idx] = line.quantity;
+          }
+          setSelection(pre);
+        }
+      })
       .catch(() => setEvent(null))
       .finally(() => setLoading(false));
   }, [id]);
@@ -121,6 +135,8 @@ export default function TicketsPage() {
     });
   };
 
+  const pendingBooking = (event as any)?.userBooking?.status === 'payment_pending' ? (event as any).userBooking : null;
+
   const handleBook = async () => {
     if (!hasSelection || !event) return;
     if (!user) {
@@ -134,18 +150,36 @@ export default function TicketsPage() {
         ticketTypeIndex: Number(idx),
         quantity: qty,
       }));
-      const payload: Record<string, unknown> = { eventId: id, ticketSelections };
-      if (selectedTableSlots.length > 0) {
-        payload.tableSelections = selectedTableSlots.map((s) => ({
-          tableCategoryIndex: s.categoryIdx,
-          tableSlotIndex: s.slotIdx,
-        }));
+
+      let bookingId: string;
+      let amount: number;
+      let status: string;
+
+      if (pendingBooking) {
+        // Update existing payment_pending booking — no new booking created
+        const { data: updateRes } = await api.patch(`/bookings/${pendingBooking._id}/selection`, { ticketSelections });
+        const updated = updateRes.data?.booking;
+        bookingId = updated._id;
+        amount = updated.amount;
+        status = updated.status;
+      } else {
+        const payload: Record<string, unknown> = { eventId: id, ticketSelections };
+        if (selectedTableSlots.length > 0) {
+          payload.tableSelections = selectedTableSlots.map((s) => ({
+            tableCategoryIndex: s.categoryIdx,
+            tableSlotIndex: s.slotIdx,
+          }));
+        }
+        const { data: bookRes } = await api.post('/bookings', payload);
+        const created = bookRes.data?.booking;
+        bookingId = created._id;
+        amount = created.amount;
+        status = created.status;
       }
-      const { data: bookRes } = await api.post('/bookings', payload);
-      const createdBooking = bookRes.data?.booking;
-      if (createdBooking?.amount > 0 && createdBooking?.status === 'payment_pending') {
+
+      if (amount > 0 && status === 'payment_pending') {
         setUtr(''); setUpiId('');
-        setUpiModal({ bookingId: createdBooking._id, amount: createdBooking.amount });
+        setUpiModal({ bookingId, amount });
       } else {
         router.push('/passes');
       }
@@ -551,7 +585,7 @@ export default function TicketsPage() {
               whiteSpace: 'nowrap',
             }}
           >
-            {bookLoading ? '…' : (totalAmount + tableTotal) === 0 ? 'Get passes →' : 'Book & pay →'}
+            {bookLoading ? '…' : pendingBooking ? 'Update selection →' : (totalAmount + tableTotal) === 0 ? 'Get passes →' : 'Book & pay →'}
           </button>
         </div>
       )}
