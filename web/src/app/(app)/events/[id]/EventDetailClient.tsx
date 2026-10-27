@@ -349,6 +349,19 @@ export default function EventDetailClient() {
     setUpiModal({ bookingId: userBooking._id, amount: userBooking.amount });
   };
 
+  const handleChangeSelection = async () => {
+    if (!userBooking || !event) return;
+    setError(''); setBookLoading(true);
+    try {
+      await api.patch(`/bookings/${userBooking._id}/cancel`);
+      router.push(`/events/${id}/tickets`);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? 'Could not cancel booking. Please try again.');
+      setBookLoading(false);
+    }
+  };
+
   const handleUPISubmit = async () => {
     if (!upiModal) return;
     const utrVal = utr.trim();
@@ -768,9 +781,14 @@ export default function EventDetailClient() {
                   </button>
                 </>
               ) : paymentPending ? (
-                <button onClick={handleCompletePayment} disabled={bookLoading} style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '15px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, cursor: bookLoading ? 'not-allowed' : 'pointer', opacity: bookLoading ? 0.6 : 1 }}>
-                  {bookLoading ? '…' : 'Complete payment →'}
-                </button>
+                <>
+                  <button onClick={handleCompletePayment} disabled={bookLoading} style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: 'none', padding: '15px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, cursor: bookLoading ? 'not-allowed' : 'pointer', opacity: bookLoading ? 0.6 : 1 }}>
+                    {bookLoading ? '…' : 'Complete payment →'}
+                  </button>
+                  <button onClick={handleChangeSelection} disabled={bookLoading} style={{ width: '100%', background: 'transparent', color: 'var(--dim)', border: '1px solid var(--line-2)', padding: '11px', borderRadius: 10, fontFamily: 'var(--display)', fontSize: 13, fontWeight: 500, cursor: bookLoading ? 'not-allowed' : 'pointer', opacity: bookLoading ? 0.4 : 1, marginTop: 8 }}>
+                    Change selection
+                  </button>
+                </>
               ) : !ticketsAvailable ? (
                 <div style={{ textAlign: 'center', padding: '12px 0' }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '.1em', marginBottom: 8 }}>NO TICKETS AVAILABLE</div>
