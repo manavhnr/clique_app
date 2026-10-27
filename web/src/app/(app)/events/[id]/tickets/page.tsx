@@ -137,6 +137,20 @@ export default function TicketsPage() {
 
   const pendingBooking = (event as any)?.userBooking?.status === 'payment_pending' ? (event as any).userBooking : null;
 
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  const handleCancelBooking = async () => {
+    if (!pendingBooking) return;
+    setError(''); setCancelLoading(true);
+    try {
+      await api.patch(`/bookings/${pendingBooking._id}/cancel`);
+      router.back();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? 'Could not cancel booking. Please try again.');
+    } finally { setCancelLoading(false); }
+  };
+
   const handleBook = async () => {
     if (!hasSelection || !event) return;
     if (!user) {
@@ -546,7 +560,7 @@ export default function TicketsPage() {
       )}
 
       {/* Sticky bottom bar */}
-      {hasSelection && (
+      {(hasSelection || pendingBooking) && (
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
           background: 'rgba(11,9,7,0.96)', backdropFilter: 'blur(12px)',
@@ -554,39 +568,64 @@ export default function TicketsPage() {
           padding: '14px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
         }}>
-          <div>
-            {(() => {
-              const grandTotal = totalAmount + tableTotal;
-              const grandItems = [
-                totalTickets > 0 ? `${totalTickets} ticket${totalTickets !== 1 ? 's' : ''}` : null,
-                selectedTableSlots.length > 0 ? `${selectedTableSlots.length} table${selectedTableSlots.length !== 1 ? 's' : ''}` : null,
-              ].filter(Boolean).join(' + ');
-              return (
-                <>
-                  <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em', lineHeight: 1 }}>
-                    {grandTotal === 0 ? 'Free' : `₹${grandTotal.toLocaleString('en-IN')}`}
-                  </div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginTop: 3, textTransform: 'uppercase' }}>
-                    {grandItems}
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-          <button
-            onClick={handleBook}
-            disabled={bookLoading}
-            style={{
-              background: 'var(--lime)', color: 'var(--ink)',
-              border: 'none', padding: '14px 28px',
-              borderRadius: 8, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700,
-              cursor: bookLoading ? 'not-allowed' : 'pointer',
-              opacity: bookLoading ? 0.6 : 1,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {bookLoading ? '…' : pendingBooking ? 'Update selection →' : (totalAmount + tableTotal) === 0 ? 'Get passes →' : 'Book & pay →'}
-          </button>
+          {hasSelection ? (
+            <>
+              <div>
+                {(() => {
+                  const grandTotal = totalAmount + tableTotal;
+                  const grandItems = [
+                    totalTickets > 0 ? `${totalTickets} ticket${totalTickets !== 1 ? 's' : ''}` : null,
+                    selectedTableSlots.length > 0 ? `${selectedTableSlots.length} table${selectedTableSlots.length !== 1 ? 's' : ''}` : null,
+                  ].filter(Boolean).join(' + ');
+                  return (
+                    <>
+                      <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                        {grandTotal === 0 ? 'Free' : `₹${grandTotal.toLocaleString('en-IN')}`}
+                      </div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', letterSpacing: '.1em', marginTop: 3, textTransform: 'uppercase' }}>
+                        {grandItems}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+              <button
+                onClick={handleBook}
+                disabled={bookLoading}
+                style={{
+                  background: 'var(--lime)', color: 'var(--ink)',
+                  border: 'none', padding: '14px 28px',
+                  borderRadius: 8, fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700,
+                  cursor: bookLoading ? 'not-allowed' : 'pointer',
+                  opacity: bookLoading ? 0.6 : 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {bookLoading ? '…' : pendingBooking ? 'Update selection →' : (totalAmount + tableTotal) === 0 ? 'Get passes →' : 'Book & pay →'}
+              </button>
+            </>
+          ) : (
+            /* pendingBooking exists but user zeroed out all tickets — offer cancel */
+            <>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 13, color: 'var(--dim)', lineHeight: 1.4 }}>
+                Add at least one ticket to update,<br />or cancel this booking.
+              </div>
+              <button
+                onClick={handleCancelBooking}
+                disabled={cancelLoading}
+                style={{
+                  background: 'transparent', color: 'var(--hot)',
+                  border: '1px solid var(--hot)', padding: '12px 22px',
+                  borderRadius: 8, fontFamily: 'var(--display)', fontSize: 14, fontWeight: 600,
+                  cursor: cancelLoading ? 'not-allowed' : 'pointer',
+                  opacity: cancelLoading ? 0.5 : 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {cancelLoading ? '…' : 'Cancel booking'}
+              </button>
+            </>
+          )}
         </div>
       )}
 
