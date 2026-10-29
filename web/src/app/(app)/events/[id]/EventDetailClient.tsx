@@ -242,10 +242,11 @@ export default function EventDetailClient() {
   const pricingMode  = ev?.pricingMode ?? 'common';
   const groupPricing = ev?.groupPricing ?? [];
   const selectedGroup = selectedGroupIdx !== null ? (groupPricing[selectedGroupIdx] ?? null) : null;
-  const ticketTypes  = (ev as unknown as { ticketTypes?: { label: string; price: number; description?: string; capacity?: number; soldCount: number }[] })?.ticketTypes ?? [];
+  const ticketTypes  = (ev as unknown as { ticketTypes?: { label: string; price: number; description?: string; capacity?: number; soldCount: number; isClosed?: boolean }[] })?.ticketTypes ?? [];
   const hasTicketTypes = ticketTypes.length > 0;
   const hasPhases    = !hasTicketTypes && allTiers.length > 0;
-  const ticketsAvailable = hasTicketTypes || !hasPhases || !!activeTier;
+  const anyTicketOpen = ticketTypes.some((t) => !t.isClosed && !(t.capacity && t.soldCount >= t.capacity));
+  const ticketsAvailable = (hasTicketTypes && anyTicketOpen) || (!hasTicketTypes && (!hasPhases || !!activeTier));
   const userDiscount = ev?.userDiscount ?? null;
   const tables       = event?.tables ?? [];
   const hasTableBooking = !!(event?.hasTableBooking && tables.length > 0);

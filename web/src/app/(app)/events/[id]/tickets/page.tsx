@@ -17,6 +17,7 @@ type TicketType = {
   description?: string;
   capacity?: number;
   soldCount: number;
+  isClosed?: boolean;
 };
 
 type TableSlot = {
@@ -467,7 +468,8 @@ export default function TicketsPage() {
       {/* Ticket list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {ticketTypes.map((tt, idx) => {
-          const isSoldOut = !!(tt.capacity && tt.soldCount >= tt.capacity);
+          const isSoldOut = !!tt.isClosed || !!(tt.capacity && tt.soldCount >= tt.capacity);
+          const isUnavailable = isSoldOut;
           const qty = selection[idx] ?? 0;
           const hasQty = qty > 0;
           const descLines = tt.description
@@ -480,7 +482,7 @@ export default function TicketsPage() {
               style={{
                 padding: '20px 0',
                 borderBottom: '1px solid var(--line-2)',
-                opacity: isSoldOut ? 0.4 : 1,
+                opacity: isUnavailable ? 0.4 : 1,
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
