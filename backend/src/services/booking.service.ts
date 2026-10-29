@@ -598,6 +598,20 @@ export async function cancelBooking(bookingId: string, userId: string) {
     );
   }
 
+  // Decrement soldCount on ticket types if this booking used them.
+  const ticketLines = (booking as IBooking).ticketLines;
+  if (ticketLines && ticketLines.length > 0) {
+    const event = await Event.findById(booking.eventId).select('ticketTypes');
+    if (event) {
+      const inc: Record<string, number> = {};
+      for (const line of ticketLines) {
+        const idx = (event.ticketTypes ?? []).findIndex((t) => t.label === line.ticketTypeName);
+        if (idx !== -1) inc[`ticketTypes.${idx}.soldCount`] = (inc[`ticketTypes.${idx}.soldCount`] ?? 0) - line.quantity;
+      }
+      if (Object.keys(inc).length > 0) await Event.findByIdAndUpdate(booking.eventId, { $inc: inc });
+    }
+  }
+
   await writeAuditLog({
     actorId: userId,
     action: refunded ? 'BOOKING_REFUNDED' : 'BOOKING_CANCELLED',
@@ -737,6 +751,20 @@ export async function hostRemoveGuest(hostId: string, eventId: string, bookingId
         )
       : Promise.resolve(),
   ]);
+
+  // Decrement soldCount on ticket types if this booking used them.
+  const ticketLines = (booking as IBooking).ticketLines;
+  if (ticketLines && ticketLines.length > 0) {
+    const ev = await Event.findById(eventId).select('ticketTypes');
+    if (ev) {
+      const inc: Record<string, number> = {};
+      for (const line of ticketLines) {
+        const idx = (ev.ticketTypes ?? []).findIndex((t) => t.label === line.ticketTypeName);
+        if (idx !== -1) inc[`ticketTypes.${idx}.soldCount`] = (inc[`ticketTypes.${idx}.soldCount`] ?? 0) - line.quantity;
+      }
+      if (Object.keys(inc).length > 0) await Event.findByIdAndUpdate(eventId, { $inc: inc });
+    }
+  }
 
   await writeAuditLog({
     actorId: hostId,

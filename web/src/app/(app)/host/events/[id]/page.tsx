@@ -1172,23 +1172,44 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
 
 // ── Phases tab ───────────────────────────────────────────────────────────────
 
-function PhasesTab({ event }: { event: Event; onRefresh: () => void }) {
+function PhasesTab({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
   const tickets: TicketType[] = event.ticketTypes ?? [];
+  const isLive = event.status === 'published';
+  const isClosed = event.bookingsClosed ?? false;
+  const [toggling, setToggling] = useState(false);
+
+  const handleToggleTickets = async () => {
+    setToggling(true);
+    try {
+      const endpoint = isClosed
+        ? `/events/${event._id}/open-tickets`
+        : `/events/${event._id}/close-tickets`;
+      await api.patch(endpoint);
+      await onRefresh();
+    } finally {
+      setToggling(false);
+    }
+  };
 
   if (tickets.length === 0) {
     return (
-      <div className="ledger px-1 py-12">
-        <div className="clique-label mb-3 !text-[10px] !tracking-[.16em]">№ 000 — NO TICKETS</div>
-        <p className="m-0 font-display text-xl font-bold tracking-[-0.02em] text-paper">No ticket types set.</p>
-        <p className="m-0 mt-2 font-display text-sm leading-relaxed text-cream">
-          Ticket types are configured when creating or editing the event.
-        </p>
-        <Link
-          href={`/host/events/new?edit=${event._id}`}
-          className="mt-4 inline-block font-mono text-[11px] uppercase tracking-[.1em] text-lime transition-colors hover:opacity-80"
-        >
-          Edit event →
-        </Link>
+      <div className="flex flex-col gap-6">
+        {isLive && (
+          <CloseTicketsCard isClosed={isClosed} toggling={toggling} onToggle={handleToggleTickets} />
+        )}
+        <div className="ledger px-1 py-12">
+          <div className="clique-label mb-3 !text-[10px] !tracking-[.16em]">№ 000 — NO TICKETS</div>
+          <p className="m-0 font-display text-xl font-bold tracking-[-0.02em] text-paper">No ticket types set.</p>
+          <p className="m-0 mt-2 font-display text-sm leading-relaxed text-cream">
+            Ticket types are configured when creating or editing the event.
+          </p>
+          <Link
+            href={`/host/events/new?edit=${event._id}`}
+            className="mt-4 inline-block font-mono text-[11px] uppercase tracking-[.1em] text-lime transition-colors hover:opacity-80"
+          >
+            Edit event →
+          </Link>
+        </div>
       </div>
     );
   }
@@ -1200,6 +1221,11 @@ function PhasesTab({ event }: { event: Event; onRefresh: () => void }) {
 
   return (
     <div className="flex flex-col gap-6">
+
+      {/* Close / reopen tickets — live events only */}
+      {isLive && (
+        <CloseTicketsCard isClosed={isClosed} toggling={toggling} onToggle={handleToggleTickets} />
+      )}
 
       {/* Summary bar */}
       {tickets.length > 1 && (
@@ -1291,6 +1317,39 @@ function PhasesTab({ event }: { event: Event; onRefresh: () => void }) {
           </Link>
         </p>
       )}
+    </div>
+  );
+}
+
+function CloseTicketsCard({ isClosed, toggling, onToggle }: { isClosed: boolean; toggling: boolean; onToggle: () => void }) {
+  return (
+    <div className={`flex items-center justify-between gap-4 rounded-card border p-4 ${isClosed ? 'border-hot/25 bg-hot/[.06]' : 'border-line-2 bg-card'}`}>
+      <div>
+        <div className="flex items-center gap-2.5">
+          <span className="font-display text-[15px] font-bold text-paper">
+            {isClosed ? 'Tickets closed' : 'Tickets open'}
+          </span>
+          {isClosed && (
+            <span className="rounded-full border border-hot/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-hot">Sold out</span>
+          )}
+        </div>
+        <p className="m-0 mt-1 font-mono text-[10px] tracking-[.06em] text-dim">
+          {isClosed
+            ? 'No new bookings are accepted. Reopen to allow bookings again.'
+            : 'Stop accepting new bookings and mark this event as sold out.'}
+        </p>
+      </div>
+      <button
+        onClick={onToggle}
+        disabled={toggling}
+        className={`shrink-0 rounded border px-4 py-2 font-mono text-[11px] uppercase tracking-[.1em] transition-colors disabled:opacity-40 ${
+          isClosed
+            ? 'border-lime/40 text-lime hover:bg-lime/10'
+            : 'border-hot/40 text-hot hover:bg-hot/10'
+        }`}
+      >
+        {toggling ? '…' : isClosed ? 'Reopen tickets' : 'Close tickets'}
+      </button>
     </div>
   );
 }
