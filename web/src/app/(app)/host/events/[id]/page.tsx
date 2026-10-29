@@ -1175,14 +1175,19 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
 function PhasesTab({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
   const tickets: TicketType[] = event.ticketTypes ?? [];
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState('');
 
   const handleToggleClosed = async (ticket: TicketType) => {
     if (!ticket._id) return;
     setTogglingId(ticket._id);
+    setToggleError('');
     try {
       const action = ticket.isClosed ? 'open' : 'close';
       await api.patch(`/events/${event._id}/tickets/${ticket._id}/${action}`);
       await onRefresh();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setToggleError(e.response?.data?.message ?? 'Failed to update ticket — try again.');
     } finally {
       setTogglingId(null);
     }
@@ -1230,6 +1235,13 @@ function PhasesTab({ event, onRefresh }: { event: Event; onRefresh: () => void }
               )}
             </span>
           </div>
+        </div>
+      )}
+
+      {toggleError && (
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-hot/20 bg-hot/[.08] px-4 py-3">
+          <span className="font-mono text-[11px] leading-relaxed tracking-[.06em] text-hot">{toggleError}</span>
+          <button onClick={() => setToggleError('')} className="shrink-0 text-hot">×</button>
         </div>
       )}
 
