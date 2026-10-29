@@ -511,9 +511,33 @@ export async function recalculateBookedCount(eventId: string, hostId?: string) {
     );
   });
 
+  // Per-ticket-type sold counts: sum quantities from ticketLines + single-ticket bookings.
+  const ticketTypeUpdates: Promise<unknown>[] = event.ticketTypes.map(async (ticket) => {
+    // Multi-ticket bookings store each line in ticketLines
+    const [multiAgg] = await Booking.aggregate<{ total: number }>([
+      { $match: { eventId: eventObjId, status: confirmedStatuses, 'ticketLines.ticketTypeName': ticket.label } },
+      { $unwind: '$ticketLines' },
+      { $match: { 'ticketLines.ticketTypeName': ticket.label } },
+      { $group: { _id: null, total: { $sum: '$ticketLines.quantity' } } },
+    ]);
+    // Single-ticket bookings have no ticketLines but tierLabel == ticket label
+    const singleCount = await Booking.countDocuments({
+      eventId,
+      tierLabel: ticket.label,
+      ticketLines: { $exists: false },
+      status: confirmedStatuses,
+    });
+    const totalSold = (multiAgg?.total ?? 0) + singleCount;
+    return Event.updateOne(
+      { _id: eventId, 'ticketTypes._id': ticket._id },
+      { $set: { 'ticketTypes.$.soldCount': totalSold } }
+    );
+  });
+
   await Promise.all([
     Event.findByIdAndUpdate(eventId, { bookedCount: liveCount, reservedCount: liveReserved }),
     ...tierUpdates,
+    ...ticketTypeUpdates,
   ]);
 
   return { bookedCount: liveCount };

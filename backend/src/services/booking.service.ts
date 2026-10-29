@@ -599,6 +599,25 @@ export async function cancelBooking(bookingId: string, userId: string) {
     );
   }
 
+  // Decrement soldCount on ticket types.
+  if (booking.ticketLines && booking.ticketLines.length > 0) {
+    // Multi-ticket flow: decrement each ticket type by its quantity.
+    await Promise.all(booking.ticketLines.map((line) =>
+      Event.updateOne(
+        { _id: booking.eventId, 'ticketTypes.label': line.ticketTypeName },
+        { $inc: { 'ticketTypes.$[elem].soldCount': -line.quantity } },
+        { arrayFilters: [{ 'elem.label': line.ticketTypeName }] }
+      )
+    ));
+  } else if (booking.tierLabel) {
+    // Single-ticket flow: tierLabel == ticket type label; decrement by 1.
+    await Event.updateOne(
+      { _id: booking.eventId, 'ticketTypes.label': booking.tierLabel },
+      { $inc: { 'ticketTypes.$[elem].soldCount': -1 } },
+      { arrayFilters: [{ 'elem.label': booking.tierLabel }] }
+    );
+  }
+
   await writeAuditLog({
     actorId: userId,
     action: refunded ? 'BOOKING_REFUNDED' : 'BOOKING_CANCELLED',
@@ -728,6 +747,27 @@ export async function hostRemoveGuest(hostId: string, eventId: string, bookingId
   const slotsToRelease   = booking.groupSize ?? 1;
   const countField       = wasReserved ? 'reservedCount' : 'bookedCount';
 
+  const ticketTypeDecrements: Promise<unknown>[] = [];
+  if (booking.ticketLines && booking.ticketLines.length > 0) {
+    for (const line of booking.ticketLines) {
+      ticketTypeDecrements.push(
+        Event.updateOne(
+          { _id: eventId, 'ticketTypes.label': line.ticketTypeName },
+          { $inc: { 'ticketTypes.$[elem].soldCount': -line.quantity } },
+          { arrayFilters: [{ 'elem.label': line.ticketTypeName }] }
+        )
+      );
+    }
+  } else if (booking.tierLabel) {
+    ticketTypeDecrements.push(
+      Event.updateOne(
+        { _id: eventId, 'ticketTypes.label': booking.tierLabel },
+        { $inc: { 'ticketTypes.$[elem].soldCount': -1 } },
+        { arrayFilters: [{ 'elem.label': booking.tierLabel }] }
+      )
+    );
+  }
+
   await Promise.all([
     Booking.findByIdAndUpdate(bookingId, { status: refunded ? 'refunded' : 'cancelled' }),
     Event.findByIdAndUpdate(eventId, { $inc: { [countField]: -slotsToRelease, revenue: revenueDecrement } }),
@@ -737,6 +777,7 @@ export async function hostRemoveGuest(hostId: string, eventId: string, bookingId
           { $inc: { 'pricingTiers.$.soldCount': -1 } }
         )
       : Promise.resolve(),
+    ...ticketTypeDecrements,
   ]);
 
   await writeAuditLog({
