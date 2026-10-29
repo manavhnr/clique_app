@@ -308,7 +308,7 @@ export async function getHostEvents(hostId: string, page: number, limit: number)
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
-    .select('title images date startTime status capacity bookedCount checkedInCount privacy price revenue');
+    .select('title images date startTime endTime status capacity bookedCount checkedInCount privacy price revenue category bookingsClosed');
 
   const total = await Event.countDocuments(filter);
   return { events, total, page, limit };
