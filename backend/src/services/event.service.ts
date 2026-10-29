@@ -426,7 +426,9 @@ export async function addTier(eventId: string, hostId: string, data: AddTierInpu
 export async function setTicketTypeClosed(eventId: string, hostId: string, ticketId: string, isClosed: boolean) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  const isHost = event.hostId.toString() === hostId;
+  const isCoHost = event.coHosts?.some((c) => c.userId.toString() === hostId);
+  if (!isHost && !isCoHost) throw createError('Forbidden', 403);
 
   const ticketObjId = new mongoose.Types.ObjectId(ticketId);
   const ticket = event.ticketTypes.find((t) => t._id?.toString() === ticketId);
@@ -444,7 +446,9 @@ export async function setTicketTypeClosed(eventId: string, hostId: string, ticke
 export async function setTierOpen(eventId: string, hostId: string, tierId: string, isOpen: boolean) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+  const isHost = event.hostId.toString() === hostId;
+  const isCoHost = event.coHosts?.some((c) => c.userId.toString() === hostId);
+  if (!isHost && !isCoHost) throw createError('Forbidden', 403);
 
   const tier = event.pricingTiers.find((t) => t._id?.toString() === tierId);
   if (!tier) throw createError('Phase not found', 404);
