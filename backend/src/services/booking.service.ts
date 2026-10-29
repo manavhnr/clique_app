@@ -55,7 +55,6 @@ export async function createBooking(
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
   if (event.status !== 'published') throw createError('Event is not available for booking', 400);
-  if (event.bookingsClosed) throw createError('Tickets are closed for this event', 400);
   if (event.hostId.toString() === userId) throw createError('Host cannot book own event', 400);
 
   // Duplicate booking check
@@ -598,20 +597,6 @@ export async function cancelBooking(bookingId: string, userId: string) {
     );
   }
 
-  // Decrement soldCount on ticket types if this booking used them.
-  const ticketLines = (booking as IBooking).ticketLines;
-  if (ticketLines && ticketLines.length > 0) {
-    const event = await Event.findById(booking.eventId).select('ticketTypes');
-    if (event) {
-      const inc: Record<string, number> = {};
-      for (const line of ticketLines) {
-        const idx = (event.ticketTypes ?? []).findIndex((t) => t.label === line.ticketTypeName);
-        if (idx !== -1) inc[`ticketTypes.${idx}.soldCount`] = (inc[`ticketTypes.${idx}.soldCount`] ?? 0) - line.quantity;
-      }
-      if (Object.keys(inc).length > 0) await Event.findByIdAndUpdate(booking.eventId, { $inc: inc });
-    }
-  }
-
   await writeAuditLog({
     actorId: userId,
     action: refunded ? 'BOOKING_REFUNDED' : 'BOOKING_CANCELLED',
@@ -751,20 +736,6 @@ export async function hostRemoveGuest(hostId: string, eventId: string, bookingId
         )
       : Promise.resolve(),
   ]);
-
-  // Decrement soldCount on ticket types if this booking used them.
-  const ticketLines = (booking as IBooking).ticketLines;
-  if (ticketLines && ticketLines.length > 0) {
-    const ev = await Event.findById(eventId).select('ticketTypes');
-    if (ev) {
-      const inc: Record<string, number> = {};
-      for (const line of ticketLines) {
-        const idx = (ev.ticketTypes ?? []).findIndex((t) => t.label === line.ticketTypeName);
-        if (idx !== -1) inc[`ticketTypes.${idx}.soldCount`] = (inc[`ticketTypes.${idx}.soldCount`] ?? 0) - line.quantity;
-      }
-      if (Object.keys(inc).length > 0) await Event.findByIdAndUpdate(eventId, { $inc: inc });
-    }
-  }
 
   await writeAuditLog({
     actorId: hostId,

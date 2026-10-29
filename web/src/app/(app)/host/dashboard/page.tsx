@@ -23,7 +23,6 @@ export default function HostDashboardPage() {
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutToast, setPayoutToast] = useState('');
   const [payoutSuccess, setPayoutSuccess] = useState('');
-  const [ticketToggling, setTicketToggling] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -45,24 +44,6 @@ export default function HostDashboardPage() {
       })
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleToggleTickets(event: Event) {
-    const closing = !event.bookingsClosed;
-    setTicketToggling(event._id);
-    try {
-      const endpoint = closing
-        ? `/events/${event._id}/close-tickets`
-        : `/events/${event._id}/open-tickets`;
-      await api.patch(endpoint);
-      setEvents((prev) =>
-        prev.map((e) => e._id === event._id ? { ...e, bookingsClosed: closing } : e)
-      );
-    } catch {
-      // silent — user can retry
-    } finally {
-      setTicketToggling(null);
-    }
-  }
 
   async function handleSaveUpi(upiId: string) {
     setPayoutLoading(true);
@@ -129,14 +110,7 @@ export default function HostDashboardPage() {
           </div>
         ) : (
           <div className="ledger">
-            {activeEvents.map((e) => (
-              <HostEventRow
-                key={e._id}
-                event={e}
-                onToggleTickets={() => handleToggleTickets(e)}
-                toggling={ticketToggling === e._id}
-              />
-            ))}
+            {activeEvents.map((e) => <HostEventRow key={e._id} event={e} />)}
           </div>
         )}
       </div>
@@ -345,81 +319,53 @@ function CollapsibleEventsSection({ label, events }: { label: string; events: Ev
 
 // ── Event row ────────────────────────────────────────────────────────────────
 
-function HostEventRow({
-  event,
-  dimmed = false,
-  onToggleTickets,
-  toggling = false,
-}: {
-  event: Event;
-  dimmed?: boolean;
-  onToggleTickets?: () => void;
-  toggling?: boolean;
-}) {
+function HostEventRow({ event, dimmed = false }: { event: Event; dimmed?: boolean }) {
   const color = catColor(event.category);
   const filled = Math.min(100, (event.bookedCount / event.capacity) * 100);
-  const isLive = event.status === 'published';
-  const isClosed = event.bookingsClosed;
 
   return (
-    <div className={`ledger-row ${dimmed ? 'opacity-55' : ''}`}>
-      <Link
-        href={`/host/events/${event._id}`}
-        className="group grid grid-cols-[72px_1fr] items-center gap-x-4 gap-y-2 px-2 py-4 sm:grid-cols-[88px_1fr_auto] sm:gap-x-6"
-      >
-        {/* Door time + category tick */}
-        <div className="self-start sm:self-center">
-          <div className="font-display text-[22px] font-bold leading-none tracking-[-0.02em] text-paper sm:text-[24px]">
-            {event.startTime ? formatTime(event.startTime).replace(':00', '').replace(' ', '') : '—'}
-          </div>
-          <div className="mt-1.5 flex items-center gap-1.5">
-            <span aria-hidden className="inline-block h-2 w-2 rounded-[1px]" style={{ background: color }} />
-            <span className="font-mono text-[9px] uppercase tracking-[.12em] text-dim">
-              {(event.category ?? 'other').replace('_', ' ')}
-            </span>
-          </div>
+    <Link
+      href={`/host/events/${event._id}`}
+      className={`ledger-row group grid grid-cols-[72px_1fr] items-center gap-x-4 gap-y-2 px-2 py-4 sm:grid-cols-[88px_1fr_auto] sm:gap-x-6 ${dimmed ? 'opacity-55' : ''}`}
+    >
+      {/* Door time + category tick */}
+      <div className="self-start sm:self-center">
+        <div className="font-display text-[22px] font-bold leading-none tracking-[-0.02em] text-paper sm:text-[24px]">
+          {event.startTime ? formatTime(event.startTime).replace(':00', '').replace(' ', '') : '—'}
         </div>
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2 w-2 rounded-[1px]" style={{ background: color }} />
+          <span className="font-mono text-[9px] uppercase tracking-[.12em] text-dim">
+            {(event.category ?? 'other').replace('_', ' ')}
+          </span>
+        </div>
+      </div>
 
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="truncate font-display text-xl font-bold leading-tight tracking-[-0.02em] text-paper">{event.title}</div>
-            {event.status === 'cancelled' && <span className="stamp text-hot">Cancelled</span>}
-            {event.status === 'draft' && <span className="stamp stamp-flat text-gold">Draft</span>}
-            {event.status === 'completed' && <span className="stamp stamp-flat text-sky">Completed</span>}
-            {isLive && isClosed && <span className="stamp text-hot">Sold out</span>}
-          </div>
-          <div className="mt-1 truncate font-mono text-[11px] tracking-[.06em] text-cream">
-            {event.locationName}
-            {event.endTime ? ` · till ${formatTime(event.endTime)}` : ''}
-          </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="truncate font-display text-xl font-bold leading-tight tracking-[-0.02em] text-paper">{event.title}</div>
+          {event.status === 'cancelled' && <span className="stamp text-hot">Cancelled</span>}
+          {event.status === 'draft' && <span className="stamp stamp-flat text-gold">Draft</span>}
+          {event.status === 'completed' && <span className="stamp stamp-flat text-sky">Completed</span>}
         </div>
+        <div className="mt-1 truncate font-mono text-[11px] tracking-[.06em] text-cream">
+          {event.locationName}
+          {event.endTime ? ` · till ${formatTime(event.endTime)}` : ''}
+        </div>
+      </div>
 
-        <div className="col-start-2 flex items-center gap-4 sm:col-start-auto sm:block sm:text-right">
-          <div className="flex items-baseline gap-1 sm:justify-end">
-            <span className="font-display text-xl font-bold tracking-[-0.02em]">{event.bookedCount}</span>
-            <span className="font-mono text-[11px] text-dim">/ {event.capacity}</span>
-          </div>
-          <div className="flex items-center gap-2 sm:mt-1.5 sm:justify-end">
-            <span className="inline-block h-[3px] w-14 overflow-hidden rounded-sm bg-line" aria-hidden>
-              <span className="block h-full" style={{ width: `${filled}%`, background: filled > 85 ? 'var(--hot)' : 'var(--lime)' }} />
-            </span>
-            <span aria-hidden className="font-mono text-xs text-dim opacity-0 transition-opacity group-hover:opacity-100">→</span>
-          </div>
+      <div className="col-start-2 flex items-center gap-4 sm:col-start-auto sm:block sm:text-right">
+        <div className="flex items-baseline gap-1 sm:justify-end">
+          <span className="font-display text-xl font-bold tracking-[-0.02em]">{event.bookedCount}</span>
+          <span className="font-mono text-[11px] text-dim">/ {event.capacity}</span>
         </div>
-      </Link>
-
-      {/* Close / reopen tickets — live events only */}
-      {isLive && onToggleTickets && (
-        <div className="flex justify-end px-2 pb-3">
-          <button
-            onClick={onToggleTickets}
-            disabled={toggling}
-            className={`font-mono text-[11px] tracking-[.06em] underline underline-offset-2 transition-opacity disabled:opacity-40 ${isClosed ? 'text-lime hover:text-paper' : 'text-hot hover:text-paper'}`}
-          >
-            {toggling ? '...' : isClosed ? 'Reopen tickets' : 'Close tickets'}
-          </button>
+        <div className="flex items-center gap-2 sm:mt-1.5 sm:justify-end">
+          <span className="inline-block h-[3px] w-14 overflow-hidden rounded-sm bg-line" aria-hidden>
+            <span className="block h-full" style={{ width: `${filled}%`, background: filled > 85 ? 'var(--hot)' : 'var(--lime)' }} />
+          </span>
+          <span aria-hidden className="font-mono text-xs text-dim opacity-0 transition-opacity group-hover:opacity-100">→</span>
         </div>
-      )}
-    </div>
+      </div>
+    </Link>
   );
 }

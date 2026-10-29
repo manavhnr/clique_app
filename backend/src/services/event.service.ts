@@ -308,7 +308,7 @@ export async function getHostEvents(hostId: string, page: number, limit: number)
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
-    .select('title images date startTime endTime status capacity bookedCount checkedInCount privacy price revenue category bookingsClosed');
+    .select('title images date startTime status capacity bookedCount checkedInCount privacy price revenue');
 
   const total = await Event.countDocuments(filter);
   return { events, total, page, limit };
@@ -456,30 +456,6 @@ export async function removeGroupDeal(eventId: string, hostId: string, index: nu
   if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
   if (index < 0 || index >= event.groupPricing.length) throw createError('Group deal not found', 404);
   event.groupPricing.splice(index, 1);
-  await event.save();
-  return event;
-}
-
-export async function closeTickets(eventId: string, hostId: string) {
-  const event = await Event.findById(eventId);
-  if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
-  if (['cancelled', 'completed', 'blocked'].includes(event.status)) {
-    throw createError('Cannot modify this event', 400);
-  }
-  event.bookingsClosed = true;
-  await event.save();
-  return event;
-}
-
-export async function openTickets(eventId: string, hostId: string) {
-  const event = await Event.findById(eventId);
-  if (!event) throw createError('Event not found', 404);
-  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
-  if (['cancelled', 'completed', 'blocked'].includes(event.status)) {
-    throw createError('Cannot modify this event', 400);
-  }
-  event.bookingsClosed = false;
   await event.save();
   return event;
 }

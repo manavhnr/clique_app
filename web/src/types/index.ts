@@ -124,7 +124,6 @@ export interface Event {
   viewCount?: number;
   coHosts?: EventMember[];
   scanners?: EventMember[];
-  bookingsClosed?: boolean;
   hasTableBooking?: boolean;
   tables?: TableCategory[];
   hasFloorPlan?: boolean;

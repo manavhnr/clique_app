@@ -27,8 +27,6 @@ import {
   removeGroupDealHandler,
   recalculateCountHandler,
   scannableEvents,
-  closeTicketsHandler,
-  openTicketsHandler,
 } from '../controllers/event.controller';
 import { guestlistAdd, hostRemoveGuestHandler } from '../controllers/booking.controller';
 import { addDiscountsHandler, getDiscountsHandler, updateDiscountHandler, revokeDiscountHandler } from '../controllers/discount.controller';
@@ -80,10 +78,6 @@ router.post('/:eventId/discounts', requireVerifiedHost, validate(addDiscountsSch
 router.get('/:eventId/discounts', requireVerifiedHost, getDiscountsHandler);
 router.patch('/:eventId/discounts/:discountId', requireVerifiedHost, validate(updateDiscountSchema), updateDiscountHandler);
 router.delete('/:eventId/discounts/:discountId', requireVerifiedHost, revokeDiscountHandler);
-
-// Ticket open/close (host only)
-router.patch('/:eventId/close-tickets', requireVerifiedHost, closeTicketsHandler);
-router.patch('/:eventId/open-tickets', requireVerifiedHost, openTicketsHandler);
 
 // Ticket phase management (host only)
 router.patch('/:eventId/recalculate-count', requireVerifiedHost, recalculateCountHandler);
