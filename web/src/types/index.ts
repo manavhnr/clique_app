@@ -66,6 +66,7 @@ export interface TicketType {
   description?: string;
   capacity?: number;
   soldCount: number;
+  isClosed?: boolean;
 }
 
 export interface TableSlot {

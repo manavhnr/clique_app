@@ -423,6 +423,19 @@ export async function addTier(eventId: string, hostId: string, data: AddTierInpu
   return event;
 }
 
+export async function setTicketTypeClosed(eventId: string, hostId: string, ticketId: string, isClosed: boolean) {
+  const event = await Event.findById(eventId);
+  if (!event) throw createError('Event not found', 404);
+  if (event.hostId.toString() !== hostId) throw createError('Forbidden', 403);
+
+  const ticket = event.ticketTypes.find((t) => t._id?.toString() === ticketId);
+  if (!ticket) throw createError('Ticket type not found', 404);
+
+  ticket.isClosed = isClosed;
+  await event.save();
+  return event;
+}
+
 export async function setTierOpen(eventId: string, hostId: string, tierId: string, isOpen: boolean) {
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);

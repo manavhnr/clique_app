@@ -163,6 +163,7 @@ export async function createBooking(
       if (!sel.quantity || sel.quantity < 1) throw createError('Quantity must be at least 1', 400);
       const tt = ticketTypesArr[sel.ticketTypeIndex];
       if (!tt) throw createError('Invalid ticket type selection', 400);
+      if ((tt as { isClosed?: boolean }).isClosed) throw createError(`${tt.label} is closed`, 409);
       if (tt.capacity && tt.soldCount + sel.quantity > tt.capacity) {
         throw createError(`${tt.label} doesn't have enough spots`, 409);
       }
@@ -246,6 +247,7 @@ export async function createBooking(
     }
     const tt = ticketTypesArr[ticketTypeIndex];
     if (!tt) throw createError('Invalid ticket type', 400);
+    if ((tt as { isClosed?: boolean }).isClosed) throw createError('This ticket type is closed', 409);
     if (tt.capacity && tt.soldCount >= tt.capacity) throw createError('This ticket type is sold out', 409);
     selectedTicketType = tt;
   }

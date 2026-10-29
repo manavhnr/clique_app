@@ -20,6 +20,7 @@ import {
   removeScanner,
   addTier,
   setTierOpen,
+  setTicketTypeClosed,
   addGroupDeal,
   removeGroupDeal,
   recalculateBookedCount,
@@ -158,6 +159,20 @@ export async function addTierHandler(req: AuthRequest, res: Response, next: Next
   try {
     const event = await addTier(req.params.eventId, req.user!.userId, req.body);
     sendSuccess(res, { pricingTiers: event.pricingTiers }, 'Phase added', 201);
+  } catch (err) { next(err); }
+}
+
+export async function openTicketTypeHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await setTicketTypeClosed(req.params.eventId, req.user!.userId, req.params.ticketId, false);
+    sendSuccess(res, { event });
+  } catch (err) { next(err); }
+}
+
+export async function closeTicketTypeHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const event = await setTicketTypeClosed(req.params.eventId, req.user!.userId, req.params.ticketId, true);
+    sendSuccess(res, { event });
   } catch (err) { next(err); }
 }
 

@@ -44,6 +44,7 @@ export interface ITicketType {
   description?: string;
   capacity?: number;
   soldCount: number;
+  isClosed: boolean;
 }
 
 export interface IEvent extends Document {
@@ -157,6 +158,7 @@ const eventSchema = new Schema<IEvent>(
         description: { type: String },
         capacity: { type: Number },
         soldCount: { type: Number, default: 0 },
+        isClosed: { type: Boolean, default: false },
       }],
       default: [],
     },

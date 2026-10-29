@@ -23,6 +23,8 @@ import {
   addTierHandler,
   openTierHandler,
   closeTierHandler,
+  openTicketTypeHandler,
+  closeTicketTypeHandler,
   addGroupDealHandler,
   removeGroupDealHandler,
   recalculateCountHandler,
@@ -84,6 +86,8 @@ router.patch('/:eventId/recalculate-count', requireVerifiedHost, recalculateCoun
 router.post('/:eventId/tiers', requireVerifiedHost, validate(addTierSchema), addTierHandler);
 router.patch('/:eventId/tiers/:tierId/open', requireVerifiedHost, openTierHandler);
 router.patch('/:eventId/tiers/:tierId/close', requireVerifiedHost, closeTierHandler);
+router.patch('/:eventId/tickets/:ticketId/open', requireVerifiedHost, openTicketTypeHandler);
+router.patch('/:eventId/tickets/:ticketId/close', requireVerifiedHost, closeTicketTypeHandler);
 
 // Group deal management (host only)
 router.post('/:eventId/group-deals', requireVerifiedHost, addGroupDealHandler);

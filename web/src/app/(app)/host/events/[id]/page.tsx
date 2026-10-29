@@ -1172,8 +1172,21 @@ function GuestsTab({ eventTitle, eventId, bookings, inProcess, droppedOff, reque
 
 // ── Phases tab ───────────────────────────────────────────────────────────────
 
-function PhasesTab({ event }: { event: Event; onRefresh: () => void }) {
+function PhasesTab({ event, onRefresh }: { event: Event; onRefresh: () => void }) {
   const tickets: TicketType[] = event.ticketTypes ?? [];
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const handleToggleClosed = async (ticket: TicketType) => {
+    if (!ticket._id) return;
+    setTogglingId(ticket._id);
+    try {
+      const action = ticket.isClosed ? 'open' : 'close';
+      await api.patch(`/events/${event._id}/tickets/${ticket._id}/${action}`);
+      await onRefresh();
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   if (tickets.length === 0) {
     return (
@@ -1231,14 +1244,16 @@ function PhasesTab({ event }: { event: Event; onRefresh: () => void }) {
           return (
             <div
               key={ticket._id ?? i}
-              className={`rounded-card border bg-card p-4 ${soldOut ? 'border-hot/20' : 'border-lime/20'}`}
+              className={`rounded-card border bg-card p-4 ${ticket.isClosed ? 'border-line opacity-60' : soldOut ? 'border-hot/20' : 'border-lime/20'}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <span className="font-mono text-[9px] tracking-[.14em] text-dim">{String(i + 1).padStart(2, '0')}</span>
                     <span className="font-display text-base font-bold text-paper">{ticket.label}</span>
-                    {soldOut ? (
+                    {ticket.isClosed ? (
+                      <span className="rounded-full border border-line px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-dim">Closed</span>
+                    ) : soldOut ? (
                       <span className="rounded-full border border-hot/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-hot">Sold out</span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full border border-lime/30 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[.1em] text-lime">
@@ -1267,6 +1282,20 @@ function PhasesTab({ event }: { event: Event; onRefresh: () => void }) {
                     )}
                   </div>
                 </div>
+
+                {ticket._id && (
+                  <button
+                    onClick={() => handleToggleClosed(ticket)}
+                    disabled={togglingId === ticket._id}
+                    className={`shrink-0 rounded border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.08em] transition-colors disabled:opacity-40 ${
+                      ticket.isClosed
+                        ? 'border-lime/30 text-lime hover:border-lime/60 hover:bg-lime/10'
+                        : 'border-hot/30 text-hot hover:border-hot/60 hover:bg-hot/10'
+                    }`}
+                  >
+                    {togglingId === ticket._id ? '…' : ticket.isClosed ? 'Reopen' : 'Close ticket'}
+                  </button>
+                )}
               </div>
 
               {/* Fill bar */}
