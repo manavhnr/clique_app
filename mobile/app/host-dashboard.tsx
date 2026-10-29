@@ -33,6 +33,7 @@ type HostEvent = {
   privacy: string;
   images?: string[];
   price?: number;
+  bookingsClosed?: boolean;
 };
 
 export default function HostDashboardScreen() {
@@ -96,6 +97,37 @@ export default function HostDashboardScreen() {
     } finally { setActioning(null); }
   };
 
+  const handleToggleTickets = async (event: HostEvent) => {
+    const action = event.bookingsClosed ? 'reopen' : 'close';
+    const label = event.bookingsClosed ? 'Reopen Tickets' : 'Close Tickets';
+    Alert.alert(
+      label,
+      event.bookingsClosed
+        ? 'Allow new bookings for this event?'
+        : 'Stop accepting new bookings? This marks the event as sold out.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: label,
+          style: action === 'close' ? 'destructive' : 'default',
+          onPress: async () => {
+            try {
+              const endpoint = action === 'close'
+                ? `/events/${event._id}/close-tickets`
+                : `/events/${event._id}/open-tickets`;
+              await api.patch(endpoint);
+              setEvents(prev =>
+                prev.map(e => e._id === event._id ? { ...e, bookingsClosed: !e.bookingsClosed } : e)
+              );
+            } catch (err: any) {
+              Alert.alert('Error', err?.response?.data?.message ?? 'Failed to update ticket status');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const pendingCount = requests.filter(r => r.status === 'requested').length;
 
   return (
@@ -154,7 +186,14 @@ export default function HostDashboardScreen() {
             ? <ActivityIndicator color="#2563EB" style={{ marginTop: 48 }} />
             : events.length === 0
               ? <EmptyState icon="calendar-outline" title="No events yet" sub="Create your first event to start hosting" action={() => router.push('/create/event')} actionLabel="Create Event" />
-              : events.map(ev => <EventRow key={ev._id} event={ev} onPress={() => router.push(`/event/${ev._id}`)} />)
+              : events.map(ev => (
+                  <EventRow
+                    key={ev._id}
+                    event={ev}
+                    onPress={() => router.push(`/event/${ev._id}`)}
+                    onToggleTickets={() => handleToggleTickets(ev)}
+                  />
+                ))
         ) : (
           <>
             {/* Pending / All toggle */}
@@ -222,49 +261,81 @@ function EmptyState({ icon, title, sub, action, actionLabel }: {
   );
 }
 
-function EventRow({ event, onPress }: { event: HostEvent; onPress: () => void }) {
+function EventRow({ event, onPress, onToggleTickets }: { event: HostEvent; onPress: () => void; onToggleTickets: () => void }) {
   const statusColor: Record<string, string> = { published: '#22c55e', draft: '#F59E0B', cancelled: '#ef4444', completed: '#6B7280', blocked: '#ef4444' };
   const color = statusColor[event.status] ?? '#6B7280';
   const pct = event.capacity > 0 ? Math.min(100, Math.round((event.bookedCount / event.capacity) * 100)) : 0;
+  const isActive = event.status === 'published';
+  const isClosed = event.bookingsClosed;
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      style={{ flexDirection: 'row', backgroundColor: '#111827', borderRadius: 14, borderWidth: 1, borderColor: '#1F2937', marginBottom: 10, overflow: 'hidden' }}
-    >
-      {/* Thumbnail */}
-      <View style={{ width: 80, height: 80, backgroundColor: '#1F2937', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        {event.images?.[0]
-          ? <Image source={{ uri: event.images[0] }} style={{ width: 80, height: 80 }} resizeMode="cover" />
-          : <Ionicons name="calendar" size={28} color="#374151" />
-        }
-      </View>
+    <View style={{ backgroundColor: '#111827', borderRadius: 14, borderWidth: 1, borderColor: '#1F2937', marginBottom: 10, overflow: 'hidden' }}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        style={{ flexDirection: 'row' }}
+      >
+        {/* Thumbnail */}
+        <View style={{ width: 80, height: 80, backgroundColor: '#1F2937', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {event.images?.[0]
+            ? <Image source={{ uri: event.images[0] }} style={{ width: 80, height: 80 }} resizeMode="cover" />
+            : <Ionicons name="calendar" size={28} color="#374151" />
+          }
+        </View>
 
-      <View style={{ flex: 1, padding: 12, justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14, flex: 1, marginRight: 8 }} numberOfLines={1}>
-            {event.title}
+        <View style={{ flex: 1, padding: 12, justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14, flex: 1, marginRight: 8 }} numberOfLines={1}>
+              {event.title}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              {isClosed && (
+                <View style={{ backgroundColor: '#7c3aed22', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                  <Text style={{ color: '#a78bfa', fontSize: 10, fontWeight: '700' }}>SOLD OUT</Text>
+                </View>
+              )}
+              <View style={{ backgroundColor: color + '22', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Text style={{ color, fontSize: 10, fontWeight: '700', textTransform: 'capitalize' }}>{event.status}</Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={{ color: '#6B7280', fontSize: 12, marginBottom: 8 }}>
+            {event.date ? new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
+            {'  ·  '}{event.privacy === 'private' ? 'Private' : 'Public'}
+            {event.price ? `  ·  ₹${event.price}` : '  ·  Free'}
           </Text>
-          <View style={{ backgroundColor: color + '22', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
-            <Text style={{ color, fontSize: 10, fontWeight: '700', textTransform: 'capitalize' }}>{event.status}</Text>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flex: 1, height: 3, backgroundColor: '#1F2937', borderRadius: 2, overflow: 'hidden' }}>
+              <View style={{ width: `${pct}%`, height: '100%', backgroundColor: '#2563EB', borderRadius: 2 }} />
+            </View>
+            <Text style={{ color: '#6B7280', fontSize: 11 }}>{event.bookedCount}/{event.capacity}</Text>
           </View>
         </View>
+      </TouchableOpacity>
 
-        <Text style={{ color: '#6B7280', fontSize: 12, marginBottom: 8 }}>
-          {event.date ? new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
-          {'  ·  '}{event.privacy === 'private' ? 'Private' : 'Public'}
-          {event.price ? `  ·  ₹${event.price}` : '  ·  Free'}
-        </Text>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ flex: 1, height: 3, backgroundColor: '#1F2937', borderRadius: 2, overflow: 'hidden' }}>
-            <View style={{ width: `${pct}%`, height: '100%', backgroundColor: '#2563EB', borderRadius: 2 }} />
-          </View>
-          <Text style={{ color: '#6B7280', fontSize: 11 }}>{event.bookedCount}/{event.capacity}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+      {/* Close / Reopen tickets — only for published events */}
+      {isActive && (
+        <TouchableOpacity
+          onPress={onToggleTickets}
+          style={{
+            marginHorizontal: 12,
+            marginBottom: 12,
+            paddingVertical: 9,
+            borderRadius: 10,
+            backgroundColor: isClosed ? '#14532d' : '#1c1917',
+            borderWidth: 1,
+            borderColor: isClosed ? '#166534' : '#292524',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '600', color: isClosed ? '#22c55e' : '#a78bfa' }}>
+            {isClosed ? 'Reopen Tickets' : 'Close Tickets'}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 

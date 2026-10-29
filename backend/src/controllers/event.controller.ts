@@ -23,6 +23,8 @@ import {
   addGroupDeal,
   removeGroupDeal,
   recalculateBookedCount,
+  closeTickets,
+  openTickets,
 } from '../services/event.service';
 
 const parsePage = (q: unknown) => Math.max(1, parseInt(String(q ?? 1)));
@@ -195,5 +197,19 @@ export async function recalculateCountHandler(req: AuthRequest, res: Response, n
   try {
     const result = await recalculateBookedCount(req.params.eventId, req.user!.userId);
     sendSuccess(res, result, 'Count recalculated');
+  } catch (err) { next(err); }
+}
+
+export async function closeTicketsHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await closeTickets(req.params.eventId, req.user!.userId);
+    sendSuccess(res, null, 'Tickets closed');
+  } catch (err) { next(err); }
+}
+
+export async function openTicketsHandler(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await openTickets(req.params.eventId, req.user!.userId);
+    sendSuccess(res, null, 'Tickets reopened');
   } catch (err) { next(err); }
 }

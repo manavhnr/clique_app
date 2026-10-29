@@ -55,6 +55,7 @@ export async function createBooking(
   const event = await Event.findById(eventId);
   if (!event) throw createError('Event not found', 404);
   if (event.status !== 'published') throw createError('Event is not available for booking', 400);
+  if (event.bookingsClosed) throw createError('Tickets are closed for this event', 400);
   if (event.hostId.toString() === userId) throw createError('Host cannot book own event', 400);
 
   // Duplicate booking check

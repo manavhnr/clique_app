@@ -91,6 +91,7 @@ export interface IEvent extends Document {
   viewCount: number;
   coHosts: IEventMember[];
   scanners: IEventMember[];
+  bookingsClosed: boolean;
   hasTableBooking: boolean;
   tables: ITableCategory[];
   hasFloorPlan: boolean;
@@ -189,6 +190,7 @@ const eventSchema = new Schema<IEvent>(
       type: [{ userId: { type: Schema.Types.ObjectId, ref: 'User' }, username: String, addedAt: { type: Date, default: Date.now } }],
       default: [],
     },
+    bookingsClosed: { type: Boolean, default: false },
     hasTableBooking: { type: Boolean, default: false },
     tables: {
       type: [{
